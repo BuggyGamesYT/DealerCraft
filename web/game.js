@@ -6,7 +6,7 @@ const H = 40, CH = 16;                          // world height, chunk size (wor
 const SEA = 9, G = 13;                          // water level, village ground
 const VX = 32, VZ = 32;                         // village centre
 const GX = VX - 13, GZ = VZ + 13;               // graveyard centre
-const DAY = 600;                                // seconds per day
+const DAY = 1200;                               // seconds per day (20 min, like Minecraft)
 const VIEW = 4;                                 // chunks drawn around the player
 const SAVE_KEY = 'dealercraft_save_v1';
 const SAFE_R = 24;                              // no monster spawns / explosion damage this close to the plaza
@@ -14,7 +14,7 @@ const SAFE_R = 24;                              // no monster spawns / explosion
 const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, LOG = 6, LEAVES = 7,
       PLANKS = 8, FARM = 9, COBBLE = 10, GLASS = 11, BRICK = 12, JACK = 13, DEADGRASS = 14, PUMPKIN = 15,
       BEDROCK = 16, COAL_ORE = 17, IRON_ORE = 18, CTABLE = 19, FURNACE = 20, GRAVE = 21,
-      FLOW1 = 22, FALL = 29, DOOR0 = 30;          // FLOW1..FLOW7 = 22..28 (flowing water levels), doors = 30..45
+      FLOW1 = 22, FALL = 29, DOOR0 = 30, CHEST = 46;          // FLOW1..FLOW7 = 22..28 (flowing water levels), doors = 30..45
 const isWater = id => id === WATER || (id >= FLOW1 && id <= FALL);
 const isDoor = id => id >= DOOR0 && id < DOOR0 + 16;
 const doorId = (f, open, top) => DOOR0 + f * 4 + (open ? 2 : 0) + (top ? 1 : 0);
@@ -26,7 +26,7 @@ const BT = {
   [GRASS]: [0, 2, 1], [DIRT]: [2, 2, 2], [STONE]: [3, 3, 3], [SAND]: [4, 4, 4], [WATER]: [5, 5, 5],
   [LOG]: [7, 7, 6], [LEAVES]: [8, 8, 8], [PLANKS]: [9, 9, 9], [FARM]: [10, 2, 2], [COBBLE]: [11, 11, 11],
   [GLASS]: [12, 12, 12], [BRICK]: [13, 13, 13], [JACK]: [36, 36, 37], [DEADGRASS]: [38, 2, 40], [PUMPKIN]: [36, 36, 39],
-  [BEDROCK]: [14, 14, 14], [COAL_ORE]: [15, 15, 15], [IRON_ORE]: [41, 41, 41], [CTABLE]: [42, 9, 43], [FURNACE]: [45, 45, 44],
+  [BEDROCK]: [14, 14, 14], [COAL_ORE]: [15, 15, 15], [IRON_ORE]: [41, 41, 41], [CTABLE]: [42, 9, 43], [FURNACE]: [45, 45, 44], [CHEST]: [49, 49, 50],
   [GRAVE]: [3, 3, 46],
 };
 for (let i = FLOW1; i <= FALL; i++) BT[i] = [5, 5, 5];
@@ -35,7 +35,7 @@ const HARD = {
   [GRASS]: [0.6, 'hoe'], [DIRT]: [0.5, 'hoe'], [DEADGRASS]: [0.6, 'hoe'], [FARM]: [0.6, 'hoe'], [SAND]: [0.5, null],
   [STONE]: [1.5, 'pick', 1], [COBBLE]: [2, 'pick', 1], [BRICK]: [2, 'pick', 1], [COAL_ORE]: [3, 'pick', 1], [IRON_ORE]: [3, 'pick', 2],
   [FURNACE]: [3.5, 'pick', 1], [GRAVE]: [1.5, 'pick'],
-  [LOG]: [2, 'axe'], [PLANKS]: [2, 'axe'], [CTABLE]: [2.5, 'axe'], [JACK]: [1, 'axe'], [PUMPKIN]: [1, 'axe'],
+  [LOG]: [2, 'axe'], [PLANKS]: [2, 'axe'], [CTABLE]: [2.5, 'axe'], [CHEST]: [2.5, 'axe'], [JACK]: [1, 'axe'], [PUMPKIN]: [1, 'axe'],
   [LEAVES]: [0.2, null], [GLASS]: [0.3, null, 99],
 };
 const TIERS = { wood: { lvl: 1, speed: 2, dur: 60, dmg: 0 }, stone: { lvl: 2, speed: 4, dur: 132, dmg: 1 }, iron: { lvl: 3, speed: 6, dur: 251, dmg: 2 } };
@@ -57,7 +57,7 @@ const ITEMS = {
   planks: { name: 'Planks', block: PLANKS }, glass: { name: 'Glass', block: GLASS }, brick: { name: 'Bricks', block: BRICK },
   jack_o_lantern: { name: "Jack o'Lantern", block: JACK }, pumpkin_block: { name: 'Pumpkin Block', block: PUMPKIN },
   coal_ore: { name: 'Coal Ore', block: COAL_ORE }, iron_ore: { name: 'Iron Ore', block: IRON_ORE },
-  crafting_table: { name: 'Crafting Table', block: CTABLE }, furnace: { name: 'Furnace', block: FURNACE },
+  crafting_table: { name: 'Crafting Table', block: CTABLE }, furnace: { name: 'Furnace', block: FURNACE }, chest: { name: 'Chest', block: CHEST },
   door: { name: 'Wooden Door', px: 'door', door: true },
   stick: { name: 'Stick', px: 'stick' }, coal: { name: 'Coal', px: 'coal', fuel: 8 }, iron_ingot: { name: 'Iron Ingot', px: 'ingot' },
   leather: { name: 'Leather', px: 'leather' }, bone: { name: 'Bone', px: 'bone' }, gunpowder: { name: 'Gunpowder', px: 'powder' },
@@ -93,8 +93,8 @@ const stackOf = id => (ITEMS[id] && ITEMS[id].stack) || 64;
 const CROP_ITEM = { wheat: 'wheat', carrot: 'carrot', potato: 'potato', berries: 'berries', pumpkin: 'pumpkin' };
 const BLOCK_DROP = { [GRASS]: 'dirt', [DIRT]: 'dirt', [FARM]: 'dirt', [STONE]: 'cobble', [COBBLE]: 'cobble', [SAND]: 'sand',
   [LOG]: 'log', [LEAVES]: 'leaves', [PLANKS]: 'planks', [GLASS]: 'glass', [BRICK]: 'brick', [JACK]: 'jack_o_lantern',
-  [DEADGRASS]: 'dirt', [PUMPKIN]: 'pumpkin', [COAL_ORE]: 'coal', [IRON_ORE]: 'iron_ore', [CTABLE]: 'crafting_table', [FURNACE]: 'furnace' };
-const FUEL = { log: 1.5, planks: 1.5, stick: 0.5, coal: 8, crafting_table: 1.5, door: 1 };   // items smelted per fuel item
+  [DEADGRASS]: 'dirt', [PUMPKIN]: 'pumpkin', [COAL_ORE]: 'coal', [IRON_ORE]: 'iron_ore', [CTABLE]: 'crafting_table', [FURNACE]: 'furnace', [CHEST]: 'chest' };
+const FUEL = { log: 1.5, planks: 1.5, stick: 0.5, coal: 8, crafting_table: 1.5, door: 1, chest: 1.5 };   // items smelted per fuel item
 const SMELT = { iron_ore: 'iron_ingot', sand: 'glass', cobble: 'stone', raw_beef: 'steak', potato: 'baked_potato', log: 'coal' };
 
 // ================== CRAFTING (shaped like Minecraft) ==================
@@ -114,6 +114,7 @@ for (const [t, [, m]] of Object.entries(MATS)) {
 }
 shaped('bucket', 1, ['I.I', '.I.'], { I: 'iron_ingot' });
 shaped('door', 3, ['PP', 'PP', 'PP'], { P: 'planks' });
+shaped('chest', 1, ['PPP', 'P.P', 'PPP'], { P: 'planks' });
 for (const [m, mat] of [['leather', 'leather'], ['iron', 'iron_ingot']]) {
   shaped(m + '_helmet', 1, ['LLL', 'L.L'], { L: mat });
   shaped(m + '_chest', 1, ['L.L', 'LLL', 'LLL'], { L: mat });
@@ -168,7 +169,7 @@ function newState() {
   slots[3] = { id: 'seeds_pumpkin', n: 3 }; slots[4] = { id: 'bread', n: 3 };
   return { seed: (Math.random() * 1e9) | 0, edits: {}, crops: {}, slots, armor: emptySlots(4), sel: 0,
     coins: 20, earned: 0, time: DAY * 0.3, gameTime: 0, pos: [VX + 0.5, G + 1, VZ - 4.5], yaw: Math.PI, pitch: -0.2,
-    hp: 20, food: 20, sat: 5, furnaces: {}, graves: {}, v: 2 };
+    hp: 20, food: 20, sat: 5, furnaces: {}, graves: {}, chests: {}, v: 2 };
 }
 function migrate(s) {
   // older saves kept an item->count map plus a hotbar list; turn that into Minecraft-style slots
@@ -185,7 +186,7 @@ function migrate(s) {
   }
   if (!s.armor) s.armor = emptySlots(4);
   for (const k of ['hp', 'food']) if (s[k] == null) s[k] = 20;
-  if (s.sat == null) s.sat = 5; if (!s.furnaces) s.furnaces = {}; if (!s.graves) s.graves = {};
+  if (s.sat == null) s.sat = 5; if (!s.furnaces) s.furnaces = {}; if (!s.graves) s.graves = {}; if (!s.chests) s.chests = {};
   s.v = 2; return s;
 }
 function load() {
@@ -287,7 +288,10 @@ function genChunk(cx, cz) {
   if (x0 < VX + 24 && x0 + CH > VX - 24 && z0 < VZ + 24 && z0 + CH > VZ - 24) stampVillage((x, y, z, v) => L(x - x0, y, z - z0, v));
   // re-apply the player's edits
   const ed = editIdx.get(ckey(cx, cz));
-  if (ed) for (const k of ed) { const [x, y, z] = k.split(',').map(Number); L(x - x0, y, z - z0, state.edits[k]); }
+  if (ed) for (const k of ed) { const [x, y, z] = k.split(',').map(Number); let v = state.edits[k];
+    const lx = x - x0, lz = z - z0, g = (lx >= 0 && lz >= 0 && lx < CH && lz < CH && y >= 0 && y < H) ? c[lidx(lx, y, lz)] : AIR;
+    if (isDoor(v) && isDoor(g) && doorF(v) !== doorF(g)) { v = doorId(doorF(g), doorOpen(v), doorTop(v)); state.edits[k] = v; }   // village doors keep their new outside-facing side in old saves
+    L(lx, y, lz, v); }
 }
 
 function stampVillage(S) {
@@ -313,7 +317,7 @@ function stampVillage(S) {
     S(hx, G + 5, hz, JACK); S(hx + 4, G + 5, hz + 4, JACK);         // glowing roof corners
     const cx = hx + 2, cz = hz + 2, ddx = Math.sign(VX - cx), ddz = Math.sign(VZ - cz);
     const doorX = Math.abs(VX - cx) > Math.abs(VZ - cz) ? cx + ddx * 2 : cx, doorZ = Math.abs(VX - cx) > Math.abs(VZ - cz) ? cz : cz + ddz * 2;
-    const f = Math.abs(VX - cx) > Math.abs(VZ - cz) ? 3 : 0;          // a real wooden door in every doorway
+    const f = Math.abs(VX - cx) > Math.abs(VZ - cz) ? (ddx > 0 ? 1 : 3) : (ddz > 0 ? 2 : 0);   // door sits flush with the outside wall
     S(doorX, G + 1, doorZ, doorId(f, false, false)); S(doorX, G + 2, doorZ, doorId(f, false, true));
   }
   S(VX + 5, G + 1, VZ - 1, CTABLE); S(VX + 5, G + 1, VZ + 1, FURNACE);   // a public crafting table and furnace
@@ -407,6 +411,11 @@ const doorTile = (win) => (px, r) => { for (let y = 0; y < TS; y++) for (let x =
   if (!win) { px(12, 4, '#333'); px(12, 5, '#333'); } };
 paintTile(47, doorTile(false));
 paintTile(48, doorTile(true));
+
+// chest: wooden planks with a dark band and an iron latch on the front
+const chestBase = (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 16, edge = x === 0 || x === 15 || y === 0 || y === 15; px(x, y, edge ? rgb(80, 50, 22) : rgb(160 + k, 108 + k, 50 + k)); } };
+paintTile(49, chestBase);
+paintTile(50, (px, r) => { chestBase(px, r); for (let x = 0; x < TS; x++) px(x, 6, rgb(70, 44, 20)); for (let y = 5; y < 10; y++) for (let x = 7; x < 9; x++) px(x, y, y === 5 || y === 9 ? '#555' : '#c8c8c8'); });
 const tex = new THREE.CanvasTexture(atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false;
 function tileURL(t) { const c = document.createElement('canvas'); c.width = c.height = TS; c.getContext('2d').drawImage(atlas, (t % AT) * TS, Math.floor(t / AT) * TS, TS, TS, 0, 0, TS, TS); return c.toDataURL(); }
@@ -794,7 +803,7 @@ for (let i = 0; i < 9; i++) {
 
 // ================== SETTINGS ==================
 const SETTINGS_KEY = 'dealercraft_settings';
-const settings = Object.assign({ jumpscares: true, sound: true, peaceful: false, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
+const settings = Object.assign({ jumpscares: true, sound: true, peaceful: false, difficulty: null, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 if (localStorage.getItem('dealercraft_mute') === '1' && settings._muteMigrated == null) { settings.sound = false; }
 settings._muteMigrated = true;
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
@@ -806,14 +815,32 @@ const PW = 0.3, PH = 1.8, EYE = 1.62;
 function collides(p) {
   for (let x = Math.floor(p.x - PW); x <= Math.floor(p.x + PW); x++)
     for (let y = Math.floor(p.y); y <= Math.floor(p.y + PH - 0.01); y++)
-      for (let z = Math.floor(p.z - PW); z <= Math.floor(p.z + PW); z++) if (solid(get(x, y, z))) return true;
+      for (let z = Math.floor(p.z - PW); z <= Math.floor(p.z + PW); z++) {
+        const id = get(x, y, z); if (!solid(id)) continue;
+        if (isDoor(id)) {   // a closed door only blocks its thin slab, so you can stand in the doorway
+          const b = doorBox(id);
+          if (p.x + PW > x + b[0] && p.x - PW < x + b[3] && p.z + PW > z + b[2] && p.z - PW < z + b[5]) return true;
+          continue;
+        }
+        return true;
+      }
   return false;
 }
 function inWater() { return isWater(get(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.4), Math.floor(player.pos.z))); }
 function headInWater() { return isWater(get(Math.floor(player.pos.x), Math.floor(player.pos.y + EYE), Math.floor(player.pos.z))); }
 function armorPoints() { let p = 0; for (const s of state.armor) if (s && ITEMS[s.id].armor) p += ITEMS[s.id].armor.pts; return p; }
-function exhaust(v) { player.exhaust += v; while (player.exhaust >= 4) { player.exhaust -= 4; if (state.sat > 0) state.sat = Math.max(0, state.sat - 1); else state.food = Math.max(0, state.food - 1); } }
+function exhaust(v) { player.exhaust += v * diff().hunger; while (player.exhaust >= 4) { player.exhaust -= 4; if (state.sat > 0) state.sat = Math.max(0, state.sat - 1); else state.food = Math.max(0, state.food - 1); } }
+if (!settings.difficulty) settings.difficulty = settings.peaceful ? 'peaceful' : 'normal';
+const DIFFS = {   // monster damage, how many monsters, monster health & speed, how fast hunger drains
+  peaceful: { label: '🕊️ Peaceful', sub: 'No monsters', dmg: 0, max: 0, hp: 1, spd: 1, hunger: 0.5 },
+  easy:     { label: '🙂 Easy', sub: 'Fewer, weaker monsters', dmg: 0.5, max: 4, hp: 0.75, spd: 0.9, hunger: 0.75 },
+  normal:   { label: '😐 Normal', sub: 'Classic survival', dmg: 1, max: 7, hp: 1, spd: 1, hunger: 1 },
+  hard:     { label: '😠 Hard', sub: 'More monsters that hit harder', dmg: 1.5, max: 11, hp: 1.25, spd: 1.1, hunger: 1.25 },
+  insane:   { label: '💀 Insane', sub: 'Swarms of fast, brutal monsters', dmg: 2.5, max: 16, hp: 1.6, spd: 1.3, hunger: 1.6 } };
+const diff = () => DIFFS[settings.difficulty] || DIFFS.normal;
+const MOBHIT = new Set(['zombie', 'skeleton', 'explosion']);
 function damage(n, cause, from) {
+  if (MOBHIT.has(cause)) n = Math.round(n * diff().dmg);
   if (!player.alive || n <= 0) return;
   if (cause !== 'fall' && cause !== 'starve' && cause !== 'drown') n = Math.max(1, Math.round(n * (1 - armorPoints() * 0.04)));
   state.hp = Math.max(0, state.hp - n); player.hurtT = 0.5; exhaust(0.1);
@@ -965,7 +992,7 @@ function spawnMob(type, x, y, z) {
   if (mobs.length >= 26) return null;
   const parts = buildMob(type), d = MOBDEF[type];
   parts.g.position.set(x, y, z); for (let i = 0; i < 6 && mobCollides(parts.g.position, d.w, d.h); i++) parts.g.position.y = Math.floor(parts.g.position.y) + 1; scene.add(parts.g);
-  const m = { type, ...parts, hp: d.hp, vel: new THREE.Vector3(), onGround: false, target: null, wait: Math.random() * 3, walk: 0, hurt: 0, atk: 0, fuse: 0, burn: 0 };
+  const m = { type, ...parts, hp: d.hostile ? Math.round(d.hp * diff().hp) : d.hp, vel: new THREE.Vector3(), onGround: false, target: null, wait: Math.random() * 3, walk: 0, hurt: 0, atk: 0, fuse: 0, burn: 0 };
   mobs.push(m); return m;
 }
 function removeMob(m, poof) { scene.remove(m.g); mobs.splice(mobs.indexOf(m), 1); if (poof) particles(m.g.position.x, m.g.position.y + 0.8, m.g.position.z, new THREE.Color(0.9, 0.9, 0.9), 10); }
@@ -1020,9 +1047,9 @@ function updateMobs(dt, t) {
   // night-time monster spawning (not in the village, not in peaceful mode)
   spawnT -= dt;
   if (spawnT <= 0) {
-    spawnT = 2.5;
+    spawnT = settings.difficulty === 'insane' ? 1.2 : settings.difficulty === 'hard' ? 1.8 : 2.5;
     const hostile = mobs.filter(m => MOBDEF[m.type].hostile).length;
-    if (!settings.peaceful && nightAmt > 0.62 && hostile < 7) {
+    if (nightAmt > 0.62 && hostile < diff().max) {
       const a = Math.random() * 6.28, r = 18 + Math.random() * 14, x = player.pos.x + Math.cos(a) * r, z = player.pos.z + Math.sin(a) * r;
       if (Math.hypot(x - VX, z - VZ) > SAFE_R + 4 && data.has(ckey(fdiv(Math.floor(x), CH), fdiv(Math.floor(z), CH)))) {
         const y = groundAt(x, z), below = get(Math.floor(x), y - 1, Math.floor(z));
@@ -1034,10 +1061,10 @@ function updateMobs(dt, t) {
   for (const m of [...mobs]) {
     const d = MOBDEF[m.type], g = m.g, p = g.position;
     const dist = p.distanceTo(pp);
-    if (dist > 90 || (settings.peaceful && d.hostile)) { removeMob(m, false); continue; }
+    if (dist > 90 || (d.hostile && diff().max === 0)) { removeMob(m, false); continue; }
     if (!data.has(ckey(fdiv(Math.floor(p.x), CH), fdiv(Math.floor(p.z), CH)))) continue;   // frozen until its land loads
     m.hurt = Math.max(0, m.hurt - dt); m.atk = Math.max(0, m.atk - dt);
-    let mx = 0, mz = 0, speed = d.speed;
+    let mx = 0, mz = 0, speed = d.hostile ? d.speed * diff().spd : d.speed;
     const chase = d.hostile && dist < 18 && player.alive;
     if (chase) {
       const dx = pp.x - p.x, dz = pp.z - p.z, dd = Math.hypot(dx, dz) || 1;
@@ -1317,6 +1344,7 @@ function finishBreak(h) {
   else if (id === GRAVE) { setBlock(h.x, h.y, h.z, AIR); openGrave(key); }
   else {
     setBlock(h.x, h.y, h.z, AIR);
+    if (id === CHEST && state.chests[key]) { for (const s of state.chests[key]) if (s) give(s.id, s.n); delete state.chests[key]; }
     if (id === FURNACE && state.furnaces[key]) { const f = state.furnaces[key]; for (const s of [f.in, f.fuel, f.out]) if (s) give(s.id, s.n); delete state.furnaces[key]; }
     const drop = BLOCK_DROP[id];
     if (info.canDrop && drop && !(id === LEAVES && Math.random() < 0.6)) give(drop, id === COAL_ORE ? rint(1, 2) : 1);
@@ -1376,13 +1404,21 @@ function useAction() {
   if (h.kind === 'block') {
     if (isDoor(h.id)) {   // open / close both halves
       const top = doorTop(h.id), oy = top ? h.y - 1 : h.y + 1, f = doorF(h.id), open = !doorOpen(h.id);
-      setBlock(h.x, h.y, h.z, doorId(f, open, top), false); if (isDoor(get(h.x, oy, h.z))) setBlock(h.x, oy, h.z, doorId(f, open, !top), false); flushDirty();
+      setBlock(h.x, h.y, h.z, doorId(f, open, top), false); if (isDoor(get(h.x, oy, h.z))) setBlock(h.x, oy, h.z, doorId(f, open, !top), false);
+      if (!open && collides(player.pos)) {   // never shut a door on yourself: nudge out to whichever side of the slab you're on
+        const b = doorBox(doorId(f, false, false)), dx = Math.floor(player.pos.x) === h.x, dz = Math.floor(player.pos.z) === h.z;
+        if (f % 2 === 1) { const mid = h.x + (b[0] + b[3]) / 2; player.pos.x = player.pos.x < mid ? h.x + b[0] - PW - 0.01 : h.x + b[3] + PW + 0.01; }
+        else { const mid = h.z + (b[2] + b[5]) / 2; player.pos.z = player.pos.z < mid ? h.z + b[2] - PW - 0.01 : h.z + b[5] + PW + 0.01; }
+        if (collides(player.pos)) { setBlock(h.x, h.y, h.z, doorId(f, true, top), false); if (isDoor(get(h.x, oy, h.z))) setBlock(h.x, oy, h.z, doorId(f, true, !top), false); flushDirty(); toast('Step out of the doorway first'); return; }
+      }
+      flushDirty();
       beep(open ? 200 : 150, 0.12, 'triangle', 0.07); swing();
       if (open && settings.jumpscares && nightAmt > 0.6 && Math.random() < 0.06 && state.gameTime - lastScare > 120) setTimeout(() => jumpscare(null, 'night'), 250);
       return;
     }
     if (h.id === CTABLE) { openInventory(true); return; }
     if (h.id === FURNACE) { openFurnace(h.x + ',' + h.y + ',' + h.z); return; }
+    if (h.id === CHEST) { openChest(h.x, h.y, h.z); return; }
     if (h.id === GRAVE) { const k = h.x + ',' + h.y + ',' + h.z; setBlock(h.x, h.y, h.z, AIR); openGrave(k); return; }
   }
   if (h.kind === 'crop') {
@@ -1492,12 +1528,12 @@ function renderStats() {
 }
 
 // ================== PANELS ==================
-let invOpen = false, bigCraft = false, cursor = null, oneMode = false, furnaceKey = null;
+let invOpen = false, bigCraft = false, cursor = null, oneMode = false, furnaceKey = null, chestKeys = null;
 const grid = emptySlots(9);
 function closePanels() {
   if (invOpen) { for (let i = 0; i < 9; i++) if (grid[i]) { give(grid[i].id, grid[i].n); grid[i] = null; } }
   if (cursor) { const left = give(cursor.id, cursor.n); cursor = null; }
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('show')); uiOpen = false; invOpen = false; furnaceKey = null; holdBreak = false;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('show')); uiOpen = false; invOpen = false; furnaceKey = null; chestKeys = null; holdBreak = false;
   if (!isTouch && playing && player.alive) canvas.requestPointerLock();
 }
 function openPanel(id) { uiOpen = true; holdBreak = false; if (document.pointerLockElement) document.exitPointerLock(); document.getElementById(id).classList.add('show'); }
@@ -1550,6 +1586,7 @@ const fits = r => r.items ? r.items.length <= gridW() * gridW() : r.rows.length 
 // generic slot clicking: whole stack or one item, swap, merge (works on touch and mouse)
 function slotRef(c, i) {
   if (c === 'inv') return [state.slots, i]; if (c === 'grid') return [grid, i]; if (c === 'armor') return [state.armor, i];
+  if (c === 'chest') { const key = chestKeys[Math.floor(i / 27)]; return [state.chests[key], i % 27]; }
   if (c === 'fur') { const f = state.furnaces[furnaceKey]; return [f, ['in', 'fuel', 'out'][i]]; }
 }
 function clickSlot(c, i, one) {
@@ -1601,6 +1638,20 @@ document.getElementById('bagBox').addEventListener('click', e => {
 });
 document.getElementById('bagBox').addEventListener('contextmenu', e => { const b = e.target.closest('[data-c]'); if (!b) return; e.preventDefault(); clickSlot(b.dataset.c, +b.dataset.i, true); renderInventory(); renderHotbar(); });
 
+// --- chests: two chests side by side join into one big chest ---
+function openChest(x, y, z) {
+  const keys = [x + ',' + y + ',' + z];
+  for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (get(x + dx, y, z + dz) === CHEST) { const k2 = (x + dx) + ',' + y + ',' + (z + dz); if (dx < 0 || dz < 0) keys.unshift(k2); else keys.push(k2); break; }
+  for (const k of keys) if (!state.chests[k]) state.chests[k] = Array(27).fill(null);
+  chestKeys = keys; furnaceKey = null; invOpen = false; renderChest(); openPanel('trade'); beep(180, 0.1, 'triangle', 0.06);
+}
+function renderChest() {
+  let cells = '';
+  chestKeys.forEach((k, ci) => state.chests[k].forEach((s, i) => cells += slotHTML(s, `data-c="chest" data-i="${ci * 27 + i}"`)));
+  document.getElementById('tradeBox').innerHTML = `<button class="btn close" data-a="close">✕</button><h2>📦 ${chestKeys.length > 1 ? 'Large Chest' : 'Chest'}</h2>${cursorBar()}
+  <div class="sgrid">${cells}</div>
+  <div class="modes" style="margin-top:6px"><button class="btn ${oneMode ? '' : 'gold'}" data-a="mode">${oneMode ? 'Move: half / 1' : 'Move: whole stack'}</button></div>` + invGridHTML();
+}
 // --- furnace ---
 function openFurnace(key) { if (!state.furnaces[key]) state.furnaces[key] = { in: null, fuel: null, out: null, burn: 0, burnMax: 0, prog: 0 }; furnaceKey = key; invOpen = false; renderFurnace(); openPanel('trade'); }
 function renderFurnace() {
@@ -1651,6 +1702,7 @@ document.getElementById('tradeBox').addEventListener('click', e => {
   const b = e.target.closest('[data-a],[data-c]'); if (!b) return;
   const a = b.dataset.a, k = b.dataset.k;
   if (a === 'close') { closePanels(); return; }
+  if (chestKeys) { if (b.dataset.c) clickSlot(b.dataset.c, +b.dataset.i, oneMode); if (a === 'mode') oneMode = !oneMode; renderChest(); renderHotbar(); return; }
   if (furnaceKey) { if (b.dataset.c) clickSlot(b.dataset.c, +b.dataset.i, oneMode); if (a === 'mode') oneMode = !oneMode; renderFurnace(); renderHotbar(); return; }
   if (a === 'sell') {
     const have = count(k), n = b.dataset.n === 'all' ? have : 1; if (!n) return;
@@ -1664,7 +1716,7 @@ document.getElementById('tradeBox').addEventListener('click', e => {
     state.coins -= p; give(k, n); coinSnd(); toast(`Bought ${n} ${ITEMS[k].name}`); renderTrade(); renderStats();
   }
 });
-document.getElementById('tradeBox').addEventListener('contextmenu', e => { const b = e.target.closest('[data-c]'); if (!b || !furnaceKey) return; e.preventDefault(); clickSlot(b.dataset.c, +b.dataset.i, true); renderFurnace(); renderHotbar(); });
+document.getElementById('tradeBox').addEventListener('contextmenu', e => { const b = e.target.closest('[data-c]'); if (!b || !(furnaceKey || chestKeys)) return; e.preventDefault(); clickSlot(b.dataset.c, +b.dataset.i, true); if (chestKeys) renderChest(); else renderFurnace(); renderHotbar(); });
 for (const id of ['bag', 'trade', 'settings']) document.getElementById(id).addEventListener('pointerdown', e => { if (e.target.id === id) closePanels(); });
 
 // --- settings ---
@@ -1674,12 +1726,13 @@ function renderSettings() {
   document.getElementById('setBox').innerHTML = `<button class="btn close" data-a="close">✕</button><h2>⚙️ Settings</h2>
     ${tog('jumpscares', '😱 Jumpscares', 'Five Nights at Freddy\'s style scares at night and when you die')}
     ${tog('sound', '🔊 Sound', 'Music, ambience and sound effects')}
-    ${tog('peaceful', '🕊️ Peaceful mode', 'No zombies, skeletons or creepers')}
+    <div class="row" style="flex-wrap:wrap"><span class="nm">⚔️ Difficulty<br><span style="font-size:12px;opacity:.7">${diff().sub}</span></span>${Object.entries(DIFFS).map(([k, v]) => `<button class="btn ${settings.difficulty === k ? 'gold' : ''}" data-diff="${k}">${v.label}</button>`).join('')}</div>
     <div class="row"><span class="nm">🎮 Look sensitivity</span><button class="btn" data-sens="-1">−</button><b style="min-width:40px;text-align:center">${settings.sens.toFixed(1)}</b><button class="btn" data-sens="1">+</button></div>
     <div class="row"><span class="nm">Test a jumpscare</span><button class="btn" data-a="test" ${settings.jumpscares ? '' : 'disabled'}>Scare me</button></div>`;
 }
 document.getElementById('setBox').addEventListener('click', e => {
-  const b = e.target.closest('[data-s],[data-a],[data-sens]'); if (!b) return;
+  const b = e.target.closest('[data-s],[data-a],[data-sens],[data-diff]'); if (!b) return;
+  if (b.dataset.diff) settings.difficulty = b.dataset.diff;
   if (b.dataset.a === 'close') { closePanels(); return; }
   if (b.dataset.a === 'test') { closePanels(); setTimeout(() => jumpscare(null, 'night'), 300); return; }
   if (b.dataset.sens) settings.sens = Math.max(0.3, Math.min(3, settings.sens + (+b.dataset.sens) * 0.1));
@@ -1690,9 +1743,9 @@ document.getElementById('setBox').addEventListener('click', e => {
 const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade<br>E: inventory & crafting · 1-9 / wheel: hotbar';
 const helpTouch = 'Left stick: move · Double-tap the screen while walking (or 🏃) to sprint · Drag right side: look<br>Hold ⛏️ mine / attack · ✋ use, plant, place, open doors, trade · ⬆️ jump<br>🎒 inventory & crafting · ⚙️ settings';
 document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon.';
-function showStart() { playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; }
+function showStart() { playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
 document.getElementById('start').addEventListener('click', () => {
-  document.getElementById('start').style.display = 'none'; playing = true;
+  document.getElementById('start').style.display = 'none'; document.body.classList.remove('menu'); playing = true;
   if (AC && AC.state === 'suspended') AC.resume();
   startAmbience();
   if (!isTouch) canvas.requestPointerLock();
@@ -1856,7 +1909,7 @@ function updateTarget() {
   else if (h && h.kind === 'mob') txt = h.m.type === 'cow' ? '🐄 Cow' : `⚔️ ${h.m.type[0].toUpperCase() + h.m.type.slice(1)}`;
   else if (h && h.kind === 'crop') { const c = state.crops[h.key]; const pct = Math.min(100, Math.round((state.gameTime - c.t) / CROPS[c.type].grow * 100)); txt = `${CROPS[c.type].name}: ${pct >= 100 ? 'RIPE! use a hoe to gather' : pct + '%'}`; }
   else if (h && h.kind === 'block') {
-    if (h.id === PUMPKIN) txt = '🎃 Wild Pumpkin'; else if (isDoor(h.id)) txt = '🚪 ✋ open / close'; else if (h.id === CTABLE) txt = '🪵 ✋ Crafting Table'; else if (h.id === FURNACE) txt = '🔥 ✋ Furnace'; else if (h.id === GRAVE) txt = '🪦 ✋ get your things back';
+    if (h.id === PUMPKIN) txt = '🎃 Wild Pumpkin'; else if (isDoor(h.id)) txt = '🚪 ✋ open / close'; else if (h.id === CTABLE) txt = '🪵 ✋ Crafting Table'; else if (h.id === CHEST) txt = '📦 ✋ Chest'; else if (h.id === FURNACE) txt = '🔥 ✋ Furnace'; else if (h.id === GRAVE) txt = '🪦 ✋ get your things back';
     else if (h.id === IRON_ORE) txt = 'Iron Ore (stone pickaxe)'; else if (h.id === COAL_ORE) txt = 'Coal Ore';
   }
   el.style.display = txt ? 'block' : 'none'; el.textContent = txt;
@@ -1893,4 +1946,4 @@ while (streamChunks(400, 400) > 0) {}
 if (collides(player.pos)) { player.pos.y = groundAt(player.pos.x, player.pos.z); }
 buildCrops(); renderHotbar(); renderStats(); renderVitals(); updateSky();
 requestAnimationFrame(frame);
-window.__dc = { state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock };
+window.__dc = { state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock, collides, VX, VZ, useAction, openChest, openSettings, diff };
