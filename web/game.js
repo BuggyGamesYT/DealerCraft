@@ -1761,23 +1761,14 @@ function renderWorlds() {
 }
 document.getElementById('worlds').addEventListener('click', e => {
   e.stopPropagation();
-  if (e.target.closest('[data-del]')) return;
+  const del = e.target.closest('[data-del]'); if (del) { deleteWorld(+del.dataset.del); return; }
   const w = e.target.closest('[data-w]'); if (!w || +w.dataset.w === SLOT) return;
   save(); localStorage.setItem('dealercraft_slot', w.dataset.w); saveBlocked = true; location.reload();
 });
-// hold the trash button for a second, then confirm, to delete a world
-let delHold = null;
-const endHold = () => { if (delHold) { clearTimeout(delHold.t); delHold.b.classList.remove('holding'); delHold = null; } };
-document.getElementById('worlds').addEventListener('pointerdown', e => {
-  const del = e.target.closest('[data-del]'); if (!del) return; e.stopPropagation(); endHold();
-  del.classList.add('holding');
-  delHold = { b: del, t: setTimeout(() => { const n = +del.dataset.del; endHold(); deleteWorld(n); }, 1000) };
-});
-['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => document.getElementById('worlds').addEventListener(ev, endHold));
 document.getElementById('worlds').addEventListener('contextmenu', e => e.preventDefault());
 function deleteWorld(n) {   // our own confirm box (Android WebView can swallow confirm())
   const box = document.createElement('div'); box.className = 'wconfirm';
-  box.innerHTML = `<div>Delete <b>World ${n}</b>?<br><span style="font-size:12px;opacity:.75">This can't be undone.</span></div><button class="btn" data-no>Cancel</button><button class="btn" data-yes style="background:#c22">Delete</button>`;
+  box.innerHTML = `<div>Are you sure you want to <b style="color:#f44">DELETE</b> World ${n}?<br><span style="font-size:12px;opacity:.75">This can't be undone.</span></div><button class="btn" data-no>Cancel</button><button class="btn" data-yes style="background:#c22">Delete</button>`;
   box.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-yes]')) reallyDelete(n); box.remove(); });
   document.getElementById('start').appendChild(box);
 }
