@@ -17,5 +17,6 @@ A blocky 3D farming and trading game by **Buggy Games YT**. Grow crops, craft go
 | v1.01 | Spooky Craft Update: Halloween makeover + endless world |
 | v1.02 | The Overhaul: survival, tools, crafting, mobs, water and jumpscares |
 | v1.03 | Difficulty modes, chests, 20-minute days, door and title screen fixes |
+| v1.04 | Main menu with 3 save worlds, in-game Menu button, hold-to-delete |
 
 Made by Buggy · [YouTube](https://www.youtube.com/@BuggyGamesYT)

@@ -8,7 +8,9 @@ const VX = 32, VZ = 32;                         // village centre
 const GX = VX - 13, GZ = VZ + 13;               // graveyard centre
 const DAY = 1200;                               // seconds per day (20 min, like Minecraft)
 const VIEW = 4;                                 // chunks drawn around the player
-const SAVE_KEY = 'dealercraft_save_v1';
+const SLOTS = 3, SLOT = Math.min(SLOTS, Math.max(1, +(localStorage.getItem('dealercraft_slot') || 1)));   // multiple worlds
+const slotKey = n => n === 1 ? 'dealercraft_save_v1' : 'dealercraft_save_v1_s' + n;
+const SAVE_KEY = slotKey(SLOT);
 const SAFE_R = 24;                              // no monster spawns / explosion damage this close to the plaza
 
 const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, LOG = 6, LEAVES = 7,
@@ -193,7 +195,9 @@ function load() {
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.seed != null) return migrate(Object.assign(newState(), s)); } catch (e) {}
   return null;
 }
+let saveBlocked = false;
 function save() {
+  if (saveBlocked) return;
   state.pos = [player.pos.x, player.pos.y, player.pos.z]; state.yaw = player.yaw; state.pitch = player.pitch;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -1633,7 +1637,7 @@ document.getElementById('bagBox').addEventListener('click', e => {
   if (a === 'mode') oneMode = !oneMode;
   if (a === 'book') showBook = !showBook;
   if (a === 'fill') autoFill(+b.dataset.r);
-  if (a === 'reset') { if (confirm('Start a new world? Your current farm and coins will be lost.')) { localStorage.removeItem(SAVE_KEY); location.reload(); } return; }
+  if (a === 'reset') { if (confirm('Start a new world? Your current farm and coins will be lost.')) { saveBlocked = true; localStorage.removeItem(SAVE_KEY); location.reload(); } return; }
   renderInventory(); renderHotbar();
 });
 document.getElementById('bagBox').addEventListener('contextmenu', e => { const b = e.target.closest('[data-c]'); if (!b) return; e.preventDefault(); clickSlot(b.dataset.c, +b.dataset.i, true); renderInventory(); renderHotbar(); });
@@ -1743,8 +1747,39 @@ document.getElementById('setBox').addEventListener('click', e => {
 const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade<br>E: inventory & crafting · 1-9 / wheel: hotbar';
 const helpTouch = 'Left stick: move · Double-tap the screen while walking (or 🏃) to sprint · Drag right side: look<br>Hold ⛏️ mine / attack · ✋ use, plant, place, open doors, trade · ⬆️ jump<br>🎒 inventory & crafting · ⚙️ settings';
 document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon.';
-function showStart() { playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
-document.getElementById('start').addEventListener('click', () => {
+function showStart() { if (playing) save(); renderWorlds(); playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
+// --- main menu: pick one of several worlds ---
+function slotInfo(n) { try { const s = JSON.parse(localStorage.getItem(slotKey(n))); if (s && s.seed != null) return s; } catch (e) {} return null; }
+function renderWorlds() {
+  let h = '';
+  for (let n = 1; n <= SLOTS; n++) {
+    const s = n === SLOT ? state : slotInfo(n), cur = n === SLOT;
+    const info = s && (n !== SLOT || !freshGame || s._welcomed) ? `Day ${Math.floor((s.time || 0) / DAY) + 1} · 💰 ${s.coins}` : 'Empty: new world';
+    h += `<div class="wslot ${cur ? 'cur' : ''}" data-w="${n}"><b>🌍 World ${n}</b><span>${info}</span>${cur ? '<i>▶ selected</i>' : ''}${s && (n !== SLOT || !freshGame || s._welcomed) ? `<button class="btn" data-del="${n}">🗑</button>` : ''}</div>`;
+  }
+  document.getElementById('worlds').innerHTML = h;
+}
+document.getElementById('worlds').addEventListener('click', e => {
+  e.stopPropagation();
+  if (e.target.closest('[data-del]')) return;
+  const w = e.target.closest('[data-w]'); if (!w || +w.dataset.w === SLOT) return;
+  save(); localStorage.setItem('dealercraft_slot', w.dataset.w); saveBlocked = true; location.reload();
+});
+// hold the trash button for a second, then confirm, to delete a world
+let delHold = null;
+const endHold = () => { if (delHold) { clearTimeout(delHold.t); delHold.b.classList.remove('holding'); delHold = null; } };
+document.getElementById('worlds').addEventListener('pointerdown', e => {
+  const del = e.target.closest('[data-del]'); if (!del) return; e.stopPropagation(); endHold();
+  del.classList.add('holding');
+  delHold = { b: del, t: setTimeout(() => { const n = +del.dataset.del; endHold(); deleteWorld(n); }, 1000) };
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => document.getElementById('worlds').addEventListener(ev, endHold));
+function deleteWorld(n) {
+  { if (confirm(`Delete World ${n}? This can't be undone.`)) { if (n === SLOT) { saveBlocked = true; localStorage.removeItem(slotKey(n)); location.reload(); } else { localStorage.removeItem(slotKey(n)); renderWorlds(); } } }
+}
+renderWorlds();
+document.getElementById('playBtn').addEventListener('click', e => {
+  e.stopPropagation();
   document.getElementById('start').style.display = 'none'; document.body.classList.remove('menu'); playing = true;
   if (AC && AC.state === 'suspended') AC.resume();
   startAmbience();
