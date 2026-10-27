@@ -14,5 +14,6 @@ A blocky 3D farming and trading game by **Buggy Games YT**. Grow crops, craft go
 | Version | Name |
 |---|---|
 | v1.0 | The original DealerCraft |
+| v1.01 | Spooky Craft Update: Halloween makeover + endless world |
 
 Made by Buggy · [YouTube](https://www.youtube.com/@BuggyGamesYT)

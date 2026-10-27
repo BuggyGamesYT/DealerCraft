@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>DealerCraft by Buggy Games YT</title>
+<title>DealerCraft: Spooky Season by Buggy Games YT</title>
 <meta name="description" content="DealerCraft: a blocky 3D farming game. Grow crops, craft goods and sell them to villagers. By Buggy Games YT.">
-<meta name="theme-color" content="#0e0a1c">
+<meta name="theme-color" content="#150a1e">
 <link rel="icon" href="icon.png">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -17,7 +17,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.85);box-shadow:0 0 2px #000}
 #cross:before{left:10px;top:0;width:2px;height:22px}#cross:after{top:10px;left:0;height:2px;width:22px}
 #stats{position:fixed;left:12px;top:10px;padding:8px 12px;background:rgba(0,0,0,.45);border-radius:10px;font-size:15px;line-height:1.45;text-shadow:0 1px 2px #000}
-#stats b{color:#ffd84a}
+#stats b{color:#ffb347}
 #topbtns{position:fixed;right:10px;top:10px;display:flex;gap:8px;pointer-events:auto}
 .tbtn{background:rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;padding:8px 12px;font-size:15px;cursor:pointer}
 #hotbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:4px;padding:4px;background:rgba(0,0,0,.5);border-radius:10px;pointer-events:auto}
@@ -31,23 +31,25 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #toast.show{opacity:1}
 .panel{position:fixed;inset:0;background:rgba(5,3,14,.72);display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:5}
 .panel.show{display:flex}
-.box{background:#1b1430;border:3px solid #5b45a8;border-radius:14px;width:min(720px,94vw);max-height:90vh;overflow:auto;padding:14px 16px;box-shadow:0 10px 40px #000;touch-action:pan-y}
+.box{background:#1a0f24;border:3px solid #ff7a1a;border-radius:14px;width:min(720px,94vw);max-height:90vh;overflow:auto;padding:14px 16px;box-shadow:0 10px 40px #000;touch-action:pan-y}
 .box *{touch-action:pan-y}
 .box h2{margin:0 0 4px;font-size:22px}
-.box h3{margin:12px 0 6px;font-size:15px;color:#c9b8ff;text-transform:uppercase;letter-spacing:1px}
+.box h3{margin:12px 0 6px;font-size:15px;color:#ffb347;text-transform:uppercase;letter-spacing:1px}
 .row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.05);margin:4px 0;font-size:15px}
 .row .ic{width:32px;text-align:center;font-size:22px}.row .ic img{width:26px;height:26px;image-rendering:pixelated;vertical-align:middle}
 .row .nm{flex:1}.row .pr{color:#ffd84a;min-width:64px;text-align:right}
-.btn{background:#5b45a8;border:none;color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer;font-weight:700}
+.btn{background:#6b2fa0;border:none;color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer;font-weight:700}
 .btn:disabled{background:#3a3450;color:#888;cursor:default}
 .btn.gold{background:#c99a12}
 .close{float:right}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:5px}
 .up{color:#6f6}.down{color:#f77}
-#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(30,20,60,.55),rgba(0,0,0,.85));z-index:10;text-align:center;padding:20px;cursor:pointer}
-#start h1{font-size:min(72px,13vw);margin:0;line-height:1;text-shadow:-4px 0 #ff0050,4px 0 #00e5ff,0 6px 0 #000}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,rgba(255,110,20,.28),rgba(40,10,60,.6) 45%,rgba(0,0,0,.9));z-index:10;text-align:center;padding:20px;cursor:pointer}
+#start h1{font-size:min(72px,13vw);margin:0;line-height:1;color:#ff8a1a;text-shadow:-4px 0 #7a2bd6,4px 0 #39ff7a,0 6px 0 #000,0 0 30px rgba(255,120,20,.8);animation:flick 3s infinite}
+@keyframes flick{0%,100%{opacity:1}47%{opacity:1}48%{opacity:.55}50%{opacity:1}52%{opacity:.7}53%{opacity:1}}
+#start .ed{font-size:18px;color:#39ff7a;letter-spacing:3px;margin-top:6px;text-shadow:0 0 10px #39ff7a}
 #start .sub{margin:10px 0 18px;font-size:17px;color:#d8ccff}
-#start .play{font-size:24px;padding:12px 34px;border-radius:12px;background:#4caf50;border:3px solid #2e7d32;box-shadow:0 5px 0 #1b5e20;font-weight:700}
+#start .play{font-size:24px;padding:12px 34px;border-radius:12px;background:#e8650f;border:3px solid #a33f00;box-shadow:0 5px 0 #5a2200,0 0 24px rgba(255,120,20,.6);font-weight:700}
 #start .help{margin-top:18px;font-size:14px;color:#bbb;line-height:1.6;max-width:560px}
 #start .by{position:absolute;bottom:12px;font-size:13px;color:#999}
 #touch{display:none;pointer-events:none}
@@ -68,7 +70,7 @@ body.touch #cross{display:block}
   <div id="stats"></div>
   <div id="target"></div>
   <div id="toast"></div>
-  <div id="topbtns"><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">❔</button></div>
+  <div id="topbtns"><button class="tbtn" id="bMute">🔊</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">❔</button></div>
   <div id="hotbar"></div>
   <div id="touch">
     <div id="joy"><div id="knob"></div></div>
@@ -81,8 +83,9 @@ body.touch #cross{display:block}
 <div class="panel" id="trade"><div class="box" id="tradeBox"></div></div>
 <div id="start">
   <h1 class="px">DEALER<br>CRAFT</h1>
-  <div class="sub">Grow crops. Craft goods. Sell to villagers. Become a Tycoon.</div>
-  <div class="play">▶ PLAY</div>
+  <div class="ed px">🎃 SPOOKY SEASON 🎃</div>
+  <div class="sub">Grow pumpkins. Catch ghosts. Brew potions. Explore an endless haunted world.</div>
+  <div class="play">🎃 PLAY</div>
   <div class="help" id="helpText"></div>
   <div class="by">by Buggy Games YT</div>
 </div>
