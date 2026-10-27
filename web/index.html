@@ -58,6 +58,35 @@ body.touch #touch{display:block}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.4)}
 .tb{position:fixed;width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.4);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:26px;pointer-events:auto}
 .tb.on{background:rgba(255,216,74,.35)}
+
+#vitals{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);width:366px;height:30px;image-rendering:pixelated;pointer-events:none}
+#heldName{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);font-size:14px;text-shadow:0 1px 3px #000;opacity:0;pointer-events:none;white-space:nowrap}
+#heldName.fade{animation:fadeName 2s}
+@keyframes fadeName{0%,60%{opacity:1}100%{opacity:0}}
+.slot .dur{position:absolute;left:4px;right:4px;bottom:3px;height:3px;background:#000}.slot .dur i{display:block;height:100%}
+.slot.ghost{opacity:.35;font-size:20px}
+#hurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 120px 40px rgba(255,0,0,.0);transition:none}
+#hurt.on{animation:hurtf .5s}
+@keyframes hurtf{0%{box-shadow:inset 0 0 140px 60px rgba(255,0,0,.75)}100%{box-shadow:inset 0 0 140px 60px rgba(255,0,0,0)}}
+#scare{position:fixed;inset:0;z-index:50;background:#000;display:none;align-items:center;justify-content:center;overflow:hidden}
+#scare.show{display:flex}
+#scare img{width:min(140vw,140vh);height:min(140vw,140vh);animation:lunge 1.3s ease-out forwards}
+@keyframes lunge{0%{transform:scale(.25) rotate(-4deg);filter:brightness(2)}8%{transform:scale(1.05) rotate(3deg)}12%{transform:scale(1) translate(-12px,8px) rotate(-3deg)}16%{transform:scale(1.02) translate(14px,-10px) rotate(2deg)}20%{transform:scale(1) translate(-10px,6px)}24%{transform:scale(1.03) translate(8px,-4px)}100%{transform:scale(1.15) translate(0,0);filter:brightness(.6)}}
+#death{position:fixed;inset:0;z-index:40;background:rgba(120,0,0,.55);display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto}
+#death.show{display:flex}
+#death h1{font-size:56px;margin:0;text-shadow:0 4px 0 #000}#death p{font-size:18px}
+.sgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}.sgrid .slot{width:auto;aspect-ratio:1;height:auto;max-width:50px}
+.sgrid.hb{margin-top:8px}
+.cursor{background:rgba(255,255,255,.07);border-radius:8px;padding:6px 10px;margin:6px 0;font-size:14px;min-height:34px;display:flex;align-items:center;gap:6px}.cursor img{width:22px;height:22px;image-rendering:pixelated}
+.top{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.armorcol{display:flex;flex-direction:column;gap:4px;align-items:center}.ap{font-size:12px}
+.craft{display:flex;align-items:center;gap:10px}.cgrid{display:grid;gap:4px}.cgrid.g2{grid-template-columns:repeat(2,46px)}.cgrid.g3{grid-template-columns:repeat(3,46px)}
+.arrow{font-size:26px;opacity:.8}.modes{display:flex;flex-direction:column;gap:6px}
+.recipe{cursor:pointer}.recipe.dim{opacity:.45}
+.furn{display:flex;align-items:center;gap:16px;margin:10px 0}.furn>div:first-child{display:flex;flex-direction:column;gap:4px;align-items:center}
+.flame{width:14px;height:22px;background:#222;border-radius:3px;display:flex;align-items:flex-end}.flame i{display:block;width:100%;background:linear-gradient(#ffd34a,#ff5a1a);border-radius:3px}
+.prog{width:70px;height:12px;background:#222;border-radius:6px;overflow:hidden}.prog i{display:block;height:100%;background:#fff}
+#bRun{right:24px;bottom:236px;width:52px;height:52px;font-size:22px}
 #bJump{right:24px;bottom:84px}#bUse{right:100px;bottom:120px}#bBreak{right:40px;bottom:166px}
 body.touch #hotbar .slot{width:42px;height:42px}
 body.touch #cross{display:block}
@@ -70,21 +99,28 @@ body.touch #cross{display:block}
   <div id="stats"></div>
   <div id="target"></div>
   <div id="toast"></div>
-  <div id="topbtns"><button class="tbtn" id="bMute">🔊</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">❔</button></div>
+  <div id="topbtns"><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">❔</button></div>
+  <canvas id="vitals" width="366" height="30"></canvas>
+  <div id="heldName"></div>
   <div id="hotbar"></div>
   <div id="touch">
     <div id="joy"><div id="knob"></div></div>
     <div class="tb" id="bBreak">⛏️</div>
     <div class="tb" id="bUse">✋</div>
     <div class="tb" id="bJump">⬆️</div>
+    <div class="tb" id="bRun">🏃</div>
   </div>
 </div>
 <div class="panel" id="bag"><div class="box" id="bagBox"></div></div>
 <div class="panel" id="trade"><div class="box" id="tradeBox"></div></div>
+<div class="panel" id="settings"><div class="box" id="setBox"></div></div>
+<div id="hurt"></div>
+<div id="death"><h1 class="px">YOU DIED!</h1><p id="deathMsg"></p><p style="font-size:14px;opacity:.85">Your items are safe in a 🪦 gravestone where you fell.</p><button class="btn gold" id="bRespawn" style="font-size:20px;padding:12px 28px">Respawn</button></div>
+<div id="scare"><img id="scareImg" alt=""></div>
 <div id="start">
   <h1 class="px">DEALER<br>CRAFT</h1>
-  <div class="ed px">🎃 SPOOKY SEASON 🎃</div>
-  <div class="sub">Grow pumpkins. Catch ghosts. Brew potions. Explore an endless haunted world.</div>
+  <div class="ed px">🎃 SPOOKY SEASON · SURVIVAL 🎃</div>
+  <div class="sub">Survive the night. Craft tools. Grow pumpkins. Explore an endless haunted world.</div>
   <div class="play">🎃 PLAY</div>
   <div class="help" id="helpText"></div>
   <div class="by">by Buggy Games YT</div>
