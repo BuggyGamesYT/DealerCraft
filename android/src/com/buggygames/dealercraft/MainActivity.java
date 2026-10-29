@@ -1,6 +1,8 @@
 package com.buggygames.dealercraft;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -29,6 +31,12 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                if (HOST.equals(r.getUrl().getHost())) return false;
+                try { startActivity(new Intent(Intent.ACTION_VIEW, r.getUrl())); } catch (Exception e) { }
+                return true;
+            }
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
                 if (!HOST.equals(r.getUrl().getHost())) return null;
