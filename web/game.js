@@ -398,7 +398,7 @@ paintTile(39, pumpkinSide);
 paintTile(40, (px, r) => { noiseFill(px, r, [110, 80, 58], 40); for (let x = 0; x < TS; x++) { const d = 2 + Math.floor(r() * 3); for (let y = 0; y < d; y++) { const k = (r() - .5) * 30; px(x, y, rgb(104 + k, 96 + k, 70 + k)); } } });
 const emiTex = new THREE.CanvasTexture(emi);
 emiTex.magFilter = THREE.NearestFilter; emiTex.minFilter = THREE.NearestFilter; emiTex.colorSpace = THREE.SRGBColorSpace; emiTex.generateMipmaps = false;
-function tileTex(t) { const c = document.createElement('canvas'); c.width = c.height = TS; c.getContext('2d').drawImage(atlas, (t % AT) * TS, Math.floor(t / AT) * TS, TS, TS, 0, 0, TS, TS); const tx = new THREE.CanvasTexture(c); tx.magFilter = tx.minFilter = THREE.NearestFilter; tx.colorSpace = THREE.SRGBColorSpace; return tx; }
+function tileTex(t) { const c = hdBlit(document.createElement('canvas'), t); const tx = new THREE.CanvasTexture(c); tx.magFilter = tx.minFilter = THREE.NearestFilter; tx.colorSpace = THREE.SRGBColorSpace; return tx; }
 // survival tiles: bedrock, ores, crafting table, furnace, grave, door
 paintTile(14, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const v = r(); px(x, y, v < .3 ? '#1c1c1c' : v < .7 ? '#3b3b3b' : '#5a5a5a'); } });
 const ore = (dot) => (px, r) => { noiseFill(px, r, [125, 125, 125], 30); for (let i = 0; i < 5; i++) { const x = 1 + (r() * 12 | 0), y = 1 + (r() * 12 | 0); px(x, y, dot); px(x + 1, y, dot); px(x, y + 1, dot); px(x + 1, y + 1, '#222'); } };
@@ -420,9 +420,89 @@ paintTile(48, doorTile(true));
 const chestBase = (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 16, edge = x === 0 || x === 15 || y === 0 || y === 15; px(x, y, edge ? rgb(80, 50, 22) : rgb(160 + k, 108 + k, 50 + k)); } };
 paintTile(49, chestBase);
 paintTile(50, (px, r) => { chestBase(px, r); for (let x = 0; x < TS; x++) px(x, 6, rgb(70, 44, 20)); for (let y = 5; y < 10; y++) for (let x = 7; x < 9; x++) px(x, y, y === 5 || y === 9 ? '#555' : '#c8c8c8'); });
-const tex = new THREE.CanvasTexture(atlas);
+
+// ================== HD TEXTURE PACK (64px tiles, toggle in Settings) ==================
+const HS = 64;
+let HD_ON = (() => { try { return (JSON.parse(localStorage.getItem('dealercraft_settings')) || {}).hdTex !== false; } catch (e) { return true; } })();
+const hdAtlas = document.createElement('canvas'); hdAtlas.width = hdAtlas.height = HS * AT;
+const hctx = hdAtlas.getContext('2d');
+// smooth tileable value noise
+function tnoise(seed, cells) { const r = mulberry(seed), g = []; for (let i = 0; i < cells * cells; i++) g.push(r());
+  const at = (x, y) => g[((y % cells + cells) % cells) * cells + ((x % cells + cells) % cells)], sm = t => t * t * (3 - 2 * t);
+  return (u, v) => { const x = u * cells, y = v * cells, x0 = Math.floor(x), y0 = Math.floor(y), fx = sm(x - x0), fy = sm(y - y0);
+    return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx) * fy; }; }
+function tfbm(seed, oct = 4, base = 4) { const ns = []; for (let o = 0; o < oct; o++) ns.push(tnoise(seed + o * 101, base << o)); return (u, v) => { let s = 0, a = 0.5, t = 0; for (const n of ns) { s += n(u, v) * a; t += a; a *= 0.5; } return s / t; }; }
+const clamp255 = v => v < 0 ? 0 : v > 255 ? 255 : v;
+// paint an HD tile pixel by pixel: fn(x, y, u, v, r) returns [r,g,b,a?] or null (transparent)
+function paintHD(t, fn) {
+  const ox = (t % AT) * HS, oy = Math.floor(t / AT) * HS, img = hctx.createImageData(HS, HS), d = img.data, r = mulberry(t * 7919 + 3);
+  for (let y = 0; y < HS; y++) for (let x = 0; x < HS; x++) { const c = fn(x, y, (x + 0.5) / HS, (y + 0.5) / HS, r); const i = (y * HS + x) * 4;
+    if (c) { d[i] = clamp255(c[0]); d[i + 1] = clamp255(c[1]); d[i + 2] = clamp255(c[2]); d[i + 3] = c[3] == null ? 255 : c[3]; } }
+  hctx.putImageData(img, ox, oy);
+}
+// generic upgrade for every tile without a hand-made HD version: upscale, then add fine grain and a soft bevel per texel
+(function upscaleAll() {
+  hctx.imageSmoothingEnabled = false; hctx.drawImage(atlas, 0, 0, HS * AT, HS * AT);
+  const img = hctx.getImageData(0, 0, HS * AT, HS * AT), d = img.data, r = mulberry(4242), W = HS * AT, k = HS / TS;
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (!d[i + 3]) continue;
+    const lx = x % k, ly = y % k, bev = (lx === 0 || ly === 0 ? 10 : 0) - (lx === k - 1 || ly === k - 1 ? 12 : 0), n = (r() - 0.5) * 14 + bev;
+    d[i] = clamp255(d[i] + n); d[i + 1] = clamp255(d[i + 1] + n); d[i + 2] = clamp255(d[i + 2] + n); }
+  hctx.putImageData(img, 0, 0);
+})();
+const cmix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const cshade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+// grass top: dense blades
+const grassN = tfbm(11, 4, 4), grassB = tnoise(12, 32);
+const grassCol = (u, v, r) => { const n = grassN(u, v), b = grassB(u * 2, v * 2); return cshade(cmix([62, 112, 38], [104, 160, 62], n), 0.82 + b * 0.32 + (r() - 0.5) * 0.08); };
+paintHD(0, (x, y, u, v, r) => grassCol(u, v, r));
+// dirt: clumps, pebbles, dark specks
+const dirtN = tfbm(21, 4, 4), dirtP = tnoise(22, 16);
+const dirtCol = (u, v, r) => { const n = dirtN(u, v), p = dirtP(u, v); let c = cmix([96, 66, 42], [150, 108, 74], n); if (p > 0.82) c = cmix(c, [128, 120, 110], 0.6); if (r() < 0.04) c = cshade(c, 0.7); return cshade(c, 0.94 + (r() - 0.5) * 0.1); };
+paintHD(2, (x, y, u, v, r) => dirtCol(u, v, r));
+paintHD(10, (x, y, u, v, r) => { const row = Math.floor(v * 4), f = (v * 4) % 1, c = dirtCol(u, v, r); return cshade(c, f < 0.18 ? 0.62 : 0.78 + f * 0.15); });
+// grass side: dirt with a ragged grassy fringe that drips down
+const fringe = tnoise(31, 8);
+paintHD(1, (x, y, u, v, r) => { const edge = 0.16 + fringe(u, 0.5) * 0.14 + (Math.floor(u * 32) % 3 === 0 ? 0.05 : 0); return v < edge ? cshade(grassCol(u, v, r), v > edge - 0.03 ? 0.75 : 1) : dirtCol(u, v, r); });
+// stone: soft blotches with crack lines
+const stoneN = tfbm(41, 5, 3), stoneC = tnoise(42, 6);
+const stoneCol = (u, v, r) => { const n = stoneN(u, v), c = Math.abs(stoneC(u, v) - 0.5); let k = 98 + n * 62 + (r() - 0.5) * 8; if (c < 0.02) k -= 34; return [k, k, k + 2]; };
+paintHD(3, (x, y, u, v, r) => stoneCol(u, v, r));
+// ores
+const oreHD = (t, col, seed) => { const on = tnoise(seed, 5); paintHD(t, (x, y, u, v, r) => { const o = on(u, v), s = stoneCol(u, v, r); if (o > 0.72) { const h = (o - 0.72) / 0.28; return cshade(col, 0.75 + h * 0.5 + (r() - 0.5) * 0.1); } if (o > 0.69) return cshade(s, 0.7); return s; }); };
+oreHD(15, [38, 38, 40], 51); oreHD(41, [216, 168, 128], 52);
+paintHD(14, (x, y, u, v, r) => { const n = tfbm(61, 3, 4)(u, v); const k = n < 0.4 ? 28 : n < 0.6 ? 58 : 88; return [k + (r() - .5) * 10, k, k]; });
+// sand: fine grain with ripples
+const sandN = tfbm(71, 3, 4);
+paintHD(4, (x, y, u, v, r) => { const k = 0.92 + Math.sin((v + sandN(u, v) * 0.3) * 40) * 0.03 + (r() - 0.5) * 0.08; return cshade([222, 208, 160], k); });
+// water: wavy caustics
+const watN = tfbm(81, 3, 3);
+paintHD(5, (x, y, u, v, r) => { const w = Math.sin((u + watN(u, v) * 0.6) * 18 + v * 9) * 0.5 + 0.5; return [36 + w * 30, 82 + w * 36, 190 + w * 40, 196]; });
+// log bark: vertical furrows
+const barkN = tnoise(91, 12), barkF = tfbm(92, 3, 4);
+paintHD(6, (x, y, u, v, r) => { const f = barkN(u * 1, v * 0.25 + 0.0); const furrow = Math.abs(Math.sin((u + barkF(u, v) * 0.15) * Math.PI * 7)); const k = 0.62 + furrow * 0.42 + (r() - .5) * 0.08; return cshade(cmix([86, 64, 38], [118, 90, 56], f), k); });
+// log top: growth rings
+paintHD(7, (x, y, u, v, r) => { const d = Math.hypot(u - 0.5, v - 0.5) * 2; if (d > 0.88) return cshade([96, 72, 44], 0.8 + (r() - .5) * 0.15); const ring = Math.sin((d + barkF(u, v) * 0.08) * 34) * 0.5 + 0.5; return cshade([176, 140, 90], 0.86 + ring * 0.14 + (r() - .5) * 0.05); });
+// autumn leaves: overlapping leaf clusters with see-through gaps
+const leafN = tnoise(101, 14), leafH = tnoise(102, 5);
+paintHD(8, (x, y, u, v, r) => { const l = leafN(u, v); if (l < 0.33) return null; const hue = leafH(u, v), b = 0.7 + (l - 0.33) * 0.6; const c = hue < 0.4 ? [214, 92, 24] : hue < 0.7 ? [178, 46, 26] : hue < 0.85 ? [226, 160, 42] : [130, 76, 32]; return cshade(c, b + (r() - .5) * 0.1); });
+// planks: four boards with grain and nail holes
+const grain = tfbm(111, 3, 6);
+paintHD(9, (x, y, u, v, r) => { const row = Math.floor(v * 4), f = (v * 4) % 1, off = row * 0.37; if (f < 0.05 || f > 0.96) return [96, 70, 40]; const seam = ((u + off) % 1) < 0.015; if (seam) return [110, 80, 46];
+  const g = Math.sin((v * 4 + grain(u * 0.3 + off, v) * 2.2) * 9) * 0.5 + 0.5; let c = cshade([184, 146, 94], 0.86 + g * 0.16 + (r() - .5) * 0.05); const nx = ((u + off) % 1); if ((Math.abs(nx - 0.06) < 0.012 || Math.abs(nx - 0.94) < 0.012) && Math.abs(f - 0.5) < 0.05) c = [70, 52, 34]; return c; });
+// cobblestone: rounded stones with mortar
+const cobR = mulberry(121), cobPts = Array.from({ length: 14 }, () => [cobR(), cobR(), 0.85 + cobR() * 0.3]);
+paintHD(11, (x, y, u, v, r) => { let d1 = 9, d2 = 9, kk = 1; for (const [px, py, k] of cobPts) for (const ox of [-1, 0, 1]) for (const oy of [-1, 0, 1]) { const d = Math.hypot(u - px - ox, v - py - oy); if (d < d1) { d2 = d1; d1 = d; kk = k; } else if (d < d2) d2 = d; }
+  const e = d2 - d1; if (e < 0.025) return [62, 62, 64]; const s = stoneCol(u, v, r); return cshade(s, kk * (0.85 + Math.min(1, e * 6) * 0.2)); });
+// bricks
+paintHD(13, (x, y, u, v, r) => { const row = Math.floor(v * 4), f = (v * 4) % 1, bu = (u * 2 + (row % 2) * 0.5) % 1; if (f < 0.08 || bu < 0.04) return cshade([186, 180, 168], 0.9 + (r() - .5) * 0.1); const n = stoneN(u, v); return cshade(cmix([140, 58, 44], [178, 82, 60], n), 0.9 + (r() - .5) * 0.12); });
+// dead grass (spooky) top and side
+const deadCol = (u, v, r) => cshade(cmix([86, 78, 56], [124, 114, 82], grassN(u, v)), 0.84 + grassB(u * 2, v * 2) * 0.28 + (r() - 0.5) * 0.08);
+paintHD(38, (x, y, u, v, r) => deadCol(u, v, r));
+paintHD(40, (x, y, u, v, r) => { const edge = 0.14 + fringe(u, 0.5) * 0.12; return v < edge ? deadCol(u, v, r) : dirtCol(u, v, r); });
+function hdBlit(c, t) { const s = HD_ON ? HS : TS; c.width = c.height = s; c.getContext('2d').drawImage(HD_ON ? hdAtlas : atlas, (t % AT) * s, Math.floor(t / AT) * s, s, s, 0, 0, s, s); return c; }
+const tex = new THREE.CanvasTexture(HD_ON ? hdAtlas : atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false;
-function tileURL(t) { const c = document.createElement('canvas'); c.width = c.height = TS; c.getContext('2d').drawImage(atlas, (t % AT) * TS, Math.floor(t / AT) * TS, TS, TS, 0, 0, TS, TS); return c.toDataURL(); }
+function tileURL(t) { return hdBlit(document.createElement('canvas'), t).toDataURL(); }
 
 // ================== ITEM ICONS (pixel art drawn in code) ==================
 const MATCOL = { wood: ['#c49a5c', '#7a5a30'], stone: ['#a5a5a5', '#5f5f5f'], iron: ['#eeeeee', '#9c9c9c'], leather: ['#a8622c', '#6a3a18'] };
@@ -462,7 +542,7 @@ function itemCanvas(id) {
   if (iconCanvas[id]) return iconCanvas[id];
   const it = ITEMS[id]; let c = null;
   if (it.px) c = drawIcon(it.px, it.mat);
-  else if (it.block != null) { c = document.createElement('canvas'); c.width = c.height = TS; c.getContext('2d').drawImage(atlas, (BT[it.block][2] % AT) * TS, Math.floor(BT[it.block][2] / AT) * TS, TS, TS, 0, 0, TS, TS); }
+  else if (it.block != null) c = hdBlit(document.createElement('canvas'), BT[it.block][2]);
   else { c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.font = '52px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(it.emoji || '?', 32, 36); }
   return (iconCanvas[id] = c);
 }
@@ -813,7 +893,7 @@ for (let i = 0; i < 9; i++) {
 
 // ================== SETTINGS ==================
 const SETTINGS_KEY = 'dealercraft_settings';
-const settings = Object.assign({ jumpscares: true, sound: true, peaceful: false, difficulty: null, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
+const settings = Object.assign({ hdTex: true, jumpscares: true, sound: true, peaceful: false, difficulty: null, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 if (localStorage.getItem('dealercraft_mute') === '1' && settings._muteMigrated == null) { settings.sound = false; }
 settings._muteMigrated = true;
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
@@ -906,11 +986,39 @@ function setHandItem() {
     const T = BT[ITEMS[id].block], mk = t => noDepth(new THREE.MeshLambertMaterial({ map: tileTex(t), transparent: true, alphaTest: 0.5 }));
     mesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), [mk(T[2]), mk(T[2]), mk(T[0]), mk(T[1]), mk(T[2]), mk(T[2])]); mesh.rotation.set(0.2, 0.7, 0);
   } else {
+    if (ITEMS[id].px) {   // tools, weapons and other pixel items: a 3D extruded model like Minecraft, every one the same size
+      mesh = new THREE.Mesh(extrudeIcon(id), noDepth(new THREE.MeshLambertMaterial({ vertexColors: true })));
+      mesh.rotation.set(0.05, -0.62, 0.42); mesh.position.set(0.1, 0.22, 0.02);
+      mesh.renderOrder = 10; hand.add(mesh); return;
+    }
     if (!handMats[id]) { const t = new THREE.CanvasTexture(itemCanvas(id)); t.magFilter = t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; handMats[id] = noDepth(new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide })); }
     mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), handMats[id]);
     const tool = ITEMS[id].tool; mesh.rotation.set(0, -1.2, tool ? 0.15 : 0); mesh.position.set(0, 0.08, 0);
   }
   mesh.renderOrder = 10; hand.add(mesh);
+}
+const extCache = {};
+function extrudeIcon(id) {
+  if (extCache[id]) return extCache[id];
+  const c = itemCanvas(id), N = 16, d = c.getContext('2d').getImageData(0, 0, N, N).data, SIZE = 0.72, s = SIZE / N, th = s * 1.1;
+  const on = (x, y) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] > 100;
+  const pos = [], col = [], nor = [], C = new THREE.Color();
+  const quad = (a, b, cc, dd, n, k) => { for (const p of [a, b, cc, a, cc, dd]) { pos.push(...p); nor.push(...n); col.push(C.r * k, C.g * k, C.b * k); } };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (!on(x, y)) continue; const i = (y * N + x) * 4; C.setRGB(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255, THREE.SRGBColorSpace);
+    const x0 = (x - N / 2) * s, x1 = x0 + s, y1 = (N / 2 - y) * s, y0 = y1 - s, z0 = -th / 2, z1 = th / 2;
+    quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], 1);
+    quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], 0.8);
+    if (!on(x - 1, y)) quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], 0.7);
+    if (!on(x + 1, y)) quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], 0.7);
+    if (!on(x, y - 1)) quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], 0.9);
+    if (!on(x, y + 1)) quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], 0.6); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return (extCache[id] = g);
+}
+function applyTexturePack() {
+  HD_ON = settings.hdTex !== false; tex.dispose(); tex.image = HD_ON ? hdAtlas : atlas; tex.needsUpdate = true;
+  for (const id in iconCache) if (ITEMS[id] && ITEMS[id].block != null) { delete iconCache[id]; delete iconCanvas[id]; }
+  handItem = '__refresh'; if (typeof renderHotbar === 'function') renderHotbar();
 }
 function swing() { if (swingT <= 0) swingT = swingDur; }
 function updateHand(dt, moving) {
@@ -1757,6 +1865,7 @@ function renderSettings() {
   document.getElementById('setBox').innerHTML = `<button class="btn close" data-a="close">✕</button><h2>⚙️ Settings</h2>
     ${tog('jumpscares', '😱 Jumpscares', 'Five Nights at Freddy\'s style scares at night and when you die')}
     ${tog('sound', '🔊 Sound', 'Music, ambience and sound effects')}
+    ${tog('hdTex', '🖼️ HD Texture Pack', 'High resolution 64x block textures (turn off for classic 16x)')}
     <div class="row" style="flex-wrap:wrap"><span class="nm">⚔️ Difficulty<br><span style="font-size:12px;opacity:.7">${diff().sub}</span></span>${Object.entries(DIFFS).map(([k, v]) => `<button class="btn ${settings.difficulty === k ? 'gold' : ''}" data-diff="${k}">${v.label}</button>`).join('')}</div>
     <div class="row"><span class="nm">🎮 Look sensitivity</span><button class="btn" data-sens="-1">−</button><b style="min-width:40px;text-align:center">${settings.sens.toFixed(1)}</b><button class="btn" data-sens="1">+</button></div>
     <div class="row"><span class="nm">Test a jumpscare</span><button class="btn" data-a="test" ${settings.jumpscares ? '' : 'disabled'}>Scare me</button></div>`;
@@ -1767,7 +1876,7 @@ document.getElementById('setBox').addEventListener('click', e => {
   if (b.dataset.a === 'close') { closePanels(); return; }
   if (b.dataset.a === 'test') { closePanels(); setTimeout(() => jumpscare(null, 'night'), 300); return; }
   if (b.dataset.sens) settings.sens = Math.max(0.3, Math.min(3, settings.sens + (+b.dataset.sens) * 0.1));
-  if (b.dataset.s) { settings[b.dataset.s] = !settings[b.dataset.s]; if (b.dataset.s === 'sound' && master) master.gain.value = settings.sound ? 1 : 0; }
+  if (b.dataset.s) { settings[b.dataset.s] = !settings[b.dataset.s]; if (b.dataset.s === 'sound' && master) master.gain.value = settings.sound ? 1 : 0; if (b.dataset.s === 'hdTex') applyTexturePack(); }
   saveSettings(); renderSettings();
 });
 
@@ -2045,4 +2154,4 @@ while (streamChunks(400, 400) > 0) {}
 if (collides(player.pos)) { player.pos.y = groundAt(player.pos.x, player.pos.z); }
 buildCrops(); renderHotbar(); renderStats(); renderVitals(); updateSky();
 requestAnimationFrame(frame);
-window.__dc = { state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock, collides, VX, VZ, useAction, openChest, openSettings, diff };
+window.__dc = { applyTexturePack, state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock, collides, VX, VZ, useAction, openChest, openSettings, diff };
