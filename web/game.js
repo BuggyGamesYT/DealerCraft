@@ -774,14 +774,20 @@ for (let i = 0; i < 8; i++) {
   scene.add(m); graves.push(m);
 }
 
-const ghostMat = new THREE.MeshLambertMaterial({ color: 0xf4f0ff, emissive: 0x9a9ac8, transparent: true, opacity: 0.7, depthWrite: false });
+const ghostTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, '#ffffff'); g.addColorStop(0.6, '#cfd8ee'); g.addColorStop(1, '#5a6a8c'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 70; i++) { x.strokeStyle = `rgba(${Math.random() < .5 ? '90,100,140' : '255,255,255'},${0.15 + Math.random() * 0.3})`; x.lineWidth = 1 + Math.random() * 3; x.beginPath(); const a = Math.random() * 128, b = Math.random() * 128; x.moveTo(a, b); x.bezierCurveTo(a + 20, b + 10, a - 15, b + 30, a + (Math.random() - .5) * 30, b + 45); x.stroke(); }
+  for (let i = 0; i < 12; i++) { x.fillStyle = 'rgba(40,40,70,.25)'; x.fillRect(Math.random() * 128, 90 + Math.random() * 30, 2, 20 + Math.random() * 20); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
+const ghostMat = new THREE.MeshLambertMaterial({ color: 0xf4f0ff, map: ghostTex, emissive: 0x6a78b8, emissiveMap: ghostTex, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide });
 const blackMat = new THREE.MeshBasicMaterial({ color: 0x050008, transparent: true, opacity: 0.9 });
+const ghostEyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.9 });
 const ghosts = [];
 for (let i = 0; i < 5; i++) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.55, 4, 10), ghostMat); g.add(body);
   for (let t = 0; t < 4; t++) { const tail = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 6), ghostMat); const a = t / 4 * Math.PI * 2; tail.position.set(Math.cos(a) * 0.24, -0.72, Math.sin(a) * 0.24); tail.rotation.x = Math.PI; g.add(tail); }
-  for (const ex of [-0.13, 0.13]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), blackMat); e.position.set(ex, 0.25, 0.34); e.scale.z = 0.4; g.add(e); }
+  for (const ex of [-0.13, 0.13]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), blackMat); e.position.set(ex, 0.25, 0.34); e.scale.set(1.2, 1.6, 0.4); g.add(e); const pu = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), ghostEyeMat); pu.position.set(ex, 0.24, 0.37); g.add(pu); }
   const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), blackMat); mouth.position.set(0, 0.02, 0.36); mouth.scale.set(0.8, 1.4, 0.4); g.add(mouth);
   for (const ax of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.3, 3, 6), ghostMat); arm.position.set(ax * 0.42, 0.05, 0.15); arm.rotation.set(-1.1, 0, ax * 0.4); g.add(arm); }
   scene.add(g);
@@ -918,7 +924,26 @@ function updateHand(dt, moving) {
 }
 
 // ================== JUMPSCARES (Five Nights at Freddy's style, toggle in Settings) ==================
+function ghostFace() {
+  const c = document.createElement('canvas'); c.width = 600; c.height = 600; const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 600, 600);
+  const halo = x.createRadialGradient(300, 300, 60, 300, 300, 320); halo.addColorStop(0, 'rgba(160,200,255,.55)'); halo.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = halo; x.fillRect(0, 0, 600, 600);
+  // pale stretched head that melts into wisps
+  const sk = x.createRadialGradient(290, 230, 30, 300, 290, 290); sk.addColorStop(0, '#ffffff'); sk.addColorStop(0.55, '#d9e2f2'); sk.addColorStop(1, '#6f7f9a');
+  x.fillStyle = sk; x.beginPath(); x.moveTo(90, 300); x.bezierCurveTo(80, 40, 520, 40, 510, 300);
+  for (let i = 0; i <= 8; i++) { const px = 510 - i * 52.5; x.lineTo(px, 560 + (i % 2 ? -70 : 40) + Math.random() * 30); } x.closePath(); x.fill();
+  x.strokeStyle = 'rgba(80,90,120,.35)'; x.lineWidth = 2; for (let i = 0; i < 30; i++) { x.beginPath(); const a = 110 + Math.random() * 380, b = 120 + Math.random() * 350; x.moveTo(a, b); x.quadraticCurveTo(a + (Math.random() - .5) * 60, b + 40, a + (Math.random() - .5) * 40, b + 90); x.stroke(); }
+  // huge hollow eyes with red glowing pupils, dripping
+  for (const [ex, ey, r] of [[200, 220, 1], [400, 228, 1.08]]) { x.fillStyle = '#05000a'; x.beginPath(); x.ellipse(ex, ey, 70 * r, 95 * r, ex < 300 ? -0.25 : 0.25, 0, 7); x.fill();
+    x.fillRect(ex - 12, ey + 60, 10, 90 + Math.random() * 60); x.fillRect(ex + 14, ey + 70, 6, 50 + Math.random() * 50);
+    const g = x.createRadialGradient(ex, ey + 8, 1, ex, ey + 8, 30); g.addColorStop(0, '#fff'); g.addColorStop(0.25, '#ff2020'); g.addColorStop(1, 'rgba(255,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(ex, ey + 8, 30, 0, 7); x.fill(); }
+  // long screaming mouth
+  x.fillStyle = '#05000a'; x.beginPath(); x.ellipse(300, 430, 70, 135, 0, 0, 7); x.fill();
+  const mg = x.createRadialGradient(300, 450, 5, 300, 450, 90); mg.addColorStop(0, 'rgba(120,0,30,.6)'); mg.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = mg; x.beginPath(); x.ellipse(300, 440, 60, 120, 0, 0, 7); x.fill();
+  return c.toDataURL();
+}
 function scareFace(kind) {
+  if (kind === 'ghost') return ghostFace();
   const c = document.createElement('canvas'); c.width = 600; c.height = 600; const x = c.getContext('2d');
   x.fillStyle = '#000'; x.fillRect(0, 0, 600, 600);
   const furs = { zombie: ['#3d6a2e', '#22401a'], skeleton: ['#d8d8d0', '#9a9a90'], explosion: ['#3f9a3f', '#1d5a1d'], night: ['#6a3e1e', '#3a200e'] };
@@ -944,7 +969,7 @@ function jumpscare(after, kind = 'night') {
   scaring = true; lastScare = state.gameTime;
   const el = document.getElementById('scare'), img = document.getElementById('scareImg');
   img.src = scareFace(kind); el.classList.add('show');
-  screamSnd();
+  if (kind === 'ghost') ghostShriek(); else screamSnd();
   if (navigator.vibrate) try { navigator.vibrate([300, 60, 400]); } catch (e) {}
   setTimeout(() => { el.classList.remove('show'); scaring = false; if (after) after(); }, 1300);
 }
@@ -1022,8 +1047,7 @@ function skyAbove(x, y, z) { for (let yy = Math.floor(y) + 2; yy < H; yy++) if (
 function hurtMob(m, dmg, from) {
   m.hp -= dmg; m.hurt = 0.35;
   const k = m.g.position.clone().sub(from).setY(0).normalize().multiplyScalar(6); m.vel.x = k.x; m.vel.z = k.z; m.vel.y = 5;
-  hitSnd();
-  if (m.type === 'cow') { m.target = null; m.panic = 4; }
+  if (m.type === 'cow') { noiseBurst(0.06, 0.08, 1500); mooSnd(0.12, true); m.target = null; m.panic = 4; } else hitSnd();
   if (m.hp <= 0) {
     for (const [id, n] of MOBDEF[m.type].drops()) if (n > 0) give(id, n);
     const got = MOBDEF[m.type].drops; toast(m.type === 'cow' ? '🐄 Got beef and leather' : `💀 Defeated a ${m.type}!`);
@@ -1068,6 +1092,7 @@ function updateMobs(dt, t) {
     if (dist > 90 || (d.hostile && diff().max === 0)) { removeMob(m, false); continue; }
     if (!data.has(ckey(fdiv(Math.floor(p.x), CH), fdiv(Math.floor(p.z), CH)))) continue;   // frozen until its land loads
     m.hurt = Math.max(0, m.hurt - dt); m.atk = Math.max(0, m.atk - dt);
+    if (m.type === 'cow') { m.moo = (m.moo ?? 3 + Math.random() * 15) - dt; if (m.moo <= 0) { m.moo = 12 + Math.random() * 20; if (dist < 22 && !uiOpen) mooSnd(0.09 * (1 - dist / 22)); } }
     let mx = 0, mz = 0, speed = d.hostile ? d.speed * diff().spd : d.speed;
     const chase = d.hostile && dist < 18 && player.alive;
     if (chase) {
@@ -1330,6 +1355,7 @@ const mine = { key: null, prog: 0, total: 1, cd: 0 };
 function attackOrSwing() {
   if (AC && AC.state === 'suspended') AC.resume();
   swing();
+  { const st = heldTool(); if (st && st.kind === 'sword' && mine.cd <= 0) cutSnd(); }
   const h = raycast();
   if (h && h.kind === 'mob' && mine.cd <= 0) {
     const t = heldTool(), base = t ? (t.kind === 'sword' ? 4 : t.kind === 'axe' ? 3 : t.kind === 'pick' ? 2 : 1) + TIERS[t.tier].dmg : 1;
@@ -1341,6 +1367,7 @@ function attackOrSwing() {
 function finishBreak(h) {
   const id = h.id, info = breakInfo(id);
   if (id === BEDROCK) return;
+  if (isSoil(id)) shovelSnd(1.3);
   const above = h.x + ',' + (h.y + 1) + ',' + h.z;
   if (state.crops[above]) removeCrop(above, true);
   const key = h.x + ',' + h.y + ',' + h.z;
@@ -1371,7 +1398,7 @@ function updateMining(dt) {
   if (mine.key !== key) { mine.key = key; mine.prog = 0; mine.total = breakInfo(h.id).time; mine.tick = 0; }
   if (mine.cd > 0) return;
   mine.prog += dt; mine.tick -= dt;
-  if (mine.tick <= 0) { mine.tick = 0.22; beep(110 + Math.random() * 40, 0.04, 'square', 0.03); particles(h.x + 0.5 + h.n[0] * 0.5, h.y + 0.5 + h.n[1] * 0.5, h.z + 0.5 + h.n[2] * 0.5, blockCol(h.id), 2); }
+  if (mine.tick <= 0) { mine.tick = 0.22; if (isSoil(h.id)) shovelSnd(0.8); else beep(110 + Math.random() * 40, 0.04, 'square', 0.03); particles(h.x + 0.5 + h.n[0] * 0.5, h.y + 0.5 + h.n[1] * 0.5, h.z + 0.5 + h.n[2] * 0.5, blockCol(h.id), 2); }
   const stage = Math.min(9, Math.floor(mine.prog / mine.total * 10));
   crackMesh.visible = true; crackMesh.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); crackMesh.material.map = crackTex[stage]; crackMesh.material.needsUpdate = true;
   if (mine.prog >= mine.total) { finishBreak(h); mine.key = null; crackMesh.visible = false; mine.cd = 0.15; }
@@ -1810,6 +1837,43 @@ const hurtSnd = () => { sweep(320, 140, 0.18, 'square', 0.08); noiseBurst(0.1, 0
 const hitSnd = () => { noiseBurst(0.08, 0.12, 2000); sweep(200, 90, 0.1, 'square', 0.05); };
 const boomSnd = () => { noiseBurst(1.2, 0.5, 400); sweep(120, 30, 1, 'sine', 0.3); };
 const hissSnd = () => noiseBurst(1.4, 0.08, 5000);
+// filtered noise with its own filter type and an envelope (used by shovel/cut sounds)
+function noiseF(dur, vol, type, f0, f1, q = 1, delay = 0) { if (!AC) return; try { const t = AC.currentTime + delay, b = AC.createBuffer(1, Math.ceil(AC.sampleRate * dur), AC.sampleRate), c = b.getChannelData(0); for (let i = 0; i < c.length; i++) c[i] = Math.random() * 2 - 1;
+  const s = AC.createBufferSource(); s.buffer = b; const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.02, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + 0.02); } catch (e) {} }
+// shovel scrape + crunch for grass and dirt
+const shovelSnd = (vol = 1) => { noiseF(0.16, 0.16 * vol, 'bandpass', 900 + Math.random() * 300, 380, 0.9); noiseF(0.09, 0.12 * vol, 'lowpass', 600, 180, 0.7, 0.05); };
+const isSoil = id => id === GRASS || id === DIRT || id === FARM || id === DEADGRASS;
+// sword slice: fast high whoosh with a metallic ring
+const cutSnd = () => { noiseF(0.17, 0.14, 'highpass', 1800, 6500, 0.8); noiseF(0.1, 0.08, 'bandpass', 4200, 2600, 6, 0.03); sweep(2400, 1700, 0.12, 'triangle', 0.025); };
+// cow moo: two detuned saws through a vowel filter, pitch rises then falls
+function mooSnd(vol = 0.09, pain = false) { if (!AC) return; try {
+  const t = AC.currentTime, dur = pain ? 0.55 : 1.1, base = pain ? 190 : 105 + Math.random() * 20;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 4; f.frequency.setValueAtTime(350, t); f.frequency.linearRampToValueAtTime(pain ? 1300 : 900, t + dur * 0.35); f.frequency.linearRampToValueAtTime(400, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.08); g.gain.setValueAtTime(vol, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  f.connect(g).connect(master);
+  for (const d of [0, 9]) { const o = AC.createOscillator(); o.type = 'sawtooth'; o.detune.value = d;
+    o.frequency.setValueAtTime(base * 0.9, t); o.frequency.linearRampToValueAtTime(base * (pain ? 1.5 : 1.15), t + dur * 0.3); o.frequency.linearRampToValueAtTime(base * (pain ? 0.8 : 0.85), t + dur);
+    if (pain) { const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 14; lg.gain.value = base * 0.07; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur); }
+    o.connect(f); o.start(t); o.stop(t + dur + 0.05); }
+} catch (e) {} }
+// ghost: hollow wavering wail with breathy noise
+function ghostWail(vol = 0.06) { if (!AC) return; try {
+  const t = AC.currentTime, dur = 2.2, g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const rv = AC.createDelay(); rv.delayTime.value = 0.23; const fb = AC.createGain(); fb.gain.value = 0.4; rv.connect(fb).connect(rv); g.connect(master); g.connect(rv); rv.connect(master);
+  for (const [f, ty] of [[420, 'sine'], [633, 'triangle']]) { const o = AC.createOscillator(); o.type = ty; o.frequency.setValueAtTime(f * 0.8, t); o.frequency.linearRampToValueAtTime(f * 1.25, t + 0.9); o.frequency.linearRampToValueAtTime(f * 0.6, t + dur);
+    const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 5.5; lg.gain.value = f * 0.04; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur); o.connect(g); o.start(t); o.stop(t + dur); }
+  const n = AC.createBuffer(1, AC.sampleRate * dur, AC.sampleRate), c = n.getChannelData(0); for (let i = 0; i < c.length; i++) c[i] = Math.random() * 2 - 1;
+  const s = AC.createBufferSource(); s.buffer = n; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 2; const ng = AC.createGain(); ng.gain.value = 0.25; s.connect(bp).connect(ng).connect(g); s.start(t);
+} catch (e) {} }
+// ghost jumpscare: rising shriek + whispery rush instead of the animatronic scream
+function ghostShriek() { if (!AC) return; try {
+  const t = AC.currentTime, g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.38, t + 0.05); g.gain.setValueAtTime(0.38, t + 1.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+  const rv = AC.createDelay(); rv.delayTime.value = 0.09; const fb = AC.createGain(); fb.gain.value = 0.5; rv.connect(fb).connect(rv); g.connect(master); g.connect(rv); rv.connect(master);
+  for (const [f, d] of [[700, 0], [1050, 20], [1480, -15]]) { const o = AC.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f * 0.5, t); o.frequency.exponentialRampToValueAtTime(f * 1.6, t + 0.35); o.frequency.linearRampToValueAtTime(f * 1.2, t + 1.5); o.detune.value = d;
+    const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = 9; lg.gain.value = f * 0.09; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + 1.5); o.connect(g); o.start(t); o.stop(t + 1.5); }
+  noiseF(1.4, 0.3, 'bandpass', 600, 3500, 1.5); sweep(90, 40, 1.2, 'sine', 0.3);
+} catch (e) {} }
 function screamSnd() {
   if (!AC) return; try {
     const t = AC.currentTime, g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.04); g.gain.setValueAtTime(0.4, t + 1); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
@@ -1901,7 +1965,7 @@ function updateVillagers(dt) {
   }
 }
 function updateSpooks(dt, t) {
-  ghostMat.opacity = 0.18 + nightAmt * 0.6; blackMat.opacity = 0.3 + nightAmt * 0.6;
+  ghostMat.opacity = 0.18 + nightAmt * 0.6; blackMat.opacity = 0.3 + nightAmt * 0.6; ghostEyeMat.opacity = 0.25 + nightAmt * 0.75; ghostTex.offset.y = (t * 0.06) % 1;
   for (const gh of ghosts) {
     const g = gh.g; gh.cd -= dt;
     if (!gh.target) { const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 22; gh.target = new THREE.Vector2(VX + Math.cos(a) * r, VZ + Math.sin(a) * r); }
@@ -1913,10 +1977,12 @@ function updateSpooks(dt, t) {
     const px = player.pos.x - g.position.x, pz = player.pos.z - g.position.z, pd = Math.hypot(px, pz);
     g.rotation.y = pd < 8 ? Math.atan2(px, pz) : Math.atan2(dx, dz);
     g.rotation.z = Math.sin(t * 2 + gh.phase) * 0.1;
+    gh.wail = (gh.wail ?? 4 + Math.random() * 10) - dt;
+    if (gh.wail <= 0) { gh.wail = 9 + Math.random() * 14; if (playing && !uiOpen && pd < 16 && nightAmt > 0.2) ghostWail(0.07 * (1 - pd / 16) * (0.4 + nightAmt)); }
     if (playing && !uiOpen && player.alive && pd < 1.4 && Math.abs(player.pos.y + 1 - g.position.y) < 2 && gh.cd <= 0) {
       const n = rint(1, 3); give('candy', n); gh.cd = 3; placeGhost(gh, true);
-      if (settings.jumpscares && nightAmt > 0.6 && Math.random() < 0.3 && state.gameTime - lastScare > 60) jumpscare(() => toast(`👻 ...it dropped ${n} 🍬 Ghost Candy`), 'night');
-      else { booSnd(); toast(`👻 BOO! The ghost fled and dropped ${n} 🍬 Ghost Candy`); }
+      if (settings.jumpscares && nightAmt > 0.6 && Math.random() < 0.3 && state.gameTime - lastScare > 60) jumpscare(() => toast(`👻 ...it dropped ${n} 🍬 Ghost Candy`), 'ghost');
+      else { booSnd(); ghostWail(0.08); toast(`👻 BOO! The ghost fled and dropped ${n} 🍬 Ghost Candy`); }
     }
   }
   const showBats = nightAmt > 0.25;
