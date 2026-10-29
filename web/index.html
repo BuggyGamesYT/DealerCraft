@@ -87,7 +87,9 @@ body.touch #touch{display:block}
 .flame{width:14px;height:22px;background:#222;border-radius:3px;display:flex;align-items:flex-end}.flame i{display:block;width:100%;background:linear-gradient(#ffd34a,#ff5a1a);border-radius:3px}
 .prog{width:70px;height:12px;background:#222;border-radius:6px;overflow:hidden}.prog i{display:block;height:100%;background:#fff}
 #bRun{right:24px;bottom:236px;width:52px;height:52px;font-size:22px}
-#bJump{right:24px;bottom:84px}#bUse{right:100px;bottom:120px}#bBreak{right:40px;bottom:166px}
+#mapView{display:none;position:fixed;left:50%;bottom:64px;transform:translateX(-50%);width:min(46vmin,330px);aspect-ratio:1;padding:5%;background:#d6c496;border:6px solid #8a6a3a;border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;z-index:3}#mapView canvas{width:100%;height:100%;image-rendering:pixelated;display:block}#mapView .mapArrow{position:absolute;left:50%;top:50%;color:#fff;font-size:16px;text-shadow:0 0 3px #000;transform:translate(-50%,-50%)}
+#offSlot{position:fixed;bottom:10px;left:4px;padding:4px;background:rgba(0,0,0,.5);border-radius:10px;pointer-events:none}#bOff{right:120px;bottom:44px;font-size:22px}
+#bJump{right:24px;bottom:84px}#bUse{right:100px;bottom:120px}#bBreak{right:40px;bottom:166px;transition:transform .2s ease-out;z-index:5}#bBreak.drag{transition:none}
 body.touch #hotbar .slot{width:42px;height:42px}
 body.touch #cross{display:block}
 body.menu #hud{display:none}
@@ -122,10 +124,10 @@ body.menu #hud{display:none}
   <div id="topbtns"><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">🏠 Menu</button></div>
   <canvas id="vitals" width="366" height="30"></canvas>
   <div id="heldName"></div>
-  <div id="hotbar"></div>
+  <div id="hotbar"></div><div id="offSlot"><div class="slot"></div></div>
   <div id="touch">
     <div id="joy"><div id="knob"></div></div>
-    <div class="tb" id="bBreak">⛏️</div>
+    <div class="tb" id="bBreak">⛏️</div><div class="tb" id="bOff">🤚</div>
     <div class="tb" id="bUse">✋</div>
     <div class="tb" id="bJump">⬆️</div>
     <div class="tb" id="bRun">🏃</div>
