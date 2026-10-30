@@ -62,8 +62,8 @@ const CROPS = {
   berries: { name: 'Berries', tile: 28, grow: 75,  yield: [2, 4], seeds: [0, 1] },
   pumpkin: { name: 'Pumpkin', tile: 32, grow: 100, yield: [1, 1], seeds: [1, 1] },
   weed:    { name: 'Marijuana', tile: 51, grow: 1200, yield: [2, 3], seeds: [1, 2], tall: true },         // a whole day to grow; 2 blocks tall, rarely 3 with cow poop
-  brown_mush: { name: 'Brown Mushroom', tile: 56, grow: 90, yield: [2, 3], seeds: [0, 0], seed: 'brown_mushroom', dark: true, scale: true, anySoil: true },
-  red_mush:   { name: 'Red Mushroom',   tile: 55, grow: 110, yield: [2, 3], seeds: [0, 0], seed: 'red_mushroom', dark: true, scale: true, anySoil: true },
+  brown_mush: { name: 'Psychedelic Brown Mushroom', tile: 56, grow: 300, yield: [1, 2], seeds: [0, 0], seed: 'brown_mushroom', dark: true, scale: true, anySoil: true },
+  red_mush:   { name: 'Psychedelic Red Mushroom',   tile: 55, grow: 360, yield: [1, 1], seeds: [0, 0], seed: 'red_mushroom', dark: true, scale: true, anySoil: true },
 };
 
 // ================== ITEMS ==================
@@ -95,8 +95,8 @@ const ITEMS = {
   fertilizer: { name: 'Fertilizer (instant grow)', emoji: '🧪' },
   seeds_weed: { name: 'Marijuana Seeds', emoji: '🌱', tag: 'MJ', crop: 'weed' }, weed: { name: 'Marijuana', emoji: '🌿' },
   cow_poop: { name: 'Cow Poop (fertilizer)', emoji: '💩' },
-  brown_mushroom: { name: 'Brown Mushroom', crop: 'brown_mush', sprite: true, tile: 56 }, red_mushroom: { name: 'Red Mushroom', crop: 'red_mush', sprite: true, tile: 55 },
-  mushroom_stew: { name: 'Mushroom Stew', emoji: '🥣', food: 7, stack: 1 },
+  brown_mushroom: { name: 'Psychedelic Brown Mushroom (rare)', crop: 'brown_mush', sprite: true, tile: 56, food: 1 }, red_mushroom: { name: 'Psychedelic Red Mushroom (rare)', crop: 'red_mush', sprite: true, tile: 55, food: 1 },
+  mushroom_stew: { name: 'Shroom Soup', emoji: '🥣', food: 4, stack: 1 },
   torch: { name: 'Torch', block: TORCH, px: 'torch' },
   raw_chicken: { name: 'Raw Chicken', emoji: '🍗', tag: 'RAW', food: 2 }, cooked_chicken: { name: 'Cooked Chicken', emoji: '🍗', food: 6 },
   raw_pork: { name: 'Raw Porkchop', emoji: '🥓', tag: 'RAW', food: 3 }, cooked_pork: { name: 'Cooked Porkchop', emoji: '🥓', food: 8 },
@@ -130,7 +130,7 @@ const BLOCK_DROP = { [GRASS]: 'dirt', [DIRT]: 'dirt', [FARM]: 'dirt', [STONE]: '
   [WHITEWALL]: 'white_wall', [SIDING_B]: 'blue_siding', [SIDING_Y]: 'yellow_siding', [GARAGE]: 'planks' };
 const FUEL = { log: 1.5, planks: 1.5, stick: 0.5, coal: 8, crafting_table: 1.5, door: 1, chest: 1.5 };   // items smelted per fuel item
 const SMELT = { iron_ore: 'iron_ingot', sand: 'glass', cobble: 'stone', raw_beef: 'steak', potato: 'baked_potato', log: 'coal',
-  raw_chicken: 'cooked_chicken', raw_pork: 'cooked_pork', raw_mutton: 'cooked_mutton', egg: 'cooked_chicken' };
+  raw_chicken: 'cooked_chicken', raw_pork: 'cooked_pork', raw_mutton: 'cooked_mutton', egg: 'cooked_chicken', cocaine: 'crack' };
 
 // ================== CRAFTING (shaped like Minecraft) ==================
 // pattern rows use letters mapped in key; '.' is empty. Shapeless recipes list ingredients.
@@ -169,6 +169,28 @@ shapeless('fertilizer', 2, ['bone', 'rotten_flesh']);
 shaped('torch', 4, ['C', 'S'], { C: 'coal', S: 'stick' });
 shaped('map', 1, ['SSS', 'SCS', 'SSS'], { S: 'stick', C: 'coal' });
 shapeless('mushroom_stew', 1, ['brown_mushroom', 'red_mushroom', 'brown_mushroom']);
+// ---- v1.11 Drug Update: craftable drugs & drinks (effects live in the DRUGS section near the game loop)
+Object.assign(ITEMS, {
+  beer: { name: 'Beer', emoji: '🍺', food: 2, stack: 16 }, vodka: { name: 'Vodka', emoji: '🍾', food: 1, stack: 16 },
+  sprite: { name: 'Sprite', emoji: '🥤', food: 2, stack: 16 },
+  cough_syrup: { name: 'Promethazine & Codeine Cough Syrup', emoji: '🧴', food: 1, stack: 16 },
+  purple_sprite: { name: 'Purple Sprite (Lean)', emoji: '🥤', tag: 'LEAN', food: 2, stack: 16 },
+  pills: { name: 'Pills', emoji: '💊', food: 1 }, xanax: { name: 'Xanax', emoji: '💊', tag: 'XAN', food: 1 },
+  ecstasy: { name: 'Ecstasy', emoji: '💊', tag: 'XTC', food: 1 }, acid: { name: 'Acid Tab', emoji: '🌈', tag: 'LSD', food: 1 },
+  cocaine: { name: 'Cocaine', emoji: '❄️', food: 1 }, crack: { name: 'Crack', emoji: '🪨', food: 1 }, meth: { name: 'Meth', emoji: '🧊', food: 1 },
+});
+shapeless('beer', 1, ['wheat', 'wheat', 'wheat', 'glass']);
+shapeless('vodka', 1, ['potato', 'potato', 'potato', 'glass']);
+shapeless('sprite', 1, ['berries', 'wheat', 'glass']);
+shapeless('pills', 2, ['bone', 'wheat', 'glass']);
+shapeless('cough_syrup', 1, ['pills', 'berries', 'glass']);
+shapeless('purple_sprite', 1, ['cough_syrup', 'sprite', 'candy']);
+shapeless('xanax', 1, ['pills', 'pills', 'wheat']);
+shapeless('ecstasy', 2, ['pills', 'candy', 'gunpowder']);
+shapeless('acid', 3, ['witch_brew', 'candy']);
+shapeless('cocaine', 1, ['leaves', 'leaves', 'leaves', 'leaves', 'gunpowder']);
+shapeless('crack', 2, ['cocaine', 'coal']);
+shapeless('meth', 2, ['fertilizer', 'gunpowder', 'coal', 'glass']);
 shapeless('fertilizer', 1, ['cow_poop', 'cow_poop', 'bone']);
 
 const VILLAGERS = [
@@ -178,11 +200,12 @@ const VILLAGERS = [
   { name: 'Baker Betty', job: 'Baker', robe: 0xf2f2f2, hat: 0xff8fb1, costume: 'cat',
     sells: { bread: 9 }, buys: { bread: 14, carrot_cake: 30, pumpkin_pie: 32 } },
   { name: 'Count Carl', job: 'Vampire Chef', robe: 0x1a1a1a, hat: 0x1a1a1a, costume: 'vampire',
-    sells: { steak: 12 }, buys: { baked_potato: 12, berry_juice: 22, veggie_stew: 45, steak: 10, raw_beef: 5, cooked_chicken: 8, cooked_pork: 10, cooked_mutton: 8, mushroom_stew: 24 } },
+    sells: { steak: 12 }, buys: { baked_potato: 12, berry_juice: 22, veggie_stew: 45, steak: 10, raw_beef: 5, cooked_chicken: 8, cooked_pork: 10, cooked_mutton: 8, mushroom_stew: 90 } },
   { name: 'Merchant Mo', job: 'Merchant', robe: 0x7b3fb5, hat: 0x2a1a40, costume: 'wizard',
-    sells: { fertilizer: 8, log: 2, coal: 4, torch: 2, map: 15, seeds_weed: 20, iron_ingot: 15, bucket: 40, iron_hoe: 150 }, buys: { planks: 1, cobble: 1, brick: 2, leaves: 1, leather: 6, iron_ingot: 8, weed: 90, wool: 4, egg: 2 } },
+    sells: { fertilizer: 8, log: 2, coal: 4, torch: 2, map: 15, seeds_weed: 20, iron_ingot: 15, bucket: 40, iron_hoe: 150, sprite: 3 }, buys: { planks: 1, cobble: 1, brick: 2, leaves: 1, leather: 6, iron_ingot: 8, weed: 90, wool: 4, egg: 2,
+      meth: 70, cocaine: 60, crack: 45, pills: 15, xanax: 30, ecstasy: 35, acid: 40, cough_syrup: 30, purple_sprite: 55, beer: 8, vodka: 14 } },
   { name: 'Witch Wanda', job: 'Witch', robe: 0x24132e, hat: 0x111111, costume: 'witch', skin: 0x7fbf5a,
-    sells: { seeds_pumpkin: 7, fertilizer: 7 }, buys: { pumpkin: 20, jack_o_lantern: 26, candy: 6, witch_brew: 60, bone: 4, gunpowder: 8, rotten_flesh: 2, brown_mushroom: 4, red_mushroom: 6, feather: 3 } },
+    sells: { seeds_pumpkin: 7, fertilizer: 7 }, buys: { pumpkin: 20, jack_o_lantern: 26, candy: 6, witch_brew: 60, bone: 4, gunpowder: 8, rotten_flesh: 2, brown_mushroom: 25, red_mushroom: 35, feather: 3 } },
 ];
 const RANKS = [[0, 'Rookie Grower'], [100, 'Street Farmer'], [400, 'Market Dealer'], [1200, 'Crop Boss'], [3000, 'DealerCraft Tycoon']];
 
@@ -703,7 +726,7 @@ function genChunk(cx, cz) {
       const th = 4 + Math.floor(rnd() * 3);
       for (let y = 1; y <= th; y++) L(lx, h + y, lz, LOG);
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 1], [-1, 2], [1, -2], [-2, -1]]) {   // red mushrooms pop up around tree roots
-        if (hash3(x + dx, h, z + dz, state.seed + 77) < 0.16 && Lget(lx + dx, h, lz + dz) === GRASS && Lget(lx + dx, h + 1, lz + dz) === AIR) L(lx + dx, h + 1, lz + dz, RED_MUSH);
+        if (hash3(x + dx, h, z + dz, state.seed + 77) < 0.015 && Lget(lx + dx, h, lz + dz) === GRASS && Lget(lx + dx, h + 1, lz + dz) === AIR) L(lx + dx, h + 1, lz + dz, RED_MUSH);
       }
       if (top === DEADGRASS) {                                    // bare, twisted dead tree
         const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -805,7 +828,7 @@ function genNew(cx, cz, c, hm, L, Lget, town, rnd) {
     const t = 4 + Math.floor(rnd() * 3);
     for (let y = 1; y <= t; y++) L(lx, h + y, lz, LOG);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 1], [-1, 2], [1, -2], [-2, -1]])
-      if (hash3(x + dx, h, z + dz, state.seed + 77) < 0.16 && Lget(lx + dx, h, lz + dz) === GRASS && Lget(lx + dx, h + 1, lz + dz) === AIR) L(lx + dx, h + 1, lz + dz, RED_MUSH);
+      if (hash3(x + dx, h, z + dz, state.seed + 77) < 0.015 && Lget(lx + dx, h, lz + dz) === GRASS && Lget(lx + dx, h + 1, lz + dz) === AIR) L(lx + dx, h + 1, lz + dz, RED_MUSH);
     if (top === DEADGRASS) {
       const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       for (let k = 0; k < 2 + Math.floor(rnd() * 2); k++) { const [dx, dz] = dirs[Math.floor(rnd() * 4)], by = h + t - Math.floor(rnd() * 2); L(lx + dx, by, lz + dz, LOG); L(lx + dx * 2, by + 1, lz + dz * 2, LOG); }
@@ -947,7 +970,7 @@ function stampTown(t, cx, cz, L, Lget) {
     if (kind === 'house') { const w = R(5, 7), d = R(5, 7); house(X + R(0, 10 - w), Z + 1 + R(0, 9 - d), w, d, 1, wall, roof); if (r() < 0.6) tree(X + 1, Z + 8); }
     if (kind === 'big') house(X, Z + 1, 9, 8, 2, wall, roof);
     if (kind === 'garage') { const w = R(5, 6); house(X, Z + 2, w, 6, r() < 0.4 ? 2 : 1, wall, roof); garage(X + w + 0, Z + 1, wall); }
-    if (kind === 'park') { tree(X + 2, Z + 3); tree(X + 7, Z + 7); lamp(X + 5, Z + 5, 3); L(X + 4, B + 1, Z + 8, RED_MUSH); for (let x = X + 1; x < X + 9; x++) L(x, B, Z + 5, SIDEWALK); }
+    if (kind === 'park') { tree(X + 2, Z + 3); tree(X + 7, Z + 7); lamp(X + 5, Z + 5, 3); if (hash3(X, B, Z, state.seed + 78) < 0.08) L(X + 4, B + 1, Z + 8, RED_MUSH); for (let x = X + 1; x < X + 9; x++) L(x, B, Z + 5, SIDEWALK); }
     if (kind === 'farm') { for (let x = X; x < X + 10; x++) for (let z = Z + 1; z < Z + 10; z++) L(x, B, z, x === X + 5 ? WATER : FARM); for (let x = X; x < X + 10; x += 3) L(x, B + 1, Z + 9, PUMPKIN); }
     if (kind === 'square') { fill(X, B, Z, X + 9, B, Z + 9, COBBLE); L(X + 4, B, Z + 4, WATER); L(X + 5, B, Z + 4, WATER); lamp(X, Z, 3); lamp(X + 9, Z + 9, 3); lamp(X + 9, Z, 3); lamp(X, Z + 9, 3);
       spots.push({ kind: 'trader', x: x0 + X + 2, z: z0 + Z + 6 }); spots.push({ kind: 'trader', x: x0 + X + 7, z: z0 + Z + 3 }); }
@@ -1101,7 +1124,7 @@ function stampLot3(o) {
     if (kind === 'house') { const w = R(6, 8), d = R(6, 8), ax = X + R(0, 10 - w), az = Z + 1 + R(0, 9 - d), fl = r() < 0.3 ? 2 : 1, top = building(ax, az, w, d, fl, wall, GLASS, { corner: wall === PLANKS ? LOG : wall }); roofGable(ax, az, w, d, top, wall, roof); if (r() < 0.6 && ax > X + 1) tree(X + 1, Z + 8); }
     if (kind === 'big') { const top = building(X, Z + 1, 9, 8, 2, wall, GLASS, { corner: wall === PLANKS ? LOG : wall }); roofGable(X, Z + 1, 9, 8, top, wall, roof); }
     if (kind === 'garage') { const top = building(X, Z + 2, 6, 7, 1, wall, GLASS, {}); roofGable(X, Z + 2, 6, 7, top, wall, roof); garage(X + 6, Z + 1, wall); }
-    if (kind === 'park') { tree(X + 2, Z + 3); tree(X + 7, Z + 7); lamp(X + 5, Z + 5, 3); L(X + 4, B + 1, Z + 8, RED_MUSH); for (let x = X + 1; x < X + 9; x++) L(x, B, Z + 5, SIDEWALK); }
+    if (kind === 'park') { tree(X + 2, Z + 3); tree(X + 7, Z + 7); lamp(X + 5, Z + 5, 3); if (hash3(X, B, Z, state.seed + 78) < 0.08) L(X + 4, B + 1, Z + 8, RED_MUSH); for (let x = X + 1; x < X + 9; x++) L(x, B, Z + 5, SIDEWALK); }
     if (kind === 'farm') { for (let x = X; x < X + 10; x++) for (let z = Z + 1; z < Z + 10; z++) L(x, B, z, x === X + 5 ? WATER : FARM); for (let x = X; x < X + 10; x += 3) L(x, B + 1, Z + 9, PUMPKIN); }
     if (kind === 'square') { fill(X, B, Z, X + 9, B, Z + 9, COBBLE); L(X + 4, B, Z + 4, WATER); L(X + 5, B, Z + 4, WATER); lamp(X, Z, 3); lamp(X + 9, Z + 9, 3); lamp(X + 9, Z, 3); lamp(X, Z + 9, 3);
       spots.push({ kind: 'trader', x: x0 + X + 2, z: z0 + Z + 6 }); spots.push({ kind: 'trader', x: x0 + X + 7, z: z0 + Z + 3 }); }
@@ -1942,7 +1965,7 @@ function tickCropsAndPoop(dt) {
     const [x, y, z] = k.split(',').map(Number);
     if (!data.has(ckey(fdiv(x, CH), fdiv(z, CH)))) continue;
     if (get(x, y, z) !== POOP) { delete state.poops[k]; continue; }
-    if (state.gameTime - state.poops[k] > 120 && isDarkAt(x, y, z) && Math.random() < 0.12) { delete state.poops[k]; setBlock(x, y, z, BROWN_MUSH); }
+    if (state.gameTime - state.poops[k] > 120 && isDarkAt(x, y, z) && Math.random() < 0.015) { delete state.poops[k]; setBlock(x, y, z, BROWN_MUSH); }
   }
 }
 // ================== VILLAGERS ==================
@@ -2126,7 +2149,7 @@ function die(cause) {
     setBlock(gx, gy, gz, GRAVE); state.graves[gx + ',' + gy + ',' + gz] = items;
     state.slots = state.slots.map(s => keep(s) ? s : null); state.armor = emptySlots(4); state.off = keep(state.off) ? state.off : null; renderHotbar();
   }
-  const msg = { cop: 'was arrested the hard way by a cop', wolf: 'was mauled by a wolf pack', bear: 'was mauled by a bear', tiger: 'was hunted by a tiger', cheetah: 'was caught by a cheetah', car: 'got hit by a car', zombie: 'was eaten by a zombie', skeleton: 'was shot by a skeleton', explosion: 'was blown up', gang: 'got caught in a gang shootout', soldier: 'was shot by Area 51 soldiers', alien: 'was zapped by an alien', radiation: 'died of radiation poisoning', taser: 'was tased', fall: 'hit the ground too hard', fire: 'burned to death', lightning: 'was struck by lightning', drown: 'drowned', starve: 'starved to death' }[cause] || 'died';
+  const msg = { crackhead: 'got jumped by a crackhead looking for drugs', cop: 'was arrested the hard way by a cop', wolf: 'was mauled by a wolf pack', bear: 'was mauled by a bear', tiger: 'was hunted by a tiger', cheetah: 'was caught by a cheetah', car: 'got hit by a car', zombie: 'was eaten by a zombie', skeleton: 'was shot by a skeleton', explosion: 'was blown up', gang: 'got caught in a gang shootout', soldier: 'was shot by Area 51 soldiers', alien: 'was zapped by an alien', radiation: 'died of radiation poisoning', taser: 'was tased', fall: 'hit the ground too hard', fire: 'burned to death', lightning: 'was struck by lightning', drown: 'drowned', starve: 'starved to death' }[cause] || 'died';
   const show = () => { document.getElementById('deathMsg').textContent = 'Buggy ' + msg; document.getElementById('death').classList.add('show'); if (document.pointerLockElement) document.exitPointerLock(); };
   if (settings.jumpscares && (cause === 'zombie' || cause === 'skeleton' || cause === 'explosion' || nightAmt > 0.5)) jumpscare(show, cause); else show();
 }
@@ -2433,7 +2456,7 @@ function updateMobs(dt, t) {
   spawnT -= dt;
   if (spawnT <= 0) {
     spawnT = settings.difficulty === 'insane' ? 1.2 : settings.difficulty === 'hard' ? 1.8 : 2.5;
-    const hostile = mobs.filter(m => MOBDEF[m.type].hostile).length;
+    const hostile = mobs.filter(m => MOBDEF[m.type].hostile && m.type !== 'crackhead').length;
     if (nightAmt > 0.62 && hostile < diff().max) {
       const a = Math.random() * 6.28, r = 18 + Math.random() * 14, x = player.pos.x + Math.cos(a) * r, z = player.pos.z + Math.sin(a) * r;
       if (Math.hypot(x - VX, z - VZ) > SAFE_R + 4 && data.has(ckey(fdiv(Math.floor(x), CH), fdiv(Math.floor(z), CH)))) {
@@ -2463,7 +2486,7 @@ function updateMobs(dt, t) {
     if (m.type === 'chicken') { m.egg = (m.egg ?? 60 + Math.random() * 120) - dt; if (m.egg <= 0) { m.egg = 90 + Math.random() * 150; if (dist < 3 && player.alive) { give('egg', 1); toast('🥚 A chicken laid an egg for you'); } } }
     if (d.fly) { updateBird(m, dt, t); continue; }
     let mx = 0, mz = 0, speed = d.hostile ? d.speed * diff().spd : d.speed;
-    const chase = (d.hostile || (m.type === 'cop' && wanted > 0)) && dist < (m.type === 'cop' ? 30 : 18) && player.alive && canHurtPlayer() && !(m.type === 'cop' && player.car);
+    const chase = (d.hostile || (m.type === 'cop' && wanted > 0)) && !(m.calm > 0) && dist < (m.type === 'cop' ? 30 : 18) && player.alive && canHurtPlayer() && !(m.type === 'cop' && player.car);
     if (m.type === 'cop') speed = wanted > 0 ? 3.4 : 1.2;
     if (m.joint) { m.puff = (m.puff ?? Math.random() * 3) - dt; if (m.puff <= 0) { m.puff = 2.5 + Math.random() * 3; const w = new THREE.Vector3(); m.joint.getWorldPosition(w); smokePuff(w.x, w.y, w.z, 4); } }
     const wild = (d.ai || m.tamed) ? wildAI(m, d, dt, dist, t) : null;
@@ -2475,7 +2498,7 @@ function updateMobs(dt, t) {
         if (m.atk <= 0 && dist < 16 && lineOfSight(p.clone().setY(p.y + 1.6), pp.clone().setY(pp.y + 1.5))) { shootArrow(m); m.atk = 2.2; }
       } else { mx = dx / dd; mz = dz / dd; }
       g.rotation.y = Math.atan2(dx, dz);
-      if ((m.type === 'zombie' || m.type === 'cop') && dist < 1.5 && m.atk <= 0) { damage(d.dmg, m.type, p); m.atk = 1; if (m.type === 'cop') m.arms[1].rotation.x = -1.4; }
+      if ((m.type === 'zombie' || m.type === 'cop' || m.type === 'crackhead') && dist < 1.5 && m.atk <= 0) { damage(d.dmg, m.type, p); m.atk = 1; if (m.type === 'cop') m.arms[1].rotation.x = -1.4; }
       if (m.type === 'creeper') {
         if (dist < 2.8) { m.fuse += dt; if (m.fuse < dt * 1.5) hissSnd(); speed = 0.3; } else m.fuse = Math.max(0, m.fuse - dt);
         const s = 1 + m.fuse * 0.25; g.scale.set(s, 1 + m.fuse * 0.1, s);
@@ -3207,10 +3230,12 @@ function updateMining(dt) {
   if (mine.prog >= mine.total) { finishBreak(h); mine.key = null; crackMesh.visible = false; mine.cd = 0.15; }
 }
 function eat(id) {
-  if (state.food >= 20) { toast("You're not hungry"); return; }
+  const drug = DRUGS[id];
+  if (!drug && state.food >= 20) { toast("You're not hungry"); return; }
   const f = ITEMS[id].food; state.food = Math.min(20, state.food + f); state.sat = Math.min(state.food, state.sat + f * 0.6);
   useHeld(1); player.eatT = 0.5; for (let i = 0; i < 4; i++) setTimeout(() => beep(260 + Math.random() * 80, 0.05, 'square', 0.05), i * 110);
   if (id === 'rotten_flesh' && Math.random() < 0.8) { exhaust(8); toast('🤢 That was rotten...'); }
+  if (drug) takeDrug(id);
   renderVitals();
 }
 function placeBlock(h, block) {
@@ -3299,7 +3324,7 @@ function useAction() {
     let k;
     if (h.id === POOP) { setBlock(h.x, h.y, h.z, AIR); delete state.poops[h.x + ',' + h.y + ',' + h.z]; k = h.x + ',' + h.y + ',' + h.z; useHeld(1); state.crops[k] = { type: it.crop, t: state.gameTime - CROPS[it.crop].grow * 0.4, fert: true }; }
     else {
-      if (h.n[1] !== 1 || !solid(h.id)) { toast('Plant mushrooms on top of a block or on cow poop'); return; }
+      if (h.n[1] !== 1 || !solid(h.id)) { if (it.food) { eat(id); return; } toast('Plant mushrooms on top of a block or on cow poop'); return; }   // v1.11: side of a block = eat it
       k = h.x + ',' + (h.y + 1) + ',' + h.z; if (state.crops[k] || get(h.x, h.y + 1, h.z) !== AIR) return;
       useHeld(1); state.crops[k] = { type: it.crop, t: state.gameTime };
     }
@@ -6522,6 +6547,173 @@ function updateUfos(dt, t) {
   ufoSndT -= dt; if (near < 80 && ufoSndT <= 0) { ufoSndT = 1.4; const v = 0.05 * (1 - near / 80); sweep(520, 880, 0.6, 'sine', v); setTimeout(() => sweep(880, 520, 0.6, 'sine', v), 600); }
 }
 function updateAir(dt, t) { updateAircraft(dt); updateUfos(dt, t); }
+// ================== v1.11 DRUG UPDATE: highs, drunk, trips + crackheads ==================
+// kind: up (crack, cocaine, meth: run faster) or down (everything else: run slower). fx picks the screen effect.
+const DRUGS = {
+  crack:         { kind: 'up',   speed: 1.65, dur: 45,  fx: 'wired', e: '🪨', n: 'Crack high' },
+  cocaine:       { kind: 'up',   speed: 1.45, dur: 75,  fx: 'wired', e: '❄️', n: 'Coked up' },
+  meth:          { kind: 'up',   speed: 1.55, dur: 150, fx: 'wired', e: '🧊', n: 'Tweaking' },
+  beer:          { kind: 'down', speed: 0.75, dur: 90,  fx: 'drunk', e: '🍺', n: 'Drunk' },
+  vodka:         { kind: 'down', speed: 0.7,  dur: 150, fx: 'drunk', e: '🍾', n: 'Drunk', strong: 2 },
+  cough_syrup:   { kind: 'down', speed: 0.7,  dur: 120, fx: 'lean',  e: '🧴', n: 'Syrup' },
+  purple_sprite: { kind: 'down', speed: 0.6,  dur: 200, fx: 'lean',  e: '🥤', n: 'Leaning' },
+  pills:         { kind: 'down', speed: 0.8,  dur: 60,  fx: 'pills', e: '💊', n: 'Pilled' },
+  xanax:         { kind: 'down', speed: 0.55, dur: 120, fx: 'xan',   e: '💊', n: 'Xanned out' },
+  ecstasy:       { kind: 'down', speed: 0.8,  dur: 150, fx: 'rolling', e: '💊', n: 'Rolling' },
+  acid:          { kind: 'down', speed: 0.75, dur: 240, fx: 'trip',  e: '🌈', n: 'Tripping' },
+  brown_mushroom:{ kind: 'down', speed: 0.8,  dur: 90,  fx: 'trip',  e: '🍄', n: 'Shrooming' },
+  red_mushroom:  { kind: 'down', speed: 0.8,  dur: 120, fx: 'trip',  e: '🍄', n: 'Shrooming' },
+  mushroom_stew: { kind: 'down', speed: 0.75, dur: 200, fx: 'trip',  e: '🥣', n: 'Shroom soup trip' },
+};
+const DRUG_MSG = { crack: '🪨 Your heart is racing. You feel FAST', cocaine: '❄️ Sniff... you feel unstoppable', meth: '🧊 Wide awake and twitchy. Zoom zoom',
+  beer: '🍺 *hic*', vodka: '🍾 Whoa... the room is spinning', cough_syrup: '🧴 Everything slows down...', purple_sprite: '🥤 Sippin\' lean. Moving in slow motion',
+  pills: '💊 Feeling a little fuzzy', xanax: '💊 So... relaxed... can barely move', ecstasy: '💊 Everything feels amazing', acid: '🌈 The colors are breathing...',
+  brown_mushroom: '🍄 The ground is starting to wiggle', red_mushroom: '🍄 The trees are melting', mushroom_stew: '🥣 Uh oh. That soup was strong' };
+const highs = {};   // fx -> { t, max, lvl, speed, kind }
+function takeDrug(id) {
+  const d = DRUGS[id]; if (!d) return;
+  const h = highs[d.fx] || (highs[d.fx] = { t: 0, max: 0, lvl: 0, speed: 1, kind: d.kind });
+  h.lvl = Math.min(3, h.lvl + (d.strong || 1)); h.t = Math.min(d.dur * 2.5, h.t + d.dur); h.max = Math.max(h.max, h.t); h.kind = d.kind;
+  h.speed = d.kind === 'up' ? Math.max(h.speed === 1 ? 0 : h.speed, d.speed) : Math.min(h.speed, d.speed);
+  toast(DRUG_MSG[id] || `${d.e} ${d.n}`); if (d.kind === 'up') beep(520, 0.08, 'square', 0.04);
+}
+function drugSpeed() {
+  let up = 0, down = 1;
+  for (const k in highs) { const h = highs[k]; if (h.t <= 0) continue; if (h.kind === 'up') up = Math.max(up, h.speed); else down = Math.min(down, h.speed); }
+  return up ? up : down;   // crack/cocaine/meth win over everything else
+}
+let drugHud = null, drugTint = null, drugCssOn = false;
+function drugEls() {
+  if (drugHud) return;
+  drugHud = document.createElement('div');
+  drugHud.style.cssText = 'position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;font:bold 13px sans-serif;color:#fff;text-shadow:0 1px 3px #000;display:none;gap:8px;white-space:nowrap';
+  document.body.appendChild(drugHud);
+  drugTint = document.createElement('div');
+  drugTint.style.cssText = 'position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;mix-blend-mode:screen';
+  document.body.appendChild(drugTint);
+}
+let hudTick = 0;
+function updateDrugs(dt, t) {
+  drugEls();
+  if (!player.alive || !playing) for (const k in highs) Object.assign(highs[k], { t: 0, lvl: 0, speed: 1 });   // dying (or leaving the world) sobers you up
+  let roll = 0, yaw = 0, pitch = 0, skew = 0, rot = 0, sc = 1, filt = [], tint = null, tintA = 0, any = false;
+  for (const k in highs) {
+    const h = highs[k]; if (h.t <= 0) continue;
+    if (playing) h.t -= dt;
+    if (h.t <= 0) { h.t = 0; h.lvl = 0; h.speed = 1; toast(k === 'drunk' ? '🥴 You sobered up' : '😮‍💨 The effects wore off'); continue; }
+    any = true;
+    const f = Math.min(1, h.t / 12) * (0.6 + h.lvl * 0.4);   // fades out over the last 12 seconds
+    if (k === 'drunk') {   // wavy and spinning
+      roll += (Math.sin(t * 1.1) * 0.12 + Math.sin(t * 0.43) * 0.1) * f * h.lvl;
+      if (h.lvl >= 3) roll += Math.sin(t * 0.25) * 0.5 * f;
+      yaw += Math.sin(t * 0.7) * 0.05 * f * h.lvl; pitch += Math.sin(t * 0.9 + 1) * 0.03 * f * h.lvl;
+      skew += Math.sin(t * 2.2) * 3 * f; rot += Math.sin(t * 0.8) * 3 * f; sc += Math.sin(t * 1.7) * 0.03 * f;
+      filt.push(`blur(${(0.4 + h.lvl * 0.4) * f}px)`);
+    } else if (k === 'trip') {   // rainbow, breathing, wavy
+      filt.push(`hue-rotate(${(t * 70) % 360}deg)`, `saturate(${1 + 1.2 * f})`);
+      skew += Math.sin(t * 1.5) * 4 * f; sc += Math.sin(t * 0.9) * 0.05 * f; roll += Math.sin(t * 0.5) * 0.06 * f;
+      tint = `hsl(${(t * 90) % 360},100%,50%)`; tintA = Math.max(tintA, 0.12 * f);
+    } else if (k === 'lean') {   // purple and syrupy
+      tint = '#7a2cff'; tintA = Math.max(tintA, 0.22 * f); filt.push(`blur(${0.8 * f}px)`);
+      roll += Math.sin(t * 0.4) * 0.05 * f; yaw += Math.sin(t * 0.3) * 0.03 * f;
+    } else if (k === 'xan') {   // heavy eyes
+      filt.push(`blur(${1.6 * f}px)`, `brightness(${1 - 0.25 * f})`); pitch -= (0.06 + Math.sin(t * 0.6) * 0.04) * f;
+    } else if (k === 'pills') {
+      filt.push(`blur(${0.7 * f}px)`); roll += Math.sin(t * 0.6) * 0.03 * f;
+    } else if (k === 'rolling') {   // everything glows
+      filt.push(`saturate(${1 + 1.5 * f})`, `brightness(${1 + 0.15 * Math.sin(t * 4) * f})`);
+      tint = '#ff4fd8'; tintA = Math.max(tintA, (0.1 + 0.08 * Math.sin(t * 4)) * f);
+    } else if (k === 'wired') {   // shaky and sharp
+      const j = 0.004 + h.lvl * 0.003; pitch += (Math.random() - 0.5) * j * f; yaw += (Math.random() - 0.5) * j * f;
+      filt.push(`contrast(${1 + 0.25 * f})`, `saturate(${1 + 0.5 * f})`);
+    }
+  }
+  if (any) { camera.rotation.z += roll; camera.rotation.y += yaw; camera.rotation.x += pitch; }
+  const cv = renderer.domElement;
+  if (any) {
+    const a = Math.abs(rot) * Math.PI / 180, asp = Math.max(innerWidth / innerHeight, innerHeight / innerWidth);
+    const cover = Math.cos(a) + asp * Math.sin(a) + Math.tan(Math.abs(skew) * Math.PI / 180) + 0.02;
+    cv.style.transform = `scale(${Math.max(sc, cover).toFixed(3)}) rotate(${rot.toFixed(2)}deg) skewX(${skew.toFixed(2)}deg)`;
+    cv.style.filter = filt.join(' '); drugCssOn = true;
+    drugTint.style.background = tint || 'transparent'; drugTint.style.opacity = tint ? tintA.toFixed(3) : 0;
+  } else if (drugCssOn) { cv.style.transform = ''; cv.style.filter = ''; drugTint.style.opacity = 0; drugCssOn = false; }
+  hudTick -= dt; if (hudTick <= 0) { hudTick = 0.5;
+    const on = Object.entries(highs).filter(([, h]) => h.t > 0);
+    drugHud.style.display = on.length && playing ? 'flex' : 'none';
+    drugHud.textContent = on.map(([k, h]) => { const d = Object.values(DRUGS).find(v => v.fx === k); return `${d.e} ${k === 'drunk' ? ['', 'Tipsy', 'Drunk', 'Wasted'][h.lvl] : d.n} ${Math.ceil(h.t)}s`; }).join('   ');
+  }
+  updateCrackheads(dt, t);
+}
+
+// ---- crackheads: skinny, twitchy, hostile. They hang around towns (mostly the ghetto) asking where the drugs are.
+Object.assign(MOBDEF, { crackhead: { hp: 10, w: 0.25, h: 1.85, speed: 2.7, hostile: true, dmg: 2, drops: () => [['pills', Math.random() < 0.25 ? 1 : 0], ['crack', Math.random() < 0.08 ? 1 : 0]] } });
+MOB_NAMES.crackhead = '💀 Crackhead'; MOBHIT.add('crackhead'); CREATURE_HIT.add('crackhead');
+const CRACK_LINES = ["Where's the drugs man?!", "Yo! Where's the drugs man?", "C'mon man... where's the drugs?!", "I know you holdin'! Where's the drugs man?", "Just one hit man! Where's the drugs?!"];
+function speechSprite(text) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(255,255,255,.92)'; x.beginPath(); x.roundRect ? x.roundRect(6, 6, 500, 70, 22) : x.rect(6, 6, 500, 70); x.fill();
+  x.beginPath(); x.moveTo(236, 74); x.lineTo(256, 94); x.lineTo(276, 74); x.fill();
+  x.fillStyle = '#111'; x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.fillText(text, 256, 52, 480);
+  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, depthTest: false, transparent: true })); s.scale.set(2.6, 0.49, 1); s.renderOrder = 6; return s;
+}
+{ const bm1 = buildMob; buildMob = function (type, v = 0) {
+  if (type !== 'crackhead') return bm1(type, v);
+  const g = new THREE.Group(), legs = [], arms = [];
+  const skin = [0xd9b48f, 0xc58c63, 0x8d5524, 0xe8c9a8][v % 4], top = [0xe8e2cf, 0x9a9a8a, 0x6b5a3a][v % 3], pants = [0x3a4a6a, 0x4a4036, 0x2a2a2a][(v >> 2) % 3];
+  box(0.34, 0.72, 0.17, top, 0, 1.1, 0, g);                                    // stained tank top, rib-thin
+  box(0.12, 0.06, 0.02, 0x7a6a3a, 0.05, 1.2, 0.09, g);                         // stain
+  const head = new THREE.Group(); head.position.set(0, 1.66, 0); g.add(head);
+  box(0.38, 0.44, 0.38, skin, 0, 0, 0, head);
+  box(0.4, 0.08, 0.4, 0x2a1a0a, 0, 0.2, 0, head);                              // patchy hair
+  for (const ex of [-0.09, 0.09]) { box(0.1, 0.08, 0.02, 0x3a2030, ex, 0.04, 0.19, head); const e = box(0.04, 0.04, 0.02, 0xffffff, ex, 0.04, 0.2, head); e.material.emissive.setHex(0x440000); }
+  box(0.16, 0.04, 0.02, 0x4a1a1a, 0, -0.12, 0.19, head);                       // gaunt mouth
+  for (const lx of [-0.08, 0.08]) legs.push(pivotLimb(g, 0.12, 0.74, 0.12, pants, lx, 0.74, 0));
+  for (const ax of [-0.23, 0.23]) arms.push(pivotLimb(g, 0.09, 0.68, 0.09, skin, ax, 1.42, 0));
+  const say = speechSprite(CRACK_LINES[v % CRACK_LINES.length]); say.position.set(0, 2.35, 0); say.visible = false; g.add(say);
+  return { g, legs, arms, head, say };
+}; }
+{ const ml1 = mobLabel; mobLabel = function (m) { if (m.type === 'crackhead') return m.calm > 0 ? '💀 Crackhead · 😵‍💫 satisfied (for now)' : '💀 Crackhead · ✋ give him drugs to make him leave'; return ml1(m); }; }
+{ const im1 = interactMob; interactMob = function (m, id, it) {
+  if (m.type === 'crackhead') {
+    if (DRUGS[id] && !ITEMS[id].crop) { useHeld(1); m.calm = 90; m.target = null; toast(`💀 "Ayy thank you man! You a real one." (+ he leaves you alone)`); return true; }
+    return false;
+  }
+  return im1(m, id, it); }; }
+let crackT = 0, crackSayT = 0;
+function updateCrackheads(dt, t) {
+  if (!playing) return;
+  const pp = player.pos;
+  crackSayT -= dt;
+  for (const m of mobs) {
+    if (m.type !== 'crackhead') continue;
+    if (m.calm > 0) m.calm -= dt;
+    const dist = m.g.position.distanceTo(pp), angry = !(m.calm > 0) && canHurtPlayer() && player.alive;
+    m.arms.forEach((a, i) => { a.rotation.x = angry && dist < 18 ? -1.2 + Math.sin(t * 9 + i * 2) * 0.35 : (i % 2 ? -1 : 1) * Math.sin(m.walk) * 0.6; a.rotation.z = (i ? -1 : 1) * Math.sin(t * 13 + i) * 0.08; });   // reaching, twitching
+    if (m.head) m.head.rotation.z = Math.sin(t * 11 + m.v) * 0.06;
+    m.sayT = (m.sayT ?? Math.random() * 3) - dt;
+    if (m.say) {
+      if (m.sayT <= 0) { m.sayT = 4 + Math.random() * 4; m.sayOn = 2.2; }
+      m.sayOn = (m.sayOn || 0) - dt; m.say.visible = m.sayOn > 0 && dist < 22 && angry;
+    }
+    if (angry && dist < 7 && crackSayT <= 0) { crackSayT = 9; toast(`💀 Crackhead: "${CRACK_LINES[Math.floor(Math.random() * CRACK_LINES.length)]}"`); beep(180 + Math.random() * 60, 0.12, 'sawtooth', 0.03); }
+  }
+  crackT -= dt; if (crackT > 0) return; crackT = 4;
+  if (!canHurtPlayer() || diff().max === 0) return;
+  const tn = townAt(Math.floor(pp.x), Math.floor(pp.z)), ghetto = inGhetto(pp.x, pp.z), town = ghetto || inTown(tn, pp.x, pp.z, 20);
+  if (!town) return;
+  const want = (ghetto ? 3 : 1) + (nightAmt > 0.5 ? 1 : 0);
+  if (mobs.filter(m => m.type === 'crackhead' && m.g.position.distanceTo(pp) < 70).length >= want) return;
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * 6.28, r = 18 + Math.random() * 16, x = Math.floor(pp.x + Math.cos(a) * r), z = Math.floor(pp.z + Math.sin(a) * r);
+    if (Math.hypot(x - VX, z - VZ) < SAFE_R + 4 || !data.has(ckey(fdiv(x, CH), fdiv(z, CH)))) continue;
+    const y = groundAt(x + 0.5, z + 0.5), below = get(x, y - 1, z);
+    if (isWater(below) || below === AIR || solid(get(x, y, z)) || solid(get(x, y + 1, z)) || y >= H - 2) continue;
+    spawnMob('crackhead', x + 0.5, y, z + 0.5); break;
+  }
+}
+
+window.__dcDrug = { DRUGS, highs, drugSpeed, takeDrug, updateCrackheads, get crackT() { return crackT; }, set crackT(v) { crackT = v; } };
 
 // ================== SOUNDS ==================
 let ambStarted = false;
@@ -6635,7 +6827,7 @@ function updatePlayer(dt) {
   const str = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
   if (player.sprint && (fwd <= 0.2 || state.food <= 6)) player.sprint = false;
   const water = inWater();
-  const sp = (player.sprint ? 6.4 : 4.3) * (water ? 0.55 : 1);
+  const sp = (player.sprint ? 6.4 : 4.3) * (water ? 0.55 : 1) * drugSpeed();
   const sn = Math.sin(player.yaw), cs = Math.cos(player.yaw);
   let mx = -sn * fwd + cs * str, mz = -cs * fwd - sn * str; const m = Math.hypot(mx, mz);
   if (m > 1) { mx /= m; mz /= m; }
@@ -6748,7 +6940,7 @@ function frame(now) {
   updateVillagers(dt); updateSpooks(dt, now / 1000); if (playing) { updateMobs(dt, now / 1000); updateV109(dt, now / 1000); } updateParticles(dt); updateFurnaces(dt);
   if (playing) { updateCars(dt, now / 1000); updateTowns(dt); updateSea(dt); updateServices(dt, now / 1000); } updateSmoke(dt);
   updateSleep(dt); updateNet(dt, now / 1000); updateTVs(dt); updateRadio(dt); if (!player.car) updateMyAvatar(dt, now / 1000); else if (myAv) { myAv.g.visible = false; hand.visible = true; }
-  updateWeather(dt); updateSky(); updateTarget(); updateHand(dt, moving); updateTorchLights(dt); updateMap(dt); updateOffhand(dt); updateV110s4(dt, now / 1000);
+  updateWeather(dt); updateSky(); updateDrugs(dt, now / 1000); updateTarget(); updateHand(dt, moving); updateTorchLights(dt); updateMap(dt); updateOffhand(dt); updateV110s4(dt, now / 1000);
   cropTick += dt; if (cropTick > 1) { cropTick = 0; if (playing) tickCropsAndPoop(1); let ch = false; for (const k in state.crops) { const c = state.crops[k]; if (cropStage(c) !== c._st || (c.type === 'weed' && Math.round(Math.min(1, (state.gameTime - c.t) / CROPS.weed.grow) * 40) !== c._g)) ch = true; } if (ch) buildCrops(); }
   statTick += dt; if (statTick > 0.5) { statTick = 0; renderStats(); renderVitals(); }
   saveTick += dt; if (saveTick > 10 && playing) { saveTick = 0; save(); }

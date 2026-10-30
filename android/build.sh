@@ -9,7 +9,7 @@ javac --release 17 -nowarn -cp $AJ -d build/obj $(find src build/gen -name '*.ja
 java -cp $BT/lib/d8.jar com.android.tools.r8.D8 --min-api 24 --lib $AJ --output build/dex $(find build/obj -name '*.class')
 (cd build/dex && zip -q ../unsigned.apk classes.dex)
 qemu-x86_64 $BT/zipalign -f -p 4 build/unsigned.apk build/aligned.apk
-[ -f /workspace/work/dealercraft-spooky/dealercraft.keystore ] || keytool -genkeypair -keystore /workspace/work/dealercraft-spooky/dealercraft.keystore -alias dealercraft -keyalg RSA -keysize 2048 -validity 10000 -storepass dealercraft -keypass dealercraft -dname "CN=Buggy Games YT" >/dev/null 2>&1
-java -jar $BT/lib/apksigner.jar sign --ks /workspace/work/dealercraft-spooky/dealercraft.keystore --ks-pass pass:dealercraft --out DealerCraft.apk build/aligned.apk
+[ -f /workspace/work/dealercraft-spooky/dealercraft.keystore ] || keytool -genkeypair -keystore /workspace/work/dealercraft-spooky/dealercraft.keystore -alias dealercraft -keyalg RSA -keysize 2048 -validity 10000 -storepass $(cat /workspace/work/dealercraft-spooky/ks.pass) -keypass $(cat /workspace/work/dealercraft-spooky/ks.pass) -dname "CN=Buggy Games YT" >/dev/null 2>&1
+java -jar $BT/lib/apksigner.jar sign --ks /workspace/work/dealercraft-spooky/dealercraft.keystore --ks-pass file:/workspace/work/dealercraft-spooky/ks.pass --out DealerCraft.apk build/aligned.apk
 java -jar $BT/lib/apksigner.jar verify --verbose DealerCraft.apk | head -5
 ls -la DealerCraft.apk
