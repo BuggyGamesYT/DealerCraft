@@ -7,7 +7,7 @@ const SEA = 9, G = 13;                          // water level, village ground
 const VX = 32, VZ = 32;                         // village centre
 const GX = VX - 13, GZ = VZ + 13;               // graveyard centre
 const DAY = 1200;                               // seconds per day (20 min, like Minecraft)
-const VIEW = 4;                                 // chunks drawn around the player
+let VIEW = 4;                                   // chunks drawn around the player (Settings: render distance)
 const SLOTS = 3, SLOT = Math.min(SLOTS, Math.max(1, +(localStorage.getItem('dealercraft_slot') || 1)));   // multiple worlds
 const slotKey = n => n === 1 ? 'dealercraft_save_v1' : 'dealercraft_save_v1_s' + n;
 const SAVE_KEY = slotKey(SLOT);
@@ -185,6 +185,45 @@ const VILLAGERS = [
 ];
 const RANKS = [[0, 'Rookie Grower'], [100, 'Street Farmer'], [400, 'Market Dealer'], [1200, 'Crop Boss'], [3000, 'DealerCraft Tycoon']];
 
+// ================== FURNITURE & ELECTRONICS (beds, laptops, TVs, radios) ==================
+// each is 4 block ids (one per facing); the front faces the player who placed it
+const BED0 = 65, LAPTOP0 = 69, TV0 = 73, RADIO0 = 77;
+const FURN_BASES = [BED0, LAPTOP0, TV0, RADIO0];
+const furnBase = id => (id >= 65 && id < 81) ? 65 + ((id - 65) >> 2) * 4 : -1;
+const furnF = id => (id - 65) & 3;
+const isFurn = id => id >= 65 && id < 81;
+const FURN_ITEM = { [BED0]: 'bed', [LAPTOP0]: 'laptop', [TV0]: 'tv', [RADIO0]: 'radio' };
+for (let id = 65; id < 81; id++) {
+  PLANT.add(id); BT[id] = [9, 9, 9]; HARD[id] = [0.35, null]; BLOCK_DROP[id] = FURN_ITEM[furnBase(id)];
+}
+Object.assign(ITEMS, {
+  bed: { name: 'Bed', emoji: '🛏️', furn: BED0, stack: 1 },
+  laptop: { name: 'Laptop', emoji: '💻', furn: LAPTOP0, stack: 1 },
+  tv: { name: 'TV', emoji: '📺', furn: TV0, stack: 1 },
+  radio: { name: 'Radio', emoji: '📻', furn: RADIO0, stack: 1 },
+});
+shaped('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' });
+shaped('laptop', 1, ['GGG', 'ICI', 'III'], { G: 'glass', I: 'iron_ingot', C: 'coal' });
+shaped('tv', 1, ['GGG', 'GCG', 'III'], { G: 'glass', I: 'iron_ingot', C: 'coal' });
+shaped('radio', 1, ['..I', 'PCP', 'PPP'], { I: 'iron_ingot', P: 'planks', C: 'coal' });
+Object.assign(VILLAGERS[3].sells, { bed: 30, radio: 45, tv: 90, laptop: 140 });
+FUEL.bed = 1.5; FUEL.radio = 1;
+// rotate a model box (made facing +z) to facing f: 0 +z, 1 +x, 2 -z, 3 -x
+function rotBox(b, f) {
+  const r = (x, z) => f === 0 ? [x, z] : f === 1 ? [z, 1 - x] : f === 2 ? [1 - x, 1 - z] : [1 - z, x];
+  const [ax, az] = r(b[0], b[2]), [bx, bz] = r(b[3], b[5]);
+  return [Math.min(ax, bx), b[1], Math.min(az, bz), Math.max(ax, bx), b[4], Math.max(az, bz)];
+}
+// [box, tile] lists; tiles 78.. painted in p_d_tiles_furn
+const FURN_MODEL = {
+  [BED0]: [[[0, 0, 0, 1, 0.2, 1], 9], [[0.03, 0.2, 0.06, 0.97, 0.5, 0.98], 78], [[0.1, 0.5, 0.1, 0.9, 0.62, 0.34], 79], [[0, 0, 0, 1, 0.9, 0.08], 9], [[0, 0, 0.92, 1, 0.42, 1], 9]],
+  [LAPTOP0]: [[[0.18, 0, 0.3, 0.82, 0.05, 0.78], 80], [[0.18, 0.05, 0.26, 0.82, 0.5, 0.3], 80], [[0.21, 0.08, 0.3, 0.79, 0.47, 0.31], 81]],
+  [TV0]: [[[0.35, 0, 0.36, 0.65, 0.05, 0.62], 82], [[0.46, 0.05, 0.45, 0.54, 0.14, 0.52], 82], [[0.02, 0.14, 0.42, 0.98, 0.96, 0.56], 82], [[0.06, 0.18, 0.56, 0.94, 0.92, 0.565], 83]],
+  [RADIO0]: [[[0.16, 0, 0.32, 0.84, 0.44, 0.68], 84], [[0.19, 0.04, 0.68, 0.81, 0.4, 0.69], 85], [[0.72, 0.44, 0.44, 0.75, 0.92, 0.47], 86], [[0.18, 0.44, 0.48, 0.3, 0.48, 0.52], 86]],
+};
+// facing a newly placed piece toward the player
+function facingToPlayer() { const d = getDir(); return Math.abs(d.x) > Math.abs(d.z) ? (d.x > 0 ? 3 : 1) : (d.z > 0 ? 2 : 0); }
+
 // ================== RANDOM / NOISE ==================
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hash2(x, z, s) { let h = x * 374761393 + z * 668265263 + s * 982451653; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -200,6 +239,10 @@ const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
 // ================== STATE ==================
 let state = null;
+// online: a guest plays in the host's world (sent before the reload) but keeps their own bag
+const MP = (() => { try { return JSON.parse(localStorage.getItem('dc_mp')); } catch (e) { return null; } })();
+const MP_GUEST = !!(MP && MP.role === 'guest');
+const INV_KEYS = ['slots', 'armor', 'off', 'sel', 'coins', 'earned', 'hp', 'food', 'sat'];
 const emptySlots = n => Array.from({ length: n }, () => null);
 function newState() {
   const slots = emptySlots(36);
@@ -207,7 +250,7 @@ function newState() {
   slots[3] = { id: 'seeds_pumpkin', n: 3 }; slots[4] = { id: 'bread', n: 3 };
   return { seed: (Math.random() * 1e9) | 0, edits: {}, crops: {}, slots, armor: emptySlots(4), sel: 0,
     coins: 20, earned: 0, time: DAY * 0.3, gameTime: 0, pos: [VX + 0.5, G + 1, VZ - 4.5], yaw: Math.PI, pitch: -0.2,
-    hp: 20, food: 20, sat: 5, furnaces: {}, graves: {}, chests: {}, poops: {}, off: null, v: 2 };
+    hp: 20, food: 20, sat: 5, furnaces: {}, graves: {}, chests: {}, poops: {}, dev: {}, spawn: null, off: null, v: 2 };
 }
 function migrate(s) {
   // older saves kept an item->count map plus a hotbar list; turn that into Minecraft-style slots
@@ -224,10 +267,12 @@ function migrate(s) {
   }
   if (!s.armor) s.armor = emptySlots(4);
   for (const k of ['hp', 'food']) if (s[k] == null) s[k] = 20;
-  if (s.sat == null) s.sat = 5; if (!s.furnaces) s.furnaces = {}; if (!s.graves) s.graves = {}; if (!s.chests) s.chests = {}; if (!s.poops) s.poops = {};
+  if (s.sat == null) s.sat = 5; if (!s.furnaces) s.furnaces = {}; if (!s.graves) s.graves = {}; if (!s.chests) s.chests = {}; if (!s.poops) s.poops = {}; if (!s.dev) s.dev = {};
   s.v = 2; return s;
 }
 function load() {
+  if (MP_GUEST) try { const w = JSON.parse(localStorage.getItem('dc_mp_world')), inv = JSON.parse(localStorage.getItem('dc_mp_inv')) || {};
+    if (w && w.seed != null) { const s = migrate(Object.assign(newState(), w, inv)); s._welcomed = true; return s; } } catch (e) {}
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.seed != null) return migrate(Object.assign(newState(), s)); } catch (e) {}
   return null;
 }
@@ -235,6 +280,7 @@ let saveBlocked = false;
 function save() {
   if (saveBlocked) return;
   state.pos = [player.pos.x, player.pos.y, player.pos.z]; state.yaw = player.yaw; state.pitch = player.pitch;
+  if (MP_GUEST) { const inv = {}; for (const k of INV_KEYS) inv[k] = state[k]; try { localStorage.setItem('dc_mp_inv', JSON.stringify(inv)); } catch (e) {} return; }
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 state = load();
@@ -578,6 +624,27 @@ paintTile(40, (px, r) => { noiseFill(px, r, [110, 80, 58], 40); for (let x = 0; 
 const emiTex = new THREE.CanvasTexture(emi);
 emiTex.magFilter = THREE.NearestFilter; emiTex.minFilter = THREE.NearestFilter; emiTex.colorSpace = THREE.SRGBColorSpace; emiTex.generateMipmaps = false;
 function tileTex(t) { const c = hdBlit(document.createElement('canvas'), t); const tx = new THREE.CanvasTexture(c); tx.magFilter = tx.minFilter = THREE.NearestFilter; tx.colorSpace = THREE.SRGBColorSpace; return tx; }
+// furniture tiles: 78 bed blanket, 79 pillow, 80 laptop shell, 81 laptop screen (DealerNet), 82 TV plastic, 83 TV glass (off), 84 radio wood, 85 radio front, 86 metal
+paintTile(78, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 16, stripe = y % 6 === 0; px(x, y, stripe ? rgb(240, 230, 220) : rgb(196 + k, 34 + k * .4, 40 + k * .4)); } });
+paintTile(79, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 10, e = x === 0 || y === 0 || x === 15 || y === 15; px(x, y, e ? rgb(200, 200, 205) : rgb(240 + k, 240 + k, 244 + k)); } });
+paintTile(80, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 8, key = y > 3 && y < 12 && x > 1 && x < 14 && x % 2 === 0 && y % 2 === 0; px(x, y, key ? rgb(30, 30, 34) : rgb(120 + k, 124 + k, 132 + k)); } });
+paintTile(81, (px) => {
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(x, y, '#f4f6fb');
+  for (let x = 0; x < TS; x++) { px(x, 0, '#1b1b22'); px(x, 1, '#3a7bf2'); px(x, 2, '#3a7bf2'); }
+  for (let x = 1; x < 6; x++) px(x, 1, '#ffd84a');
+  for (let i = 0; i < 4; i++) { const y = 4 + i * 3; px(1, y, ['#e84b3c', '#3fa34d', '#f2c21a', '#8a3fd2'][i]); px(2, y, ['#e84b3c', '#3fa34d', '#f2c21a', '#8a3fd2'][i]); for (let x = 4; x < 11; x++) px(x, y, '#9aa0ad'); px(12, y, '#2fb35a'); px(13, y, '#2fb35a'); }
+  for (let y = 0; y < TS; y++) { px(0, y, '#1b1b22'); px(15, y, '#1b1b22'); } for (let x = 0; x < TS; x++) px(x, 15, '#1b1b22');
+});
+paintTile(82, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 6; px(x, y, rgb(28 + k, 28 + k, 32 + k)); } });
+paintTile(83, (px) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const sh = (x - y > 6 && x - y < 9); px(x, y, sh ? '#2a3440' : '#10161c'); } });
+paintTile(84, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (y % 5 === 0 ? -30 : 0) + (r() - .5) * 14; px(x, y, rgb(140 + k, 86 + k, 44 + k)); } });
+paintTile(85, (px, r) => {
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) px(x, y, rgb(150, 96, 52));
+  for (let y = 2; y < 14; y++) for (let x = 1; x < 9; x++) { const d = Math.hypot(x - 4.5, y - 7.5); px(x, y, d < 4.3 ? ((x + y) % 2 ? '#2a2420' : '#4a4038') : rgb(150, 96, 52)); }
+  for (let x = 10; x < 15; x++) { px(x, 3, '#e8d9a0'); px(x, 4, '#e8d9a0'); } px(12, 3, '#d22'); px(12, 4, '#d22');
+  for (const [cx, cy] of [[11, 9], [13, 12]]) { px(cx, cy, '#ddd'); px(cx + 1, cy, '#999'); px(cx, cy + 1, '#999'); px(cx + 1, cy + 1, '#666'); }
+});
+paintTile(86, (px, r) => noiseFill(px, r, [176, 180, 188], 16));
 // survival tiles: bedrock, ores, crafting table, furnace, grave, door
 paintTile(14, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const v = r(); px(x, y, v < .3 ? '#1c1c1c' : v < .7 ? '#3b3b3b' : '#5a5a5a'); } });
 const ore = (dot) => (px, r) => { noiseFill(px, r, [125, 125, 125], 30); for (let i = 0; i < 5; i++) { const x = 1 + (r() * 12 | 0), y = 1 + (r() * 12 | 0); px(x, y, dot); px(x + 1, y, dot); px(x, y + 1, dot); px(x + 1, y + 1, '#222'); } };
@@ -906,6 +973,7 @@ function buildChunk(cx, cz) {
     const id = c[lidx(lx, y, lz)]; if (id === AIR) continue;
     const x = x0 + lx, z = z0 + lz;
     if (isDoor(id)) { pushBox(A, x, y, z, doorBox(id), doorTop(id) ? 48 : 47); continue; }
+    if (id >= 65 && id < 81) { const f = furnF(id); for (const [b, t] of FURN_MODEL[furnBase(id)]) pushBox(A, x, y, z, rotBox(b, f), t); continue; }
     if (id === TORCH) { pushBox(A, x, y, z, [0.44, 0, 0.44, 0.56, 0.62, 0.56], 57); continue; }
     if (id === POOP) { pushBox(A, x, y, z, [0.28, 0, 0.3, 0.72, 0.16, 0.7], 58); pushBox(A, x, y, z, [0.36, 0.16, 0.38, 0.64, 0.28, 0.62], 58); pushBox(A, x, y, z, [0.44, 0.28, 0.46, 0.56, 0.36, 0.54], 58); continue; }
     if (id === RED_MUSH || id === BROWN_MUSH) {   // crossed sprite, both sides
@@ -967,6 +1035,8 @@ function setBlock(x, y, z, id, now = true) {
   if (y < 0 || y >= H) return;
   const old = get(x, y, z);
   rawSet(x, y, z, id); const k = x + ',' + y + ',' + z; state.edits[k] = id; indexEdit(k);
+  if (furnBase(old) !== furnBase(id) && state.dev && state.dev[k] != null) delete state.dev[k];
+  if (typeof netEdit === 'function') netEdit(k, id);
   markDirty(x, z); wakeWater(x, y, z);
   if (glows(id)) torches.add(k); else torches.delete(k);
   mapMem.delete(ckey(fdiv(x, CH), fdiv(z, CH)));
@@ -991,7 +1061,7 @@ function streamChunks(genBudget, meshBudget) {
   for (let i = 0; i < Math.min(genBudget, todoG.length); i++) genChunk(todoG[i][1], todoG[i][2]);
   for (let i = 0; i < Math.min(meshBudget, todoM.length); i++) buildChunk(todoM[i][1], todoM[i][2]);
   for (const key in chunks) { const [cx, cz] = key.split(',').map(Number); if ((cx - pcx) ** 2 + (cz - pcz) ** 2 > (VIEW + 2.5) ** 2) dropMesh(key); }
-  if (data.size > 600) for (const key of data.keys()) { const [cx, cz] = key.split(',').map(Number); if ((cx - pcx) ** 2 + (cz - pcz) ** 2 > (VIEW + 6) ** 2) { dropMesh(key); data.delete(key); } }
+  if (data.size > Math.max(600, (2 * VIEW + 13) ** 2)) for (const key of data.keys()) { const [cx, cz] = key.split(',').map(Number); if ((cx - pcx) ** 2 + (cz - pcz) ** 2 > (VIEW + 6) ** 2) { dropMesh(key); data.delete(key); } }
   return todoG.length + todoM.length;
 }
 
@@ -1290,6 +1360,7 @@ const SETTINGS_KEY = 'dealercraft_settings';
 const settings = Object.assign({ hdTex: true, jumpscares: true, sound: true, peaceful: false, difficulty: null, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 if (localStorage.getItem('dealercraft_mute') === '1' && settings._muteMigrated == null) { settings.sound = false; }
 settings._muteMigrated = true;
+VIEW = [2, 3, 4, 6, 8].includes(settings.view) ? settings.view : 4;
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
 
 // ================== PLAYER ==================
@@ -1350,7 +1421,8 @@ function die(cause) {
 function respawn() {
   document.getElementById('death').classList.remove('show');
   state.hp = 20; state.food = 20; state.sat = 5; player.air = 15; player.alive = true; player.vel.set(0, 0, 0); player.fallStart = null;
-  player.pos.set(VX + 0.5, G + 1, VZ - 4.5); renderVitals(); save();
+  if (state.spawn && isFurn(get(...state.spawn))) player.pos.set(state.spawn[0] + 0.5, state.spawn[1] + 0.6, state.spawn[2] + 0.5); else player.pos.set(VX + 0.5, G + 1, VZ - 4.5);
+  if (collides(player.pos)) player.pos.y = groundAt(player.pos.x, player.pos.z); renderVitals(); save();
   if (!isTouch) canvas.requestPointerLock();
 }
 function updateVitals(dt) {
@@ -2097,6 +2169,7 @@ const joy = { id: null, x: 0, y: 0, cx: 0, cy: 0 }, look = { id: null, x: 0, y: 
 let wantJump = false, holdBreak = false, lastWTap = 0, lastTouchTap = 0, lastJoyTap = 0;
 
 addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   if (!keys[e.code] && e.code === 'KeyW') { const n = performance.now(); if (n - lastWTap < 300) player.sprint = true; lastWTap = n; }   // double-tap W to sprint
   keys[e.code] = true;
   if (!playing) return;
@@ -2104,6 +2177,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape' && uiOpen) closePanels();
   if (e.code === 'ControlLeft') player.sprint = true;
   if (e.code === 'KeyF' && !uiOpen) swapOffhand();
+  if (e.code === 'KeyV' && !uiOpen) { settings.view3 = !settings.view3; saveSettings(); }
   if (e.code === 'Space' && player.car && !e.repeat) { exitCar(); keys.Space = false; }
   if (/^Digit[1-9]$/.test(e.code)) { state.sel = +e.code.slice(5) - 1; renderHotbar(); }
 });
@@ -2210,7 +2284,7 @@ const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.01, 1.01, 1.01), new TH
 crackMesh.visible = false; scene.add(crackMesh);
 function getDir() { return new THREE.Vector3(-Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch)); }
 function raycast(maxD = 5, water = false) {
-  const o = camera.position, d = getDir();
+  const o = new THREE.Vector3(player.pos.x, player.pos.y + EYE, player.pos.z), d = getDir();
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const sx = Math.sign(d.x), sy = Math.sign(d.y), sz = Math.sign(d.z);
   const tdx = Math.abs(1 / (d.x || 1e-9)), tdy = Math.abs(1 / (d.y || 1e-9)), tdz = Math.abs(1 / (d.z || 1e-9));
@@ -2407,6 +2481,7 @@ function useAction() {
       if (open && settings.jumpscares && nightAmt > 0.6 && Math.random() < 0.06 && state.gameTime - lastScare > 120) setTimeout(() => jumpscare(null, 'night'), 250);
       return;
     }
+    if (isFurn(h.id)) { useFurn(h); return; }
     if (h.id === CTABLE) { openInventory(true); return; }
     if (h.id === FURNACE) { openFurnace(h.x + ',' + h.y + ',' + h.z); return; }
     if (h.id === CHEST) { openChest(h.x, h.y, h.z); return; }
@@ -2481,6 +2556,13 @@ function useAction() {
     setBlock(x, y, z, doorId(f, false, false), false); setBlock(x, y + 1, z, doorId(f, false, true)); useHeld(1); swing(); beep(240, 0.05, 'square', 0.05); return;
   }
   if (it.armor) { const s = it.armor.slot, old = state.armor[s]; state.armor[s] = state.slots[state.sel]; state.slots[state.sel] = old; renderHotbar(); renderVitals(); toast(`Equipped ${it.name}`); return; }
+  if (it.furn != null) {
+    if (h.kind !== 'block') return; const pl = placeBlock(h, it.furn); if (!pl) return;
+    if (!solid(get(pl[0], pl[1] - 1, pl[2]))) { toast('Put it on top of a block'); return; }
+    setBlock(pl[0], pl[1], pl[2], it.furn + facingToPlayer()); useHeld(1); swing(); beep(240, 0.05, 'square', 0.05);
+    if (it.furn === LAPTOP0) toast('💻 Tap the laptop to open DealerNet'); if (it.furn === BED0) toast('🛏️ Sleep in it at night to skip to morning');
+    return;
+  }
   if (it.block != null) {
     const pl = placeBlock(h, it.block); if (!pl) return;
     setBlock(pl[0], pl[1], pl[2], it.block); useHeld(1); swing(); beep(240, 0.05, 'square', 0.05);
@@ -2546,6 +2628,7 @@ const grid = emptySlots(9);
 function closePanels() {
   if (invOpen) { for (let i = 0; i < 9; i++) if (grid[i]) { give(grid[i].id, grid[i].n); grid[i] = null; } }
   if (cursor) { const left = give(cursor.id, cursor.n); cursor = null; }
+  if (chestKeys && typeof netChests === 'function') netChests(chestKeys);
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('show')); uiOpen = false; invOpen = false; furnaceKey = null; chestKeys = null; holdBreak = false;
   if (!isTouch && playing && player.alive) canvas.requestPointerLock();
 }
@@ -2739,13 +2822,20 @@ function renderSettings() {
   document.getElementById('setBox').innerHTML = `<button class="btn close" data-a="close">✕</button><h2>⚙️ Settings</h2>
     ${tog('jumpscares', '😱 Jumpscares', 'Five Nights at Freddy\'s style scares at night and when you die')}
     ${tog('sound', '🔊 Sound', 'Music, ambience and sound effects')}
-    ${tog('hdTex', '🖼️ HD Texture Pack', 'High resolution 64x block textures (turn off for classic 16x)')}
+    <div class="row"><span class="nm">🖼️ Texture pack<br><span style="font-size:12px;opacity:.7">HD 64x textures or the Original 16x look. Switches instantly.</span></span><button class="btn ${settings.hdTex !== false ? 'gold' : ''}" data-tex="1">HD</button><button class="btn ${settings.hdTex === false ? 'gold' : ''}" data-tex="0">Original</button></div>
+    <div class="row" style="flex-wrap:wrap"><span class="nm">🔭 Render distance<br><span style="font-size:12px;opacity:.7">How far you can see. Lower is faster on older phones.</span></span>${[[2, 'Tiny'], [3, 'Short'], [4, 'Normal'], [6, 'Far'], [8, 'Extreme']].map(([v, n]) => `<button class="btn ${VIEW === v ? 'gold' : ''}" data-view="${v}">${n}</button>`).join('')}</div>
+    ${tog('view3', '👁 Third-person view', 'See your own character from behind (V key or 👁 button)')}
+    <div class="row"><span class="nm">☁️ Cloud save<br><span style="font-size:12px;opacity:.7">${auth ? 'Logged in as ' + esc(auth.name) + '. ' + esc(cloudStatus) : 'Log in to back up your worlds'}</span></span><button class="btn gold" data-a="cloud">${auth ? '☁️ Upload now' : '👤 Log in'}</button></div>
     <div class="row" style="flex-wrap:wrap"><span class="nm">⚔️ Difficulty<br><span style="font-size:12px;opacity:.7">${diff().sub}</span></span>${Object.entries(DIFFS).map(([k, v]) => `<button class="btn ${settings.difficulty === k ? 'gold' : ''}" data-diff="${k}">${v.label}</button>`).join('')}</div>
     <div class="row"><span class="nm">🎮 Look sensitivity</span><button class="btn" data-sens="-1">−</button><b style="min-width:40px;text-align:center">${settings.sens.toFixed(1)}</b><button class="btn" data-sens="1">+</button></div>
     <div class="row"><span class="nm">Test a jumpscare</span><button class="btn" data-a="test" ${settings.jumpscares ? '' : 'disabled'}>Scare me</button></div>`;
 }
 document.getElementById('setBox').addEventListener('click', e => {
-  const b = e.target.closest('[data-s],[data-a],[data-sens],[data-diff]'); if (!b) return;
+  const b = e.target.closest('[data-s],[data-a],[data-sens],[data-diff],[data-tex],[data-view]'); if (!b) return;
+  if (b.dataset.a === 'cloud') { if (auth) cloudUpload(true).then(renderSettings); else { closePanels(); openAccount(); } return; }
+  if (b.dataset.view) { VIEW = +b.dataset.view; settings.view = VIEW; saveSettings(); renderSettings(); return; }
+  if (b.dataset.tex) { const hd = b.dataset.tex === '1'; if (hd === (settings.hdTex !== false)) return;
+    settings.hdTex = hd; saveSettings(); applyTexturePack(); renderSettings(); toast(`🖼️ ${hd ? 'HD' : 'Original'} textures on`); return; }
   if (b.dataset.diff) settings.difficulty = b.dataset.diff;
   if (b.dataset.a === 'close') { closePanels(); return; }
   if (b.dataset.a === 'test') { closePanels(); setTimeout(() => jumpscare(null, 'night'), 300); return; }
@@ -2756,7 +2846,7 @@ document.getElementById('setBox').addEventListener('click', e => {
 
 const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade<br>E: inventory & crafting · 1-9 / wheel: hotbar';
 const helpTouch = 'Left stick: move · Double-tap the screen while walking (or 🏃) to sprint · Drag right side: look<br>Hold ⛏️ mine / attack · ✋ use, plant, place, open doors, trade · ⬆️ jump<br>🎒 inventory & crafting · ⚙️ settings';
-document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon.';
+document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon. 🛏️ Sleep in a bed to skip the night, 💻 shop on DealerNet from a laptop, 📺📻 tap TVs and radios to change channels, and 🌐 log in to save to the cloud and play online with up to 4 friends.';
 function showStart() { if (playing) save(); renderWorlds(); playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
 // --- main menu: pick one of several worlds ---
 function slotInfo(n) { try { const s = JSON.parse(localStorage.getItem(slotKey(n))); if (s && s.seed != null) return s; } catch (e) {} return null; }
@@ -2795,6 +2885,666 @@ document.getElementById('playBtn').addEventListener('click', e => {
   if (freshGame && !state._welcomed) { state._welcomed = true; setTimeout(() => toast('🎃 Welcome! Punch a tree, then open 🎒 to craft. Survive the night!'), 400); }
 });
 document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && playing && !uiOpen && !isTouch && player.alive && !scaring) showStart(); });
+
+// ================== ELECTRONICS: beds, laptops (DealerNet), TVs, radios ==================
+function useFurn(h) {
+  const b = furnBase(h.id), k = h.x + ',' + h.y + ',' + h.z;
+  if (b === BED0) return useBed(h);
+  if (b === LAPTOP0) { openWeb(); beep(660, 0.05, 'sine', 0.05); return; }
+  if (b === TV0) { const n = ((state.dev[k] || 0) + 1) % (TV_CH.length + 1); if (n) state.dev[k] = n; else delete state.dev[k]; tvStatic = 0.35; toast(n ? `📺 Channel ${n}: ${TV_CH[n - 1]}` : '📺 TV off'); beep(n ? 900 : 300, 0.05, 'square', 0.04); swing(); return; }
+  if (b === RADIO0) { const n = ((state.dev[k] || 0) + 1) % (STATIONS.length + 1); if (n) state.dev[k] = n; else delete state.dev[k]; toast(n ? `📻 ${STATIONS[n - 1].name}` : '📻 Radio off'); beep(n ? 700 : 250, 0.04, 'sine', 0.05); swing(); return; }
+}
+
+// ---------- beds: sleep through the night (online, everyone must be in bed) ----------
+const sleepEl = document.createElement('div'); sleepEl.id = 'sleepFade'; document.body.appendChild(sleepEl);
+const sleepMsg = document.createElement('div'); sleepMsg.id = 'sleepMsg'; sleepEl.appendChild(sleepMsg);
+const canSleep = () => { const f = (state.time % DAY) / DAY; return f > 0.72 || f < 0.02; };
+function useBed(h) {
+  state.spawn = [h.x, h.y, h.z];
+  if (!canSleep()) { toast('🛏️ Spawn point set. You can only sleep at night'); return; }
+  if (player.car) return;
+  player.sleeping = { x: h.x, y: h.y, z: h.z, t: 0 };
+  player.pos.set(h.x + 0.5, h.y + 0.2, h.z + 0.5); player.vel.set(0, 0, 0);
+  sleepEl.classList.add('on'); sleepMsg.textContent = '💤 Sleeping...'; holdBreak = false;
+}
+function wakeUp(morning) {
+  if (!player.sleeping) return; const s = player.sleeping; player.sleeping = null;
+  sleepEl.classList.remove('on');
+  player.pos.set(s.x + 0.5, s.y + 1, s.z + 0.5); if (collides(player.pos)) player.pos.y = groundAt(player.pos.x, player.pos.z);
+  if (morning) toast('☀️ Good morning!');
+}
+function skipToMorning() {   // jump to the next sunrise; crops keep growing through the night
+  const f = (state.time % DAY) / DAY, day0 = Math.floor(state.time / DAY) * DAY;
+  const target = (f < 0.02 ? day0 : day0 + DAY) + DAY * 0.02, dt = Math.max(0, target - state.time);
+  state.time += dt; state.gameTime += dt; return dt;
+}
+function updateSleep(dt) {
+  const s = player.sleeping; if (!s) return;
+  if (keys.Space || wantJump || !isFurn(get(s.x, s.y, s.z))) { wakeUp(false); return; }
+  s.t += dt;
+  if (!canSleep()) { wakeUp(true); return; }
+  if (net.on && net.count() > 1) { const [a, n] = net.sleepers(); sleepMsg.textContent = `💤 Waiting for everyone to sleep (${a}/${n})`; return; }
+  if (s.t > 2.6) { skipToMorning(); wakeUp(true); }
+}
+
+// ---------- item values for the DealerNet web shop ----------
+const RAW_VALUE = { dirt: 1, cobble: 1, sand: 1, stone: 2, log: 2, leaves: 1, coal_ore: 3, iron_ore: 6, coal: 3, stick: 1, bone: 3, gunpowder: 6,
+  arrow: 2, rotten_flesh: 1, feather: 2, wool: 4, egg: 2, raw_beef: 4, raw_chicken: 3, raw_pork: 4, raw_mutton: 3, leather: 6, candy: 4, cow_poop: 2,
+  seeds_wheat: 2, seeds_carrot: 3, seeds_potato: 3, seeds_berries: 4, seeds_pumpkin: 6, seeds_weed: 18, water_bucket: 40, asphalt: 2, concrete: 2,
+  roof_tiles: 2, lamp: 8, white_wall: 3, blue_siding: 3, yellow_siding: 3, jack_o_lantern: 20, pumpkin_block: 16 };
+const valCache = {};
+function itemValue(id, depth = 0) {
+  if (valCache[id] != null) return valCache[id];
+  let v = 0;
+  for (const vl of VILLAGERS) { if (vl.buys[id]) v = Math.max(v, vl.buys[id]); }
+  if (!v) for (const vl of VILLAGERS) if (vl.sells[id]) v = v ? Math.min(v, vl.sells[id] * 0.7) : vl.sells[id] * 0.7;
+  if (!v && RAW_VALUE[id]) v = RAW_VALUE[id];
+  if (!v && depth < 6) {
+    for (const r of RECIPES) { if (r.out !== id) continue;
+      const ing = r.items || r.rows.join('').split('').filter(c => c !== '.').map(c => r.key[c]);
+      let s = 0; for (const x of ing) s += itemValue(x, depth + 1); s = s * 1.15 / r.n;
+      if (s > 0 && (!v || s < v)) v = s; }
+    if (!v) for (const [inp, out] of Object.entries(SMELT)) if (out === id) { const s = itemValue(inp, depth + 1) + 1; if (!v || s < v) v = s; }
+  }
+  if (!v) v = 3;
+  if (depth === 0) valCache[id] = v;
+  return v;
+}
+const webBuy = id => Math.max(2, Math.ceil(itemValue(id) * 1.5));
+const webSell = id => Math.max(1, Math.floor(itemValue(id) * 0.8));
+const WEB_CATS = { all: '🌐 All', blocks: '🧱 Blocks', tools: '⛏️ Tools & Armor', food: '🍔 Food', farm: '🌱 Farming', tech: '💻 Electronics', other: '📦 Other' };
+function webCat(id) { const it = ITEMS[id]; if (it.furn != null) return 'tech'; if (it.tool || it.armor) return 'tools'; if (it.block != null) return 'blocks'; if (it.food) return 'food'; if (it.crop || CROP_ITEM[id] || id === 'fertilizer' || id === 'cow_poop' || id === 'weed') return 'farm'; return 'other'; }
+let webTab = 'buy', webQ = '', webC = 'all';
+const webEl = document.createElement('div'); webEl.className = 'panel'; webEl.id = 'web'; webEl.innerHTML = '<div class="box webbox" id="webBox"></div>'; document.body.appendChild(webEl);
+function openWeb() { webTab = 'buy'; renderWeb(); openPanel('web'); }
+function renderWeb(keepList) {
+  const ids = Object.keys(ITEMS).filter(id => (webC === 'all' || webCat(id) === webC) && ITEMS[id].name.toLowerCase().includes(webQ.toLowerCase()) && (webTab === 'buy' || count(id) > 0));
+  const rows = ids.map(id => {
+    const p = webTab === 'buy' ? webBuy(id) : webSell(id), have = count(id), one = stackOf(id) === 1;
+    const btns = webTab === 'buy'
+      ? `<button class="btn" data-wb="${id}" data-n="1" ${state.coins >= p ? '' : 'disabled'}>Buy</button>${one ? '' : `<button class="btn gold" data-wb="${id}" data-n="10" ${state.coins >= p * 10 ? '' : 'disabled'}>×10</button>`}`
+      : `<button class="btn" data-ws="${id}" data-n="1">Sell 1</button><button class="btn gold" data-ws="${id}" data-n="all">All ${have}</button>`;
+    return `<div class="row"><span class="ic">${iconHTML(id)}</span><span class="nm">${ITEMS[id].name}${have ? ` <span style="opacity:.6">(have ${have})</span>` : ''}</span><span class="pr">💰 ${p}</span>${btns}</div>`;
+  }).join('') || `<div style="opacity:.7;padding:18px;text-align:center">${webTab === 'buy' ? 'No items match your search.' : 'Nothing to sell here. Your matching items will show up in this list.'}</div>`;
+  const box = document.getElementById('webBox');
+  if (keepList && box.querySelector('#webList')) { box.querySelector('#webList').innerHTML = rows; box.querySelector('#webBal').textContent = '💰 ' + state.coins; return; }
+  box.innerHTML = `<div class="wbar"><span class="dots"><i></i><i></i><i></i></span><span class="url">🔒 https://dealernet.dc/${webTab === 'buy' ? 'shop' : 'sell'}</span><button class="btn close" data-a="close">✕</button></div>
+    <div class="whead"><b>Dealer<span>Net</span></b><span class="wsub">Buy &amp; sell anything, delivered instantly to your bag</span><span id="webBal" class="wbal">💰 ${state.coins}</span></div>
+    <div class="wtabs"><button class="btn ${webTab === 'buy' ? 'gold' : ''}" data-wt="buy">🛒 Buy</button><button class="btn ${webTab === 'sell' ? 'gold' : ''}" data-wt="sell">💰 Sell</button><input id="webQ" placeholder="🔍 Search DealerNet..." value="${webQ.replace(/"/g, '')}"></div>
+    <div class="wcats">${Object.entries(WEB_CATS).map(([k, v]) => `<button class="chip ${webC === k ? 'on' : ''}" data-wc="${k}">${v}</button>`).join('')}</div>
+    <div id="webList">${rows}</div>`;
+  const q = box.querySelector('#webQ'); q.addEventListener('input', () => { webQ = q.value; renderWeb(true); });
+}
+webEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-a],[data-wt],[data-wc],[data-wb],[data-ws]'); if (!b) { if (e.target === webEl) closePanels(); return; }
+  if (b.dataset.a === 'close') { closePanels(); return; }
+  if (b.dataset.wt) { webTab = b.dataset.wt; renderWeb(); return; }
+  if (b.dataset.wc) { webC = b.dataset.wc; renderWeb(); return; }
+  if (b.dataset.wb) { const id = b.dataset.wb, n = +b.dataset.n, p = webBuy(id) * n; if (state.coins < p) return; const left = give(id, n); const got = n - left; state.coins -= webBuy(id) * got; if (got) { coinSnd(); toast(`📦 DealerNet delivered ${got} ${ITEMS[id].name}`); } }
+  if (b.dataset.ws) { const id = b.dataset.ws, have = count(id), n = b.dataset.n === 'all' ? have : 1; if (!n) return; take(id, n); const p = webSell(id) * n; state.coins += p; state.earned += p; coinSnd(); toast(`💸 Sold ${n} ${ITEMS[id].name} online for 💰${p}`); }
+  renderWeb(true); renderStats();
+});
+
+// ---------- TVs: animated channels on the screen ----------
+const TV_CH = ['DCN News', 'Toon Town', 'DC Sports', 'Weather 24/7', 'Music TV'];
+const tvCanvas = TV_CH.map(() => { const c = document.createElement('canvas'); c.width = 128; c.height = 96; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return { c, t, x: c.getContext('2d') }; });
+const tvMats = tvCanvas.map(o => new THREE.MeshBasicMaterial({ map: o.t, toneMapped: false }));
+const staticMat = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48; const t = new THREE.CanvasTexture(c); return { c, t, x: c.getContext('2d'), m: new THREE.MeshBasicMaterial({ map: t }) }; })();
+const tvGeo = new THREE.PlaneGeometry(0.88, 0.74);
+const tvScreens = new Map(); let tvStatic = 0, tvT = 0;
+const HEADLINES = ['WEED HITS 120 COINS IN THE CITY', 'COPS: CARJACKINGS ON THE RISE', 'GHOST SIGHTINGS UP 300%', 'LOCAL FARMER GROWS 3-BLOCK PLANT', 'CREEPER BLOWS UP GARAGE', 'MERCHANT MO HAS A SALE ON TORCHES', 'SKYSCRAPER WINDOWS LIGHT UP AT NIGHT', 'DEALERNET SALES BREAK RECORDS'];
+function drawTV(i, t) {
+  const { x, t: tex } = tvCanvas[i], W = 128, Hh = 96;
+  if (i === 0) {   // news desk + ticker
+    x.fillStyle = '#123a8a'; x.fillRect(0, 0, W, Hh); x.fillStyle = '#1f56c4'; for (let k = 0; k < 6; k++) x.fillRect(k * 24 + (t * 6 % 24), 0, 10, 70);
+    x.fillStyle = '#f1c27d'; x.fillRect(52, 18, 24, 24); x.fillStyle = '#2a1a0a'; x.fillRect(52, 14, 24, 7); x.fillStyle = '#111'; x.fillRect(57, 26, 4, 3); x.fillRect(67, 26, 4, 3);
+    x.fillRect(60, 35 + (Math.sin(t * 14) > 0 ? 1 : 0), 8, 2); x.fillStyle = '#333'; x.fillRect(46, 42, 36, 22); x.fillStyle = '#c33'; x.fillRect(62, 42, 4, 14);
+    x.fillStyle = '#8a5a2a'; x.fillRect(20, 58, 88, 14); x.fillStyle = '#c00'; x.fillRect(0, 72, W, 24); x.fillStyle = '#fff'; x.font = 'bold 11px monospace';
+    const s = HEADLINES.join('  ●  '), off = (t * 40) % (s.length * 6.6 + W); x.fillText(s, W - off, 88); x.fillStyle = '#ffd84a'; x.fillRect(0, 72, 28, 10); x.fillStyle = '#000'; x.font = 'bold 8px monospace'; x.fillText('LIVE', 4, 80);
+  } else if (i === 1) {   // cartoon: a bouncing blob chased by a creeper
+    x.fillStyle = '#7fd0ff'; x.fillRect(0, 0, W, Hh); x.fillStyle = '#5fbf4a'; x.fillRect(0, 70, W, 26); x.fillStyle = '#fff'; x.beginPath(); x.arc((t * 20) % 160 - 16, 18, 10, 0, 7); x.arc((t * 20) % 160, 16, 12, 0, 7); x.fill();
+    const bx = 64 + Math.sin(t * 1.3) * 40, by = 62 - Math.abs(Math.sin(t * 5)) * 30;
+    x.fillStyle = '#ff6ad5'; x.beginPath(); x.arc(bx, by, 9, 0, 7); x.fill(); x.fillStyle = '#000'; x.fillRect(bx - 4, by - 3, 2, 3); x.fillRect(bx + 2, by - 3, 2, 3);
+    const cx = bx - 30 * Math.cos(t * 1.3); x.fillStyle = '#4caf50'; x.fillRect(cx - 6, 46, 12, 24); x.fillStyle = '#0a2a0a'; x.fillRect(cx - 4, 50, 3, 3); x.fillRect(cx + 1, 50, 3, 3); x.fillRect(cx - 1, 54, 2, 4);
+  } else if (i === 2) {   // football match
+    x.fillStyle = '#2e8b3a'; x.fillRect(0, 0, W, Hh); x.strokeStyle = '#fff'; x.lineWidth = 1; x.strokeRect(6, 14, W - 12, Hh - 20); x.beginPath(); x.moveTo(64, 14); x.lineTo(64, Hh - 6); x.stroke(); x.beginPath(); x.arc(64, 55, 12, 0, 7); x.stroke();
+    const ballX = 64 + Math.sin(t * 0.9) * 50, ballY = 55 + Math.sin(t * 1.7) * 25; for (let p = 0; p < 8; p++) { x.fillStyle = p < 4 ? '#d22' : '#22d'; x.fillRect(ballX + Math.sin(t + p * 2) * (20 + p * 4) - 2, ballY + Math.cos(t * 0.8 + p) * 18 - 3, 4, 6); }
+    x.fillStyle = '#fff'; x.fillRect(ballX - 2, ballY - 2, 4, 4); x.fillStyle = '#000'; x.fillRect(0, 0, W, 12); x.fillStyle = '#fff'; x.font = 'bold 9px monospace'; x.fillText(`RED ${Math.floor(t / 20) % 5}  -  ${Math.floor(t / 33) % 4} BLU`, 22, 9);
+  } else if (i === 3) {   // weather map
+    x.fillStyle = '#1a2a4a'; x.fillRect(0, 0, W, Hh); x.fillStyle = '#3a8a3a'; x.beginPath(); x.moveTo(10, 30); x.lineTo(60, 18); x.lineTo(110, 28); x.lineTo(118, 70); x.lineTo(70, 84); x.lineTo(14, 72); x.fill();
+    x.fillStyle = '#ffd84a'; x.beginPath(); x.arc(38, 44, 9, 0, 7); x.fill(); x.fillStyle = '#ddd'; x.beginPath(); x.arc(84 + Math.sin(t) * 4, 46, 9, 0, 7); x.arc(94 + Math.sin(t) * 4, 44, 11, 0, 7); x.fill();
+    x.fillStyle = '#7ad'; for (let d = 0; d < 6; d++) x.fillRect(82 + d * 4, 58 + ((t * 30 + d * 7) % 12), 1, 3);
+    x.fillStyle = '#fff'; x.font = 'bold 10px monospace'; x.fillText('72°', 30, 64); x.fillText('58°', 84, 76); x.fillStyle = '#000a'; x.fillRect(0, 84, W, 12); x.fillStyle = '#ffd84a'; x.font = 'bold 8px monospace'; x.fillText('TONIGHT: ZOMBIES 90%  CREEPERS 40%', 2, 93);
+  } else {   // music video equalizer
+    x.fillStyle = '#12001f'; x.fillRect(0, 0, W, Hh);
+    for (let b = 0; b < 16; b++) { const hgt = 10 + Math.abs(Math.sin(t * (3 + b * 0.37) + b)) * 60; x.fillStyle = `hsl(${(b * 22 + t * 60) % 360},90%,60%)`; x.fillRect(4 + b * 7.6, 84 - hgt, 6, hgt); }
+    x.fillStyle = '#fff'; x.font = 'bold 9px monospace'; x.fillText('♪ NOW PLAYING: DC BEATS', 8, 94);
+  }
+  tex.needsUpdate = true;
+}
+function updateTVs(dt) {
+  tvT += dt; if (tvT < 0.1) return; const step = tvT; tvT = 0; tvStatic = Math.max(0, tvStatic - step);
+  const want = new Map(), px = player.pos.x, pz = player.pos.z;
+  for (const k in state.dev) { const [x, y, z] = k.split(',').map(Number); if (Math.abs(x - px) > 40 || Math.abs(z - pz) > 40) continue; const id = get(x, y, z); if (furnBase(id) === TV0) want.set(k, [x, y, z, furnF(id), state.dev[k]]); }
+  for (const [k, m] of tvScreens) if (!want.has(k) || m.userData.f !== want.get(k)[3]) { scene.remove(m); tvScreens.delete(k); }
+  const used = new Set(), t = performance.now() / 1000;
+  for (const [k, [x, y, z, f, ch]] of want) {
+    let m = tvScreens.get(k);
+    if (!m) { m = new THREE.Mesh(tvGeo, tvMats[0]); m.userData.f = f; const cx = 0.5, cz = 0.568, r = f === 0 ? [cx, cz] : f === 1 ? [cz, 1 - cx] : f === 2 ? [1 - cx, 1 - cz] : [1 - cz, cx];
+      m.position.set(x + r[0], y + 0.55, z + r[1]); m.rotation.y = f * Math.PI / 2; scene.add(m); tvScreens.set(k, m); }
+    m.material = tvStatic > 0 ? staticMat.m : tvMats[ch - 1]; used.add(ch - 1);
+  }
+  if (tvStatic > 0) { const { x, t: tx } = staticMat; const img = x.createImageData(64, 48); for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; } x.putImageData(img, 0, 0); tx.needsUpdate = true; }
+  for (const i of used) drawTV(i, t);
+}
+
+// ---------- radios: six stations of generated music, louder the closer you are ----------
+const STATIONS = [
+  { name: '88.1 Lo-Fi Chill', bpm: 78, swing: 0.2, root: 50, scale: [0, 3, 5, 7, 10], prog: [[0, [0, 3, 7, 10, 14]], [5, [0, 3, 7, 10]], [8, [0, 4, 7, 11]], [7, [0, 4, 7, 10]]],
+    k: 'x......x..x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', b: 'x.......x.....o.', c: 'x...............', bass: 'sine', chord: 'pad', lead: 'keys', dens: 0.22, crackle: true, vol: 0.9 },
+  { name: '94.5 Rock Radio', bpm: 132, swing: 0, root: 40, scale: [0, 3, 5, 7, 10], prog: [[0, [0, 7, 12]], [-4, [0, 7, 12]], [3, [0, 7, 12]], [-2, [0, 7, 12]]],
+    k: 'x...x.x.x...x.x.', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', b: 'x.x.x.x.x.x.x.x.', c: 'x.xxx.x.x.xxx.x.', bass: 'rockbass', chord: 'guitar', lead: 'solo', dens: 0.3, crash: true, vol: 0.75 },
+  { name: '98.7 Hip-Hop Hits', bpm: 90, swing: 0.12, root: 48, scale: [0, 3, 5, 7, 10], prog: [[0, [0, 3, 7]], [-4, [0, 4, 7]], [5, [0, 3, 7]], [7, [0, 3, 7]]],
+    k: 'x.....x...x..x..', s: '....x.......x...', h: 'x.xxx.x.x.xxx.xx', b: 'x.....x...x.....', c: '..x.......x.....', bass: '808', chord: 'piano', lead: 'bell', dens: 0.18, vol: 1 },
+  { name: '101.3 Chiptune FM', bpm: 150, swing: 0, root: 57, scale: [0, 2, 4, 7, 9], prog: [[0, [0, 4, 7]], [-3, [0, 3, 7]], [5, [0, 4, 7]], [7, [0, 4, 7]]],
+    k: 'x...x...x...x...', s: '....x.......x...', h: '..x...x...x...x.', b: 'x.o.x.o.x.o.x.o.', c: 'xxxxxxxxxxxxxxxx', bass: 'tri', chord: 'arp', lead: 'square', dens: 0.6, vol: 0.55 },
+  { name: '104.9 Country Roads', bpm: 112, swing: 0.15, root: 43, scale: [0, 2, 4, 7, 9], prog: [[0, [0, 4, 7]], [5, [0, 4, 7]], [7, [0, 4, 7]], [0, [0, 4, 7]]],
+    k: 'x.......x.......', s: '....x.......x...', h: 'x.xxx.xxx.xxx.xx', b: 'x...o...x...o...', c: '....x.......x...', bass: 'tri', chord: 'strum', lead: 'pluck', dens: 0.35, vol: 0.8 },
+  { name: '107.7 Techno Club', bpm: 128, swing: 0, root: 45, scale: [0, 3, 5, 7, 10], prog: [[0, [0, 3, 7]], [0, [0, 3, 7]], [-2, [0, 4, 7]], [0, [0, 3, 7]]],
+    k: 'x...x...x...x...', s: '....x.......x...', h: '..x...x...x...x.', b: 'xxoxxoxxoxxoxxox', c: '...x.....x......', bass: 'acid', chord: 'stab', lead: null, dens: 0, vol: 0.7 },
+];
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+let radioBus = null, radioSt = -1, radioStep = 0, radioNext = 0, radioBar = 0, radioRng = mulberry(7), leadNote = 0;
+let distCurve = null;
+function rVoice(type, freq, t, dur, vol, o = {}) {
+  const osc = AC.createOscillator(), g = AC.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, t);
+  if (o.glide) osc.frequency.exponentialRampToValueAtTime(o.glide, t + dur * 0.6);
+  if (o.det) osc.detune.value = o.det;
+  const a = o.a || 0.005; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol * (o.sus || 0.3)), t + a + (o.dec || dur * 0.5)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  let node = osc;
+  if (o.cut) { const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = o.q || 1; f.frequency.setValueAtTime(o.cut, t); if (o.cut2) f.frequency.exponentialRampToValueAtTime(o.cut2, t + dur); node.connect(f); node = f; }
+  if (o.dist) { if (!distCurve) { distCurve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; distCurve[i] = Math.tanh(x * 5); } } const w = AC.createWaveShaper(); w.curve = distCurve; node.connect(w); node = w; }
+  node.connect(g).connect(radioBus); osc.start(t); osc.stop(t + dur + 0.05);
+}
+function rNoise(t, dur, vol, type, freq, q = 1) {
+  const b = AC.createBuffer(1, Math.ceil(AC.sampleRate * dur), AC.sampleRate), c = b.getChannelData(0); for (let i = 0; i < c.length; i++) c[i] = Math.random() * 2 - 1;
+  const s = AC.createBufferSource(); s.buffer = b; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f).connect(g).connect(radioBus); s.start(t);
+}
+function playStep(S, step, t, sd) {
+  const bar = radioBar % S.prog.length, [off, chord] = S.prog[bar], root = S.root + off, v = S.vol;
+  const on = (p) => p[step] && p[step] !== '.';
+  if (on(S.k)) { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(S.bass === '808' ? 120 : 150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.25); g.gain.setValueAtTime(0.9 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32); o.connect(g).connect(radioBus); o.start(t); o.stop(t + 0.35); }
+  if (on(S.s)) { rNoise(t, S.chord === 'pad' ? 0.18 : 0.14, 0.35 * v, 'bandpass', S.chord === 'pad' ? 1800 : 2600, 0.8); rVoice('triangle', 190, t, 0.08, 0.2 * v); }
+  if (on(S.h)) rNoise(t, step % 4 === 2 && S.bass === 'acid' ? 0.12 : 0.04, (S.chord === 'pad' ? 0.06 : 0.12) * v, 'highpass', 7500);
+  if (S.crash && step === 0 && radioBar % 4 === 0) rNoise(t, 1.2, 0.18 * v, 'highpass', 5000);
+  if (S.crackle && Math.random() < 0.5) rNoise(t + Math.random() * sd, 0.01, 0.04, 'highpass', 3000);
+  if (on(S.b)) {
+    const n = root - 12 + (S.b[step] === 'o' ? 7 : 0), f = mtof(n);
+    if (S.bass === 'sine') rVoice('sine', f, t, sd * 6, 0.45 * v, { a: 0.02, sus: 0.6 });
+    else if (S.bass === '808') rVoice('sine', f * 1.5, t, sd * 6, 0.6 * v, { glide: f, sus: 0.7, dec: sd * 4 });
+    else if (S.bass === 'rockbass') rVoice('sawtooth', f, t, sd * 1.8, 0.28 * v, { cut: 700 });
+    else if (S.bass === 'acid') rVoice('sawtooth', f * (step % 7 === 3 ? 2 : 1), t, sd * 0.95, 0.25 * v, { cut: 300 + 1700 * (0.5 + 0.5 * Math.sin(radioBar * 0.7 + step * 0.4)), cut2: 200, q: 12 });
+    else rVoice('triangle', f, t, sd * 3, 0.4 * v, { sus: 0.5 });
+  }
+  if (on(S.c)) {
+    const notes = chord.map(i => root + i);
+    if (S.chord === 'pad') notes.forEach((n, i) => rVoice('triangle', mtof(n + 12), t + i * 0.02, sd * 15, 0.06 * v, { a: 0.3, sus: 0.8, dec: sd * 6, det: (i % 2 ? 6 : -6) }));
+    else if (S.chord === 'guitar') notes.forEach(n => rVoice('sawtooth', mtof(n + 12), t, sd * 0.9, 0.09 * v, { dist: true, cut: 2600, sus: 0.6 }));
+    else if (S.chord === 'piano') notes.forEach(n => rVoice('triangle', mtof(n + 12), t, sd * 5, 0.1 * v, { sus: 0.2, dec: sd * 2 }));
+    else if (S.chord === 'arp') rVoice('square', mtof(notes[step % notes.length] + 12 + (step % 8 >= 4 ? 12 : 0)), t, sd * 0.9, 0.06 * v, { cut: 3200 });
+    else if (S.chord === 'strum') notes.forEach((n, i) => rVoice('sawtooth', mtof(n + 12), t + i * 0.025, sd * 3, 0.06 * v, { cut: 1800, cut2: 600, sus: 0.15 }));
+    else if (S.chord === 'stab') notes.forEach(n => rVoice('sawtooth', mtof(n + 12), t, sd * 1.5, 0.07 * v, { cut: 2400, cut2: 500, q: 4, sus: 0.2 }));
+  }
+  if (S.lead && step % 2 === 0 && radioRng() < S.dens) {
+    const sc = S.scale; leadNote = Math.max(-2, Math.min(8, leadNote + Math.floor(radioRng() * 5) - 2));
+    const deg = ((leadNote % sc.length) + sc.length) % sc.length, oct = Math.floor(leadNote / sc.length), f = mtof(S.root + 24 + sc[deg] + oct * 12 + (S.chord === 'pad' ? -12 : 0));
+    const L = S.lead, len = sd * (radioRng() < 0.3 ? 4 : 2);
+    if (L === 'keys') rVoice('sine', f, t, len * 2, 0.12 * v, { sus: 0.3, dec: len });
+    else if (L === 'solo') rVoice('square', f, t, len, 0.05 * v, { dist: true, cut: 3000, sus: 0.7 });
+    else if (L === 'bell') { rVoice('sine', f, t, len * 3, 0.08 * v, { sus: 0.1 }); rVoice('sine', f * 2.01, t, len * 2, 0.03 * v, { sus: 0.05 }); }
+    else if (L === 'square') rVoice('square', f, t, len * 0.9, 0.06 * v, { sus: 0.7 });
+    else if (L === 'pluck') rVoice('sawtooth', f, t, len * 1.5, 0.07 * v, { cut: 2500, cut2: 400, sus: 0.1 });
+  }
+}
+let radioCheck = 0, radioNear = null;
+function updateRadio(dt) {
+  if (!AC || !master) return;
+  radioCheck -= dt;
+  if (radioCheck <= 0) {   // nearest playing radio within earshot
+    radioCheck = 0.4; radioNear = null; let best = 24;
+    for (const k in state.dev) { const [x, y, z] = k.split(',').map(Number); const d = Math.hypot(x + 0.5 - player.pos.x, y + 0.5 - player.pos.y - 1, z + 0.5 - player.pos.z); if (d < best && furnBase(get(x, y, z)) === RADIO0) { best = d; radioNear = { st: state.dev[k] - 1, d }; } }
+  }
+  if (!radioBus) { radioBus = AC.createGain(); radioBus.gain.value = 0; radioBus.connect(master); }
+  const vol = radioNear && playing ? 0.5 * Math.max(0, 1 - radioNear.d / 24) ** 1.3 : 0;
+  radioBus.gain.setTargetAtTime(vol, AC.currentTime, 0.15);
+  if (!radioNear || !playing) { radioSt = -1; return; }
+  if (radioNear.st !== radioSt) { radioSt = radioNear.st; radioStep = 0; radioBar = 0; radioNext = AC.currentTime + 0.05; radioRng = mulberry(radioSt * 977 + 3); }
+  const S = STATIONS[radioSt]; if (!S) return; const sd = 60 / S.bpm / 4;
+  if (radioNext < AC.currentTime - 0.3) radioNext = AC.currentTime + 0.05;
+  while (radioNext < AC.currentTime + 0.18) {
+    const len = sd * (radioStep % 2 === 0 ? 1 + S.swing : 1 - S.swing);
+    try { playStep(S, radioStep, radioNext, sd); } catch (e) {}
+    radioNext += len; radioStep++; if (radioStep >= 16) { radioStep = 0; radioBar++; }
+  }
+}
+
+// ================== ONLINE: accounts, cloud saves, 4-player worlds, player characters ==================
+const FB_KEY = 'AIzaSyBxkzswFQCuE8zVVungvRCUAbkeicff3sQ';
+const FB_DB = 'https://bugsquash-leaderboard-default-rtdb.firebaseio.com/dealercraft';
+const MAX_PLAYERS = 4;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---------- accounts (Firebase email/password, username@dealercraft.game behind the scenes) ----------
+let auth = (() => { try { return JSON.parse(localStorage.getItem('dc_auth')); } catch (e) { return null; } })();
+const saveAuth = () => { if (auth) localStorage.setItem('dc_auth', JSON.stringify(auth)); else localStorage.removeItem('dc_auth'); };
+const AUTH_ERR = { EMAIL_EXISTS: 'That username is already taken', INVALID_LOGIN_CREDENTIALS: 'Wrong username or password', INVALID_PASSWORD: 'Wrong username or password', EMAIL_NOT_FOUND: 'Wrong username or password',
+  WEAK_PASSWORD: 'Password needs at least 6 characters', TOO_MANY_ATTEMPTS_TRY_LATER: 'Too many tries. Wait a minute and try again', USER_DISABLED: 'This account is disabled', INVALID_EMAIL: 'Usernames can use letters, numbers and _' };
+const NET_HELP = "Can't reach the DealerCraft server. Check your internet. On GrapheneOS: Settings › Apps › DealerCraft › Permissions › turn on Network, then reopen the app.";
+async function netFetch(url, opts) { try { return await fetch(url, opts); } catch (e) { throw new Error(NET_HELP); } }
+async function fbAuth(kind, name, pass) {
+  const r = await netFetch(`https://identitytoolkit.googleapis.com/v1/accounts:${kind}?key=${FB_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: name.toLowerCase() + '@dealercraft.game', password: pass, returnSecureToken: true }) });
+  const j = await r.json();
+  if (!r.ok) { const code = ((j.error && j.error.message) || 'ERROR').split(' ')[0]; throw new Error(AUTH_ERR[code] || 'Could not reach the server (' + code + ')'); }
+  auth = { name, uid: j.localId, idToken: j.idToken, refresh: j.refreshToken, exp: Date.now() + (+j.expiresIn || 3600) * 1000 }; saveAuth(); return auth;
+}
+async function token() {
+  if (!auth) return null;
+  if (Date.now() < auth.exp - 120000) return auth.idToken;
+  const r = await netFetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(auth.refresh) });
+  const j = await r.json(); if (!r.ok) { if (r.status === 400) { auth = null; saveAuth(); renderAccount(); } throw new Error('Session expired, please log in again'); }
+  auth.idToken = j.id_token; auth.refresh = j.refresh_token; auth.exp = Date.now() + (+j.expires_in || 3600) * 1000; saveAuth(); return auth.idToken;
+}
+async function db(method, path, body, opts = {}) {
+  const t = await token(); if (!t) throw new Error('Log in first');
+  const r = await netFetch(`${FB_DB}/${path}.json?auth=${t}`, { method, body: body === undefined ? undefined : JSON.stringify(body), keepalive: !!opts.keepalive });
+  if (!r.ok) throw new Error('Server error ' + r.status);
+  return r.json();
+}
+const validName = n => /^[A-Za-z0-9_]{3,16}$/.test(n);
+async function signUp(name, pass) {
+  if (!validName(name)) throw new Error('Username: 3-16 letters, numbers or _');
+  await fbAuth('signUp', name, pass);
+  try { await db('PUT', 'users/' + name.toLowerCase(), auth.uid); } catch (e) {}
+  await db('PUT', `saves/${auth.uid}/profile`, { name, skin: mySkin(), created: Date.now() });
+}
+async function logIn(name, pass) {
+  if (!validName(name)) throw new Error('Wrong username or password');
+  await fbAuth('signInWithPassword', name, pass);
+  try { const p = await db('GET', `saves/${auth.uid}/profile`); if (p && p.name) { auth.name = p.name; saveAuth(); } if (p && p.skin && !localStorage.getItem('dc_skin')) { localStorage.setItem('dc_skin', JSON.stringify(p.skin)); } } catch (e) {}
+}
+function logOut() { if (net.on) leaveOnline(); auth = null; saveAuth(); renderAccount(); renderAcctBtn(); }
+
+// ---------- cloud saves ----------
+const lastUp = {}; let cloudStatus = '', cloudBusy = false;
+async function cloudUpload(manual) {
+  if (!auth) { if (manual) { openAccount(); toast('👤 Log in to save to the cloud'); } return; }
+  if (cloudBusy) return; cloudBusy = true;
+  try {
+    if (playing) save();
+    let n = 0;
+    for (let s = 1; s <= SLOTS; s++) {
+      const raw = localStorage.getItem(slotKey(s)); if (!raw || (!manual && lastUp[s] === raw)) continue;
+      let info = {}; try { const j = JSON.parse(raw); info = { day: Math.floor((j.time || 0) / DAY) + 1, coins: j.coins | 0 }; } catch (e) {}
+      await db('PUT', `saves/${auth.uid}/w${s}`, raw); await db('PUT', `saves/${auth.uid}/meta/w${s}`, Object.assign({ t: Date.now() }, info)); lastUp[s] = raw; n++;
+    }
+    await db('PATCH', `saves/${auth.uid}/profile`, { name: auth.name, skin: mySkin() });
+    cloudStatus = '☁️ Saved to cloud ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (manual) toast(n ? '☁️ Game saved to the cloud!' : '☁️ Cloud save is already up to date');
+  } catch (e) { cloudStatus = '⚠️ Cloud save failed: ' + e.message; if (manual) toast('⚠️ ' + e.message); }
+  cloudBusy = false; renderAccount();
+}
+async function cloudList() { const m = await db('GET', `saves/${auth.uid}/meta`); return m || {}; }
+async function cloudRestore(s) {
+  const raw = await db('GET', `saves/${auth.uid}/w${s}`); if (!raw) throw new Error('Nothing saved there');
+  if (s === SLOT) saveBlocked = true;
+  localStorage.setItem(slotKey(s), raw); lastUp[s] = raw;
+  if (s === SLOT) location.reload(); else { renderWorlds(); toast(`☁️ World ${s} restored from the cloud`); }
+}
+setInterval(() => { if (auth && playing && !MP_GUEST) cloudUpload(false); }, 120000);
+addEventListener('visibilitychange', () => { if (document.hidden && auth && !MP_GUEST) cloudUpload(false); });
+
+// ---------- characters: every player gets their own look ----------
+const SK = {
+  skin: [0xf6d2b0, 0xf1c27d, 0xe0ac69, 0xc58c63, 0x8d5524, 0x5c3a21, 0x7fbf5a, 0x9ad0ff],
+  hair: [0x1a1208, 0x4a2a10, 0x8a4a1a, 0xd9b35b, 0xeeeeee, 0xd23a2a, 0x2a8ad2, 0xff6ad5, 0x3fa34d],
+  shirt: [0xd23a2a, 0x2a8ad2, 0x3fa34d, 0xf2c21a, 0x8a3fd2, 0xeeeeee, 0x222222, 0xff7a1a, 0x1fb5b5, 0xff6ad5],
+  pants: [0x2a3a6a, 0x222222, 0x6b5a3a, 0x555555, 0x7a1a1a, 0x1a5a2a, 0xdedede],
+  shoes: [0x111111, 0xeeeeee, 0x8a4a1a, 0xd23a2a, 0x2a8ad2],
+};
+const SK_STYLE = { style: ['Short', 'Long', 'Mohawk', 'Bald', 'Spiky', 'Bun', 'Afro'], hat: ['None', 'Cap', 'Beanie', 'Top hat', 'Crown', 'Headphones', 'Cowboy'], acc: ['None', 'Glasses', 'Shades', 'Gold chain', 'Mask', 'Beard'] };
+function randomSkin(seedStr) {
+  let h = 0; for (const c of String(seedStr || Math.random())) h = Math.imul(h ^ c.charCodeAt(0), 2654435761);
+  const r = mulberry(h), pick = a => Math.floor(r() * a.length);
+  return { skin: pick(SK.skin.slice(0, 6)), hair: pick(SK.hair), shirt: pick(SK.shirt), pants: pick(SK.pants), shoes: pick(SK.shoes), style: pick(SK_STYLE.style), hat: r() < 0.5 ? 0 : pick(SK_STYLE.hat), acc: r() < 0.6 ? 0 : pick(SK_STYLE.acc) };
+}
+function mySkin() { try { const s = JSON.parse(localStorage.getItem('dc_skin')); if (s && s.shirt != null) return s; } catch (e) {} const s = randomSkin(auth ? auth.name : Math.random()); localStorage.setItem('dc_skin', JSON.stringify(s)); return s; }
+const SKCOL = (s, k) => SK[k][(s && s[k]) | 0] ?? SK[k][0];
+function buildAvatar(s) {
+  const g = new THREE.Group(), legs = [], arms = [], skin = SKCOL(s, 'skin'), hair = SKCOL(s, 'hair'), shirt = SKCOL(s, 'shirt'), pants = SKCOL(s, 'pants'), shoes = SKCOL(s, 'shoes');
+  const body = new THREE.Group(); g.add(body);
+  box(0.5, 0.75, 0.28, shirt, 0, 1.1, 0, body);
+  const head = new THREE.Group(); head.position.set(0, 1.72, 0); body.add(head);
+  box(0.46, 0.5, 0.46, skin, 0, 0, 0, head);
+  for (const ex of [-0.1, 0.1]) { box(0.09, 0.08, 0.02, 0xffffff, ex, 0.04, 0.235, head); box(0.045, 0.06, 0.02, 0x2a2a6a, ex + 0.02, 0.035, 0.245, head); }
+  box(0.14, 0.03, 0.02, 0x7a3a2a, 0, -0.12, 0.235, head);
+  const st = s.style | 0;
+  if (st !== 3) box(0.5, 0.12, 0.5, hair, 0, 0.24, 0, head);
+  if (st === 0 || st === 1 || st === 5 || st === 6) box(0.5, st === 1 ? 0.5 : 0.22, 0.08, hair, 0, st === 1 ? -0.02 : 0.13, -0.23, head);
+  if (st === 1) for (const sx of [-0.24, 0.24]) box(0.06, 0.36, 0.44, hair, sx, 0.05, -0.02, head);
+  if (st === 2) box(0.12, 0.2, 0.5, hair, 0, 0.36, 0, head);
+  if (st === 4) for (let i = 0; i < 4; i++) box(0.1, 0.16, 0.1, hair, -0.15 + i * 0.1, 0.36, (i % 2) * 0.1 - 0.05, head);
+  if (st === 5) box(0.2, 0.18, 0.2, hair, 0, 0.36, -0.12, head);
+  if (st === 6) box(0.62, 0.36, 0.6, hair, 0, 0.3, -0.02, head);
+  const ht = s.hat | 0;
+  if (ht === 1) { box(0.5, 0.14, 0.5, shirt, 0, 0.32, 0, head); box(0.44, 0.04, 0.24, shirt, 0, 0.26, 0.32, head); }
+  if (ht === 2) box(0.52, 0.22, 0.52, pants, 0, 0.32, 0, head);
+  if (ht === 3) { box(0.62, 0.04, 0.62, 0x111111, 0, 0.29, 0, head); box(0.4, 0.4, 0.4, 0x111111, 0, 0.5, 0, head); box(0.41, 0.06, 0.41, 0xd23a2a, 0, 0.35, 0, head); }
+  if (ht === 4) { box(0.48, 0.14, 0.48, 0xf2c21a, 0, 0.34, 0, head); for (const [cx, cz] of [[-0.2, 0], [0.2, 0], [0, 0.2], [0, -0.2]]) box(0.08, 0.12, 0.08, 0xf2c21a, cx, 0.46, cz, head); }
+  if (ht === 5) { box(0.06, 0.12, 0.54, 0x222222, 0, 0.3, 0, head); for (const hx of [-0.27, 0.27]) box(0.08, 0.18, 0.18, 0x222222, hx, 0.02, 0, head); }
+  if (ht === 6) { box(0.8, 0.04, 0.8, 0x8a5a2a, 0, 0.28, 0, head); box(0.44, 0.24, 0.44, 0x8a5a2a, 0, 0.4, 0, head); }
+  const ac = s.acc | 0;
+  if (ac === 1 || ac === 2) { const c = ac === 1 ? 0x222222 : 0x050505; for (const ex of [-0.11, 0.11]) box(0.14, 0.1, 0.02, ac === 1 ? 0x9ad0ff : c, ex, 0.04, 0.25, head); box(0.44, 0.03, 0.02, c, 0, 0.08, 0.25, head); }
+  if (ac === 3) box(0.3, 0.06, 0.02, 0xf2c21a, 0, 1.38, 0.15, body);
+  if (ac === 4) box(0.48, 0.2, 0.02, 0x222222, 0, -0.1, 0.24, head);
+  if (ac === 5) box(0.4, 0.16, 0.04, hair, 0, -0.17, 0.235, head);
+  for (const lx of [-0.12, 0.12]) { const l = pivotLimb(body, 0.22, 0.72, 0.22, pants, lx, 0.72, 0); box(0.23, 0.12, 0.26, shoes, 0, -0.66, 0.02, l); legs.push(l); }
+  for (const ax of [-0.34, 0.34]) { const a = pivotLimb(body, 0.18, 0.7, 0.18, shirt, ax, 1.45, 0); box(0.17, 0.2, 0.17, skin, 0, -0.62, 0, a); arms.push(a); }
+  return { g, body, legs, arms, head };
+}
+function nameTag(text) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 48; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(0,0,0,.55)'; const w = Math.min(250, x.measureText ? 30 + text.length * 17 : 200); x.fillRect((256 - w) / 2, 4, w, 40); x.fillStyle = '#fff'; x.font = 'bold 28px sans-serif'; x.textAlign = 'center'; x.fillText(text, 128, 34);
+  const t = new THREE.CanvasTexture(c); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(1.9, 0.36, 1); sp.position.y = 2.35; sp.renderOrder = 20; return sp;
+}
+function animAvatar(av, speed, t, sleeping) {
+  if (sleeping) { av.body.rotation.x = -Math.PI / 2; av.body.position.set(0, 0.55, 0.9); for (const l of [...av.legs, ...av.arms]) l.rotation.x = 0; return; }
+  av.body.rotation.x = 0; av.body.position.set(0, 0, 0);
+  const sw = Math.min(1, speed / 4) * Math.sin(t * 9) * 0.8;
+  av.legs[0].rotation.x = sw; av.legs[1].rotation.x = -sw; av.arms[0].rotation.x = -sw; av.arms[1].rotation.x = sw;
+}
+
+// ---------- third-person camera (V or 👁) and my own character ----------
+let myAv = null, myAvKey = '';
+function updateMyAvatar(dt, t) {
+  const k = JSON.stringify(mySkin()); if (k !== myAvKey) { if (myAv) scene.remove(myAv.g); myAv = buildAvatar(mySkin()); scene.add(myAv.g); myAvKey = k; }
+  const show = settings.view3 && playing && !player.car;
+  myAv.g.visible = show; hand.visible = !show;
+  if (!show) return;
+  myAv.g.position.copy(player.pos); myAv.g.rotation.y = player.yaw + Math.PI;
+  myAv.head.rotation.x = -player.pitch * 0.6;
+  animAvatar(myAv, Math.hypot(player.vel.x, player.vel.z), t, !!player.sleeping);
+  if (swingT > 0) myAv.arms[1].rotation.x = -1.5 * Math.sin((1 - swingT / swingDur) * Math.PI);
+  // pull the camera back behind the head, stopping before walls
+  const eye = new THREE.Vector3(player.pos.x, player.pos.y + EYE, player.pos.z), back = getDir().multiplyScalar(-1);
+  let d = 0.3; while (d < 3.6) { const p = eye.clone().addScaledVector(back, d + 0.25); if (solid(get(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)))) break; d += 0.15; }
+  camera.position.copy(eye).addScaledVector(back, d);
+}
+
+// ---------- online worlds ----------
+const net = { on: false, role: null, code: null, remotes: {}, es: null, lastClock: 0,
+  count() { const n = performance.now(); return 1 + Object.values(this.remotes).filter(r => n - r.recv < 12000).length; },
+  sleepers() { const n = performance.now(), rs = Object.values(this.remotes).filter(r => n - r.recv < 12000); return [(player.sleeping ? 1 : 0) + rs.filter(r => r.d.sl).length, rs.length + 1]; } };
+let netMute = false, pendEdits = {}, lastCrop = {}, lastDev = {}, netT = 0, posT = 0, clockT = 0, cropsDirty = false, posBusy = false;
+function netEdit(k, id) { if (net.on && !netMute) pendEdits[k] = id; }
+function netChests(keys) { if (!net.on) return; const p = {}; for (const k of keys) p['chests/' + k] = JSON.stringify(state.chests[k] || null); db('PATCH', 'rooms/' + net.code, p).catch(() => {}); }
+const cropVal = c => c ? JSON.stringify({ type: c.type, t: Math.round(c.t * 10) / 10, fert: !!c.fert }) : null;
+const cleanCrops = () => { const o = {}; for (const k in state.crops) o[k] = JSON.parse(cropVal(state.crops[k])); return o; };
+const meData = () => ({ n: auth.name, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yw: +player.yaw.toFixed(2), p: +player.pitch.toFixed(2), sl: !!player.sleeping, sk: mySkin(), t: Date.now() });
+const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += A[Math.floor(Math.random() * A.length)]; return s; };
+async function hostOnline() {
+  if (!auth) { openAccount(); toast('👤 Log in first to play online'); return; }
+  if (MP_GUEST) return;
+  setOnlineMsg('Opening your world...');
+  try {
+    const code = newCode(), chests = {}; for (const k in state.chests) chests[k] = JSON.stringify(state.chests[k]);
+    await db('PUT', 'rooms/' + code, { meta: { host: auth.uid, hostName: auth.name, open: true, seed: state.seed, created: Date.now() }, clock: { time: state.time, gt: state.gameTime, hb: Date.now() },
+      edits: state.edits, crops: cleanCrops(), dev: state.dev, chests, players: { [auth.uid]: meData() } });
+    net.on = true; net.role = 'host'; net.code = code; lastCrop = {}; lastDev = {}; for (const k in state.crops) lastCrop[k] = cropVal(state.crops[k]); Object.assign(lastDev, state.dev);
+    await openStream(); setOnlineMsg(''); renderOnline(); toast(`🌐 Your world is online! Code: ${code}`);
+  } catch (e) { setOnlineMsg('⚠️ ' + e.message); }
+}
+async function joinOnline(code) {
+  if (!auth) { openAccount(); return; }
+  code = code.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 5) { setOnlineMsg('Codes are 5 letters/numbers'); return; }
+  setOnlineMsg('Joining ' + code + '...');
+  try {
+    const r = await db('GET', 'rooms/' + code);
+    if (!r || !r.meta || !r.meta.open) throw new Error('No open world with that code');
+    if (r.meta.host === auth.uid) throw new Error("That's your own world");
+    const now = Date.now(), others = Object.entries(r.players || {}).filter(([u, p]) => u !== auth.uid && p && now - p.t < 60000);
+    if (others.length >= MAX_PLAYERS) throw new Error('That world is full (4/4)');
+    const host = (r.players || {})[r.meta.host], chests = {}; for (const k in (r.chests || {})) { try { const v = JSON.parse(r.chests[k]); if (v) chests[k] = v; } catch (e) {} }
+    const world = { seed: r.meta.seed, edits: r.edits || {}, crops: r.crops || {}, dev: r.dev || {}, chests, time: r.clock.time, gameTime: r.clock.gt,
+      pos: host ? [host.x + 1, host.y + 0.5, host.z + 1] : state.pos, _welcomed: true };
+    save();
+    { const inv = {}; for (const k of INV_KEYS) inv[k] = state[k]; localStorage.setItem('dc_mp_inv', JSON.stringify(inv)); }
+    localStorage.setItem('dc_mp_world', JSON.stringify(world));
+    localStorage.setItem('dc_mp', JSON.stringify({ role: 'guest', code, host: r.meta.hostName }));
+    saveBlocked = true; location.reload();
+  } catch (e) { setOnlineMsg('⚠️ ' + e.message); }
+}
+async function leaveOnline(msg) {
+  if (net.es) { net.es.close(); net.es = null; }
+  const was = net.role, code = net.code; net.on = false;
+  for (const u in net.remotes) removeRemote(u);
+  try {
+    if (was === 'host') { await db('PATCH', 'rooms/' + code + '/meta', { open: false }); setTimeout(() => db('DELETE', 'rooms/' + code).catch(() => {}), 4000); }
+    else if (code && auth) await db('DELETE', `rooms/${code}/players/${auth.uid}`);
+  } catch (e) {}
+  net.role = null; net.code = null;
+  if (MP_GUEST) {   // carry your inventory back to your own world
+    try {
+      const inv = JSON.parse(localStorage.getItem('dc_mp_inv')) || {}; for (const k of INV_KEYS) inv[k] = state[k];
+      const own = JSON.parse(localStorage.getItem(SAVE_KEY)) || newState(); for (const k of INV_KEYS) if (inv[k] !== undefined) own[k] = inv[k];
+      localStorage.setItem(SAVE_KEY, JSON.stringify(own));
+    } catch (e) {}
+    for (const k of ['dc_mp', 'dc_mp_world', 'dc_mp_inv']) localStorage.removeItem(k);
+    if (msg) localStorage.setItem('dc_mp_msg', msg);
+    saveBlocked = true; location.reload(); return;
+  }
+  renderOnline(); if (msg) toast(msg);
+}
+async function openStream() {
+  if (net.es) net.es.close();
+  const t = await token(), es = new EventSource(`${FB_DB}/rooms/${net.code}.json?auth=${t}`); net.es = es;
+  const handle = (ev, patch) => { try { const m = JSON.parse(ev.data); if (!m) return; if (patch) for (const k in m.data) onNet(join(m.path, k), m.data[k]); else onNet(m.path, m.data); } catch (e) {} };
+  es.addEventListener('put', e => handle(e, false)); es.addEventListener('patch', e => handle(e, true));
+  es.addEventListener('auth_revoked', () => { token().then(() => net.on && openStream()).catch(() => {}); });
+  es.addEventListener('cancel', () => { if (net.on) leaveOnline('🌐 Disconnected from the online world'); });
+  es.onerror = () => {};
+}
+const join = (a, b) => (a === '/' ? '' : a) + '/' + b;
+function onNet(path, data) {
+  const seg = path.split('/').filter(Boolean);
+  if (!seg.length) { if (data == null) { if (net.role === 'guest') leaveOnline('🌐 The host closed their world'); return; } for (const k in data) onNet('/' + k, data[k]); return; }
+  const [top, key, ...rest] = seg;
+  if (top === 'meta') { if ((key === 'open' && data === false) || (!key && (!data || data.open === false))) { if (net.role === 'guest') leaveOnline('🌐 The host closed their world'); } return; }
+  if (top === 'clock') { if (net.role !== 'guest') return; const c = key ? { [key]: data } : data; if (!c) return; net.lastClock = performance.now();
+    if (c.time != null) { const jump = c.time - state.time; if (Math.abs(jump) > 2) { state.time = c.time; if (jump > 30 && player.sleeping) wakeUp(true); } }
+    if (c.gt != null && Math.abs(c.gt - state.gameTime) > 2) state.gameTime = c.gt; return; }
+  if (top === 'players') {
+    if (!key) { for (const u in (data || {})) onNet('/players/' + u, data[u]); return; }
+    if (auth && key === auth.uid) return;
+    if (data == null && !rest.length) { removeRemote(key); return; }
+    const r = net.remotes[key] || (net.remotes[key] = { d: {}, recv: 0, av: null, skinKey: '' });
+    if (rest.length) r.d[rest[0]] = data; else r.d = data; r.recv = performance.now(); return;
+  }
+  if (top === 'edits') {
+    if (!key) { for (const k in (data || {})) onNet('/edits/' + k, data[k]); return; }
+    const [x, y, z] = key.split(',').map(Number), id = data == null ? AIR : data;
+    if (get(x, y, z) !== id || state.edits[key] !== id) { netMute = true; setBlock(x, y, z, id, false); netMute = false; netFlushSoon = true; }
+    return;
+  }
+  if (top === 'crops') {
+    if (!key) { for (const k in (data || {})) onNet('/crops/' + k, data[k]); return; }
+    const v = data ? JSON.stringify({ type: data.type, t: Math.round(data.t * 10) / 10, fert: !!data.fert }) : null; lastCrop[key] = v;
+    if (v === cropVal(state.crops[key])) return;
+    if (data && CROPS[data.type]) state.crops[key] = { type: data.type, t: data.t, fert: !!data.fert }; else delete state.crops[key];
+    cropsDirty = true; return;
+  }
+  if (top === 'dev') { if (!key) { for (const k in (data || {})) onNet('/dev/' + k, data[k]); return; } lastDev[key] = data; if (data == null) delete state.dev[key]; else state.dev[key] = data; return; }
+  if (top === 'chests') { if (!key) { for (const k in (data || {})) onNet('/chests/' + k, data[k]); return; } if (chestKeys && chestKeys.includes(key)) return; try { const v = JSON.parse(data); if (v) state.chests[key] = v; else delete state.chests[key]; } catch (e) {} }
+}
+let netFlushSoon = false;
+function removeRemote(u) { const r = net.remotes[u]; if (!r) return; if (r.av) scene.remove(r.av.g); if (r.tag) scene.remove(r.tag); delete net.remotes[u]; }
+function updateNet(dt, t) {
+  if (netFlushSoon) { netFlushSoon = false; flushDirty(); }
+  if (cropsDirty) { cropsDirty = false; buildCrops(); }
+  if (!net.on) return;
+  netT += dt; posT += dt; clockT += dt;
+  if (netT > 0.3) {   // block edits, crops and TV/radio channels
+    netT = 0; const p = {};
+    for (const k in pendEdits) p['edits/' + k] = pendEdits[k]; pendEdits = {};
+    for (const k in state.crops) { const v = cropVal(state.crops[k]); if (lastCrop[k] !== v) { p['crops/' + k] = JSON.parse(v); lastCrop[k] = v; } }
+    for (const k in lastCrop) if (lastCrop[k] != null && !state.crops[k]) { p['crops/' + k] = null; lastCrop[k] = null; }
+    for (const k in state.dev) if (lastDev[k] !== state.dev[k]) { p['dev/' + k] = state.dev[k]; lastDev[k] = state.dev[k]; }
+    for (const k in lastDev) if (lastDev[k] != null && state.dev[k] == null) { p['dev/' + k] = null; lastDev[k] = null; }
+    if (Object.keys(p).length) db('PATCH', 'rooms/' + net.code, p).catch(() => {});
+  }
+  if (posT > 0.2 && !posBusy) { posT = 0; posBusy = true; db('PUT', `rooms/${net.code}/players/${auth.uid}`, meData()).catch(() => {}).finally(() => { posBusy = false; }); }
+  if (net.role === 'host') {
+    if (clockT > 3) { clockT = 0; db('PUT', `rooms/${net.code}/clock`, { time: state.time, gt: state.gameTime, hb: Date.now() }).catch(() => {}); }
+    const [a, n] = net.sleepers();   // everybody in bed: the night passes for the whole world
+    if (n > 1 && a === n && canSleep() && player.sleeping && player.sleeping.t > 2.5) { skipToMorning(); wakeUp(true); clockT = 0; db('PUT', `rooms/${net.code}/clock`, { time: state.time, gt: state.gameTime, hb: Date.now() }).catch(() => {}); }
+  } else if (net.lastClock && performance.now() - net.lastClock > 45000) { net.lastClock = 0; leaveOnline('🌐 Lost connection to the host'); return; }
+  // draw the other players
+  const now = performance.now();
+  for (const u in net.remotes) {
+    const r = net.remotes[u], d = r.d; if (!d || d.x == null) continue;
+    if (now - r.recv > 60000) { removeRemote(u); continue; }
+    const sk = JSON.stringify(d.sk || {}); if (!r.av || sk !== r.skinKey) { if (r.av) scene.remove(r.av.g); r.av = buildAvatar(d.sk || randomSkin(u)); scene.add(r.av.g); r.skinKey = sk; if (!r.tag) { r.tag = nameTag(d.n || 'Player'); r.av.g.add(r.tag); } else r.av.g.add(r.tag); r.av.g.position.set(d.x, d.y, d.z); }
+    const g = r.av.g; g.visible = now - r.recv < 12000;
+    const ox = g.position.x, oz = g.position.z, k = Math.min(1, dt * 10);
+    g.position.x += (d.x - g.position.x) * k; g.position.y += (d.y - g.position.y) * k; g.position.z += (d.z - g.position.z) * k;
+    let dy = (d.yw + Math.PI) - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * k;
+    r.av.head.rotation.x = -(d.p || 0) * 0.6;
+    animAvatar(r.av, Math.hypot(g.position.x - ox, g.position.z - oz) / Math.max(dt, 0.001), t, d.sl);
+  }
+}
+function setOnlineMsg(m) { const e = document.getElementById('onMsg'); if (e) e.textContent = m; }
+
+// ---------- panels: account, online, character ----------
+const mkPanel = (id) => { const p = document.createElement('div'); p.className = 'panel toppanel'; p.id = id; p.innerHTML = `<div class="box" id="${id}Box"></div>`; document.body.appendChild(p);
+  p.addEventListener('pointerdown', e => { if (e.target === p) closePanels(); }); return p; };
+const acctP = mkPanel('acct'), onP = mkPanel('online'), charP = mkPanel('char');
+function openAccount() { renderAccount(); openPanel('acct'); if (auth) refreshCloudList(); }
+let cloudMeta = null;
+async function refreshCloudList() { try { cloudMeta = await cloudList(); } catch (e) { cloudMeta = null; cloudStatus = '⚠️ ' + e.message; } renderAccount(); }
+function renderAccount() {
+  const b = document.getElementById('acctBox'); if (!b) return;
+  if (!auth) {
+    b.innerHTML = `<button class="btn close" data-a="close">✕</button><h2>👤 DealerCraft Account</h2>
+      <p style="opacity:.8;font-size:14px;margin:4px 0 10px">Log in to back up your worlds to the cloud, load them on another phone or the website, and play online with friends.</p>
+      <div class="form"><input id="aUser" placeholder="Username" autocomplete="username" maxlength="16"><input id="aPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password" maxlength="64">
+      <div class="frow"><button class="btn gold" data-a="login">Log in</button><button class="btn" data-a="signup">Create account</button></div><div id="aMsg" class="amsg"></div></div>`;
+    return;
+  }
+  const rows = []; for (let s = 1; s <= SLOTS; s++) { const m = cloudMeta && cloudMeta['w' + s]; rows.push(`<div class="row"><span class="nm">🌍 World ${s}<br><span style="font-size:12px;opacity:.7">${m ? `Day ${m.day} · 💰 ${m.coins} · saved ${new Date(m.t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : cloudMeta ? 'No cloud save yet' : 'Loading...'}</span></span>${m ? `<button class="btn" data-rs="${s}">⬇️ Restore</button>` : ''}</div>`); }
+  b.innerHTML = `<button class="btn close" data-a="close">✕</button><h2>👤 ${esc(auth.name)}</h2>
+    <div class="row"><span class="nm">☁️ Auto cloud save<br><span style="font-size:12px;opacity:.7">Your worlds upload every 2 minutes and when you leave the game. ${esc(cloudStatus)}</span></span><button class="btn gold" data-a="upload">☁️ Upload now</button></div>
+    <h3>Cloud saves</h3>${rows.join('')}<p style="font-size:12px;opacity:.7">Restoring replaces that world on this device with the cloud copy.</p>
+    <div class="frow"><button class="btn" data-a="char">👕 My character</button><button class="btn" data-a="logout" style="background:#7a2222">Log out</button></div>`;
+}
+acctP.addEventListener('click', async e => {
+  e.stopPropagation(); const b = e.target.closest('[data-a],[data-rs]'); if (!b) return; const a = b.dataset.a;
+  if (a === 'close') { closePanels(); return; }
+  if (a === 'login' || a === 'signup') {
+    const u = document.getElementById('aUser').value.trim(), p = document.getElementById('aPass').value, msg = document.getElementById('aMsg');
+    msg.textContent = a === 'login' ? 'Logging in...' : 'Creating your account...'; b.disabled = true;
+    try { if (a === 'login') await logIn(u, p); else await signUp(u, p); renderAccount(); renderAcctBtn(); toast(`👤 Logged in as ${auth.name}`); await refreshCloudList();
+      const hasLocal = [1, 2, 3].some(s => localStorage.getItem(slotKey(s))); if (a === 'login' && cloudMeta && Object.keys(cloudMeta).length && (!hasLocal || freshGame)) toast('☁️ Cloud saves found: tap Restore to load them');
+      else if (a === 'signup') cloudUpload(false);
+    } catch (err) { msg.textContent = '⚠️ ' + err.message; b.disabled = false; }
+    return;
+  }
+  if (a === 'upload') { b.disabled = true; b.textContent = 'Uploading...'; await cloudUpload(true); return; }
+  if (a === 'logout') { logOut(); return; }
+  if (a === 'char') { openChar(); return; }
+  if (b.dataset.rs) { const s = +b.dataset.rs; confirmBox(`Replace World ${s} on this device with the cloud save?`, 'Restore', async () => { try { await cloudRestore(s); } catch (err) { toast('⚠️ ' + err.message); } }); }
+});
+acctP.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = acctP.querySelector('[data-a=login]'); if (b) b.click(); } });
+function confirmBox(text, yes, fn) {
+  const box = document.createElement('div'); box.className = 'wconfirm'; box.style.zIndex = 80;
+  box.innerHTML = `<div>${text}</div><button class="btn" data-no>Cancel</button><button class="btn gold" data-yes>${yes}</button>`;
+  box.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-yes]')) fn(); if (e.target.closest('[data-yes],[data-no]')) box.remove(); });
+  document.body.appendChild(box);
+}
+function openOnline() { renderOnline(); openPanel('online'); }
+function renderOnline() {
+  const b = document.getElementById('onlineBox'); if (!b) return;
+  let h = `<button class="btn close" data-a="close">✕</button><h2>🌐 Play Online</h2>`;
+  if (!auth) h += `<p>Log in to host your world or join a friend's (up to ${MAX_PLAYERS} players).</p><button class="btn gold" data-a="acct">👤 Log in / Sign up</button>`;
+  else if (net.on) {
+    const now = performance.now(), list = [`${esc(auth.name)} (you)${net.role === 'host' ? ' 👑' : ''}`, ...Object.values(net.remotes).filter(r => now - r.recv < 12000).map(r => esc(r.d.n || 'Player'))];
+    h += `<div class="row"><span class="nm">World code<br><span style="font-size:12px;opacity:.7">${net.role === 'host' ? 'Send this to friends so they can join' : 'Hosted by ' + esc((MP && MP.host) || 'a friend')}</span></span><b class="code">${net.code}</b></div>
+      <h3>Players ${list.length}/${MAX_PLAYERS}</h3>${list.map(n => `<div class="row"><span class="nm">🧍 ${n}</span></div>`).join('')}
+      <p style="font-size:12px;opacity:.75">Everyone has to be in bed at night to skip to morning. ${net.role === 'guest' ? 'Your bag comes back with you when you leave.' : 'Your world saves on your phone like normal.'}</p>
+      <button class="btn" data-a="leave" style="background:#7a2222">${net.role === 'host' ? 'Close online world' : 'Leave world'}</button>`;
+  } else {
+    h += `<div class="row"><span class="nm">🏠 Host this world<br><span style="font-size:12px;opacity:.7">Friends join with a code (World ${SLOT})</span></span><button class="btn gold" data-a="host">Host</button></div>
+      <div class="row"><span class="nm">🔑 Join a friend</span><input id="joinCode" placeholder="CODE" maxlength="5" style="width:96px;text-transform:uppercase"><button class="btn" data-a="join">Join</button></div>`;
+  }
+  b.innerHTML = h + `<div id="onMsg" class="amsg"></div>`;
+}
+onP.addEventListener('click', e => {
+  e.stopPropagation(); const b = e.target.closest('[data-a]'); if (!b) return; const a = b.dataset.a;
+  if (a === 'close') closePanels(); if (a === 'acct') { closePanels(); openAccount(); }
+  if (a === 'host') hostOnline(); if (a === 'join') joinOnline(document.getElementById('joinCode').value);
+  if (a === 'leave') leaveOnline(net.role === 'host' ? '🌐 Your world is offline again' : '');
+});
+setInterval(() => { if (onP.classList.contains('show') && net.on) renderOnline(); renderNetPill(); }, 2000);
+// character editor
+function openChar() { renderChar(); openPanel('char'); }
+function drawSkin(c, s) {   // front view preview
+  const x = c.getContext('2d'), u = 12, hex = v => '#' + v.toString(16).padStart(6, '0'), R = (col, a, b, w, h) => { x.fillStyle = hex(col); x.fillRect(a * u, b * u, w * u, h * u); };
+  x.clearRect(0, 0, c.width, c.height); const sk = SKCOL(s, 'skin'), hr = SKCOL(s, 'hair'), sh = SKCOL(s, 'shirt'), pa = SKCOL(s, 'pants'), so = SKCOL(s, 'shoes'), st = s.style | 0, ht = s.hat | 0, ac = s.acc | 0;
+  if (st === 6) R(hr, 3, 1, 8, 6); if (st === 1) R(hr, 3.5, 4, 7, 5);
+  R(sk, 4, 3, 6, 6); if (st !== 3) R(hr, 4, 2.4, 6, 1.6); if (st === 2) R(hr, 6.3, 1.2, 1.4, 1.6); if (st === 4) for (let i = 0; i < 4; i++) R(hr, 4.2 + i * 1.5, 1.4, 1, 1.2); if (st === 5) R(hr, 6, 1.2, 2, 1.3);
+  R(0xffffff, 5, 5, 1.2, 1); R(0xffffff, 7.8, 5, 1.2, 1); R(0x2a2a6a, 5.5, 5.1, 0.6, 0.9); R(0x2a2a6a, 8.2, 5.1, 0.6, 0.9); R(0x7a3a2a, 6, 7.4, 2, 0.4);
+  if (ht === 1) { R(sh, 4, 1.6, 6, 1.8); R(sh, 4.5, 3.2, 5, 0.5); } if (ht === 2) R(pa, 3.8, 1.4, 6.4, 2.4); if (ht === 3) { R(0x111111, 3, 2.6, 8, 0.6); R(0x111111, 4.5, -0.6, 5, 3.4); R(0xd23a2a, 4.5, 1.8, 5, 0.6); }
+  if (ht === 4) { R(0xf2c21a, 4, 1.4, 6, 1.6); for (let i = 0; i < 3; i++) R(0xf2c21a, 4.2 + i * 2.2, 0.4, 1.2, 1.2); } if (ht === 5) { R(0x222222, 3.4, 1.8, 7.2, 0.6); R(0x222222, 3, 4.4, 1.2, 2.4); R(0x222222, 9.8, 4.4, 1.2, 2.4); }
+  if (ht === 6) { R(0x8a5a2a, 2, 2.6, 10, 0.6); R(0x8a5a2a, 4.3, 0.4, 5.4, 2.4); }
+  if (ac === 1 || ac === 2) { R(ac === 1 ? 0x9ad0ff : 0x050505, 4.7, 4.8, 2, 1.3); R(ac === 1 ? 0x9ad0ff : 0x050505, 7.3, 4.8, 2, 1.3); R(0x111111, 4.5, 4.9, 5, 0.3); }
+  if (ac === 4) R(0x222222, 4, 6.8, 6, 2.2); if (ac === 5) R(hr, 4.6, 7.6, 4.8, 1.6);
+  R(sh, 4, 9, 6, 9); R(sh, 1.8, 9, 2.2, 8); R(sh, 10, 9, 2.2, 8); R(sk, 1.8, 16.6, 2.2, 2.2); R(sk, 10, 16.6, 2.2, 2.2); if (ac === 3) R(0xf2c21a, 5.5, 10.5, 3, 0.6);
+  R(pa, 4, 18, 2.9, 8); R(pa, 7.1, 18, 2.9, 8); R(so, 3.8, 25.4, 3.2, 1.4); R(so, 7, 25.4, 3.2, 1.4);
+}
+function renderChar() {
+  const s = mySkin(), b = document.getElementById('charBox');
+  const sw = k => SK[k].map((c, i) => `<button class="sw ${s[k] === i ? 'on' : ''}" data-k="${k}" data-v="${i}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
+  const op = k => SK_STYLE[k].map((n, i) => `<button class="chip ${s[k] === i ? 'on' : ''}" data-k="${k}" data-v="${i}">${n}</button>`).join('');
+  b.innerHTML = `<button class="btn close" data-a="close">✕</button><h2>👕 My Character</h2><div class="charwrap"><canvas id="skinCv" width="168" height="330"></canvas><div class="charopts">
+    <h3>Skin</h3>${sw('skin')}<h3>Hair</h3>${op('style')}<div>${sw('hair')}</div><h3>Shirt</h3>${sw('shirt')}<h3>Pants</h3>${sw('pants')}<h3>Shoes</h3>${sw('shoes')}<h3>Hat</h3>${op('hat')}<h3>Extras</h3>${op('acc')}
+    <div class="frow" style="margin-top:10px"><button class="btn" data-a="rand">🎲 Random</button><button class="btn gold" data-a="close">✅ Done</button></div></div></div>
+    <p style="font-size:12px;opacity:.7">This is how other players see you online. Tap 👁 in game to see yourself.</p>`;
+  drawSkin(b.querySelector('#skinCv'), s);
+}
+charP.addEventListener('click', e => {
+  e.stopPropagation(); const b = e.target.closest('[data-a],[data-k]'); if (!b) return; const s = mySkin();
+  if (b.dataset.a === 'close') { closePanels(); if (auth) db('PATCH', `saves/${auth.uid}/profile`, { name: auth.name, skin: s }).catch(() => {}); return; }
+  if (b.dataset.a === 'rand') { localStorage.setItem('dc_skin', JSON.stringify(randomSkin(Math.random()))); renderChar(); return; }
+  s[b.dataset.k] = +b.dataset.v; localStorage.setItem('dc_skin', JSON.stringify(s)); renderChar();
+});
+// title-screen + HUD buttons
+const titleRow = document.createElement('div'); titleRow.id = 'titleRow';
+titleRow.innerHTML = `<button class="btn" id="tAcct"></button><button class="btn" id="tOnline">🌐 Play Online</button><button class="btn" id="tChar">👕 Character</button>`;
+document.getElementById('worlds').after(titleRow);
+titleRow.addEventListener('click', e => { e.stopPropagation(); const id = e.target.id; if (id === 'tAcct') openAccount(); if (id === 'tOnline') openOnline(); if (id === 'tChar') openChar(); });
+function renderAcctBtn() { document.getElementById('tAcct').textContent = auth ? `👤 ${auth.name}` : '👤 Log in / Sign up'; }
+renderAcctBtn();
+const topb = document.getElementById('topbtns');
+const bNet = document.createElement('button'); bNet.className = 'tbtn'; bNet.id = 'bNet'; bNet.textContent = '🌐'; topb.prepend(bNet); bNet.addEventListener('click', () => openOnline());
+const bCam = document.createElement('button'); bCam.className = 'tbtn'; bCam.id = 'bCam'; bCam.textContent = '👁'; topb.prepend(bCam); bCam.addEventListener('click', () => { settings.view3 = !settings.view3; saveSettings(); });
+const netPill = document.createElement('div'); netPill.id = 'netPill'; document.getElementById('hud').appendChild(netPill);
+function renderNetPill() { netPill.style.display = net.on ? 'block' : 'none'; if (net.on) netPill.textContent = `🌐 ${net.code} · ${net.count()}/${MAX_PLAYERS} online`; }
+// guests reconnect to their room after the reload
+if (MP_GUEST && auth) { net.on = true; net.role = 'guest'; net.code = MP.code; for (const k in state.crops) lastCrop[k] = cropVal(state.crops[k]); Object.assign(lastDev, state.dev); net.lastClock = performance.now(); openStream().catch(() => leaveOnline('🌐 Could not reconnect')); setTimeout(() => toast(`🌐 Joined ${MP.host || 'your friend'}'s world (${MP.code})`), 800); }
+else if (MP_GUEST && !auth) leaveOnline('');
+{ const m = localStorage.getItem('dc_mp_msg'); if (m) { localStorage.removeItem('dc_mp_msg'); setTimeout(() => toast(m), 900); } }
+if (auth) token().catch(() => {});   // stay logged in: refresh the saved session in the background
 
 // ================== SOUNDS ==================
 let ambStarted = false;
@@ -2887,7 +3637,7 @@ function updateSky() {
   sky.lerp(skyDusk, dusk * 0.6);
   scene.background = sky; scene.fog.color.copy(sky).multiplyScalar(0.85);
   const under = headInWater();
-  scene.fog.near = under ? 1 : 12 + light * 16; scene.fog.far = under ? 14 : 46 + light * 20;
+  const vf = VIEW / 4; scene.fog.near = under ? 1 : (12 + light * 16) * vf; scene.fog.far = under ? 14 : (46 + light * 20) * vf;
   if (under) scene.fog.color.setRGB(0.05, 0.12, 0.35);
   ambient.color.copy(ambNight).lerp(ambDay, light); ambient.intensity = 0.4 + light * 0.3;
   sun.intensity = 0.05 + light * 0.6; sun.position.set(Math.cos(a) * 50, Math.sin(a) * 50 + 10, 20);
@@ -2999,16 +3749,17 @@ function updateTarget() {
   else if (h && h.kind === 'crop') { const c = state.crops[h.key]; const pct = Math.min(100, Math.round((state.gameTime - c.t) / CROPS[c.type].grow * 100)); txt = `${CROPS[c.type].name}: ${pct >= 100 ? 'RIPE! use a hoe to gather' : pct + '%'}`; }
   else if (h && h.kind === 'block') {
     if (h.id === PUMPKIN) txt = '🎃 Wild Pumpkin'; else if (isDoor(h.id)) txt = '🚪 ✋ open / close'; else if (h.id === CTABLE) txt = '🪵 ✋ Crafting Table'; else if (h.id === CHEST) txt = '📦 ✋ Chest'; else if (h.id === FURNACE) txt = '🔥 ✋ Furnace'; else if (h.id === GRAVE) txt = '🪦 ✋ get your things back';
+    else if (isFurn(h.id)) { const b = furnBase(h.id), dv = state.dev[h.x + ',' + h.y + ',' + h.z]; txt = b === BED0 ? '🛏️ ✋ Sleep' : b === LAPTOP0 ? '💻 ✋ Open DealerNet' : b === TV0 ? `📺 ✋ ${dv ? TV_CH[dv - 1] + ' (next channel)' : 'Turn on'}` : `📻 ✋ ${dv ? STATIONS[dv - 1].name + ' (next station)' : 'Turn on'}`; }
     else if (h.id === IRON_ORE) txt = 'Iron Ore (stone pickaxe)'; else if (h.id === COAL_ORE) txt = 'Coal Ore';
   }
   el.style.display = txt ? 'block' : 'none'; el.textContent = txt;
 }
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   streamChunks(2, 2);
   let moving = false;
-  if (playing && !uiOpen && player.alive && !scaring && !player.car) moving = updatePlayer(dt);
+  if (playing && !uiOpen && player.alive && !scaring && !player.car && !player.sleeping) moving = updatePlayer(dt);
   else { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); }
   updateMining(dt);
   if (playing) { state.time += dt; state.gameTime += dt; updateVitals(dt); }
@@ -3016,6 +3767,7 @@ function frame(now) {
   waterT += dt; if (waterT > 0.25) { waterT = 0; waterTick(); flushDirty(); }
   updateVillagers(dt); updateSpooks(dt, now / 1000); if (playing) updateMobs(dt, now / 1000); updateParticles(dt); updateFurnaces(dt);
   if (playing) { updateCars(dt, now / 1000); updateTowns(dt); } updateSmoke(dt);
+  updateSleep(dt); updateNet(dt, now / 1000); updateTVs(dt); updateRadio(dt); if (!player.car) updateMyAvatar(dt, now / 1000); else if (myAv) { myAv.g.visible = false; hand.visible = true; }
   updateSky(); updateTarget(); updateHand(dt, moving); updateTorchLights(dt); updateMap(dt); updateOffhand(dt);
   cropTick += dt; if (cropTick > 1) { cropTick = 0; if (playing) tickCropsAndPoop(1); let ch = false; for (const k in state.crops) { const c = state.crops[k]; if (cropStage(c) !== c._st || (c.type === 'weed' && Math.round(Math.min(1, (state.gameTime - c.t) / CROPS.weed.grow) * 40) !== c._g)) ch = true; } if (ch) buildCrops(); }
   statTick += dt; if (statTick > 0.5) { statTick = 0; renderStats(); renderVitals(); }
@@ -3036,4 +3788,4 @@ while (streamChunks(400, 400) > 0) {}
 if (collides(player.pos)) { player.pos.y = groundAt(player.pos.x, player.pos.z); }
 buildCrops(); renderHotbar(); renderStats(); renderVitals(); updateSky();
 requestAnimationFrame(frame);
-window.__dc = { applyTexturePack, state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock, collides, VX, VZ, useAction, openChest, openSettings, diff, townOf, cars, enterCar, exitCar, swapOffhand, TREG, CH, get weedMesh() { return weedMesh; }, buildCrops, keys, get wanted() { return wanted; } };
+window.__dc = { applyTexturePack, state, player, villagers, raycast, data, chunks, ghosts, mobs, spawnMob, give, settings, jumpscare, get, setBlock, collides, VX, VZ, useAction, openChest, openSettings, diff, townOf, cars, enterCar, exitCar, swapOffhand, TREG, CH, get weedMesh() { return weedMesh; }, buildCrops, keys, get wanted() { return wanted; }, net, get auth() { return auth; }, hostOnline, joinOnline, leaveOnline, cloudUpload, openWeb, openChar, openAccount, useFurn, skipToMorning, updateTVs, updateRadio, STATIONS, get radioNear() { return radioNear; }, tvScreens, itemValue, webBuy, webSell, mySkin, get VIEW() { return VIEW; } };

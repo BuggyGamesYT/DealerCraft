@@ -112,8 +112,27 @@ body.menu #hud{display:none}
 #start .help{margin-top:10px;font-size:12px;line-height:1.4;max-width:min(760px,70vw)}
 #start .by{position:static;margin-top:8px;font-size:11px}
 }
-#start .donate{display:inline-block;margin-left:4px;padding:3px 10px;border-radius:12px;background:#00d64f;color:#fff;font-weight:700;text-decoration:none;pointer-events:auto}
-#start .donmsg{margin-top:8px;max-width:560px;padding:0 14px;font-size:11px;line-height:1.35;color:#aaa;text-align:center}
+
+input{user-select:text;-webkit-user-select:text;touch-action:auto!important;background:#0e0816;border:2px solid #6b2fa0;color:#fff;border-radius:8px;padding:8px 10px;font-size:16px;outline:none}
+input:focus{border-color:#ffb347}
+.panel.toppanel{z-index:60}
+.form{display:flex;flex-direction:column;gap:8px;max-width:360px}.frow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.amsg{min-height:18px;font-size:13px;color:#ffb347;margin-top:6px}
+.code{font-family:ui-monospace,monospace;font-size:26px;letter-spacing:4px;color:#39ff7a;background:#000;padding:4px 10px;border-radius:8px}
+#titleRow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center}#titleRow .btn{font-size:15px;padding:8px 14px;touch-action:none}
+#netPill{position:fixed;left:12px;top:auto;bottom:150px;background:rgba(0,40,20,.6);border:1px solid #39ff7a;border-radius:10px;padding:4px 10px;font-size:13px;display:none}
+body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
+#sleepFade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.2s;z-index:30;display:flex;align-items:center;justify-content:center}
+#sleepFade.on{opacity:.93}#sleepMsg{font-size:20px;color:#d8ccff;text-shadow:0 2px 6px #000}
+.chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:16px;padding:5px 10px;font-size:13px;margin:2px;cursor:pointer}.chip.on{background:#c99a12;border-color:#ffd84a}
+.sw{width:30px;height:30px;border-radius:6px;border:2px solid rgba(255,255,255,.25);margin:2px;cursor:pointer}.sw.on{border:3px solid #ffd84a;box-shadow:0 0 6px #ffd84a}
+.charwrap{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}#skinCv{background:radial-gradient(#3a2a55,#140a20);border-radius:10px;width:140px;height:275px;image-rendering:pixelated}.charopts{flex:1;min-width:220px}.charopts h3{margin:8px 0 3px}
+.webbox{background:#f4f6fb;color:#1b1b22;border-color:#3a7bf2;padding:0}.webbox *{color:inherit}
+.wbar{display:flex;align-items:center;gap:8px;background:#dfe3ec;padding:8px 10px;border-radius:10px 10px 0 0;position:sticky;top:0;z-index:2}.wbar .dots i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;background:#e84b3c}.wbar .dots i:nth-child(2){background:#f2c21a}.wbar .dots i:nth-child(3){background:#2fb35a}
+.wbar .url{flex:1;background:#fff;border-radius:14px;padding:5px 12px;font-size:13px;color:#2a3a5a;font-family:ui-monospace,monospace}.wbar .btn{color:#fff}
+.whead{background:linear-gradient(90deg,#1f56c4,#3a7bf2);color:#fff!important;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.whead b{font-size:26px;color:#fff}.whead b span{color:#ffd84a}.wsub{font-size:13px;opacity:.9;flex:1;color:#fff}.wbal{background:rgba(0,0,0,.25);padding:5px 12px;border-radius:14px;font-weight:700;color:#ffd84a!important}
+.wtabs{display:flex;gap:8px;padding:10px 12px 4px;align-items:center;flex-wrap:wrap}.wtabs .btn{color:#fff}.wtabs input{flex:1;min-width:150px;background:#fff;color:#1b1b22;border-color:#c7cfdd}
+.wcats{padding:2px 10px 6px}.webbox .chip{background:#e6eaf2;border-color:#c7cfdd;color:#2a3a5a}.webbox .chip.on{background:#3a7bf2;color:#fff;border-color:#3a7bf2}
+#webList{padding:0 10px 12px}.webbox .row{background:#fff;border:1px solid #e1e5ee}.webbox .row .pr{color:#1a8a3a;font-weight:700}.webbox .btn{color:#fff}
 </style>
 </head>
 <body class="menu">
@@ -148,8 +167,7 @@ body.menu #hud{display:none}
   <div class="play" id="playBtn">🎃 PLAY</div>
   <div id="worlds"></div>
   <div class="help" id="helpText"></div>
-  <div class="by">by Buggy Games YT · <a class="donate" href="https://cash.app/$BuggyGamesYT" target="_blank" rel="noopener">💚 Donate</a></div>
-  <div class="donmsg">I build my games and pages with help from AI, and I can add more features by request. Donations help me buy more AI tokens to keep building. I only make about $10k a year, so any help means a lot during these hard times. 💚</div>
+  <div class="by">by Buggy Games YT</div>
 </div>
 <script type="module" src="game.js"></script>
 </body>
