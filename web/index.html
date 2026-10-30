@@ -133,6 +133,37 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
 .wtabs{display:flex;gap:8px;padding:10px 12px 4px;align-items:center;flex-wrap:wrap}.wtabs .btn{color:#fff}.wtabs input{flex:1;min-width:150px;background:#fff;color:#1b1b22;border-color:#c7cfdd}
 .wcats{padding:2px 10px 6px}.webbox .chip{background:#e6eaf2;border-color:#c7cfdd;color:#2a3a5a}.webbox .chip.on{background:#3a7bf2;color:#fff;border-color:#3a7bf2}
 #webList{padding:0 10px 12px}.webbox .row{background:#fff;border:1px solid #e1e5ee}.webbox .row .pr{color:#1a8a3a;font-weight:700}.webbox .btn{color:#fff}
+#start .donate{display:inline-block;margin-left:4px;padding:3px 10px;border-radius:12px;background:#00d64f;color:#fff;font-weight:700;text-decoration:none;pointer-events:auto}
+#start .donmsg{margin-top:8px;max-width:560px;padding:0 14px;font-size:11px;line-height:1.35;color:#aaa;text-align:center}
+
+/* v1.09: phone */
+#bPhone{width:34px;height:50px;padding:0;border-radius:9px;background:linear-gradient(#2a2a34,#111118);border:2px solid #9aa0b0;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:inset 0 0 0 2px #000}
+#bPhone span{font-size:20px}#bPhone:after{content:"";position:absolute;bottom:3px;left:50%;width:10px;height:3px;margin-left:-5px;border-radius:2px;background:#666}
+.phone{position:relative;width:min(400px,94vw);height:min(760px,92vh);background:#0c0c10;border:3px solid #3a3a46;border-radius:34px;padding:34px 12px 52px;box-shadow:0 12px 50px #000,inset 0 0 0 3px #000;display:flex;flex-direction:column}
+.pnotch{position:absolute;top:10px;left:50%;width:90px;height:18px;margin-left:-45px;background:#000;border-radius:10px}
+.pscreen{flex:1;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#2a1450,#0e3a5a 60%,#0a5a4a);display:flex;flex-direction:column;color:#fff;min-height:0}
+.pstatus{display:flex;justify-content:space-between;padding:6px 14px;font-size:12px;font-weight:700;background:rgba(0,0,0,.25)}
+.pnav{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:34px}
+.pbtn{background:none;border:none;color:#bbb;font-size:20px;cursor:pointer;padding:4px 10px}.phomeb{font-size:16px}
+.phomescr{flex:1;display:flex;flex-direction:column;align-items:center;padding:20px 12px}
+.pclock{font-size:52px;font-weight:300;margin-top:16px;text-shadow:0 2px 10px #000}.pdate{font-size:14px;opacity:.85;margin-bottom:34px}
+.papps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:300px}
+.papp{background:none;border:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.papp i{font-style:normal;width:62px;height:62px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.phint{font-size:12px;opacity:.7;text-align:center;margin-top:auto;padding:10px}
+.pappbar{display:flex;align-items:center;gap:6px;padding:8px 12px;font-weight:700;font-size:16px;background:rgba(0,0,0,.35)}.gbtns{margin-left:auto;display:flex;gap:4px}
+.pbtn2{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 9px;font-size:14px;cursor:pointer}.pbtn2.wide{width:100%;margin-top:4px}
+.pradio{flex:1;min-height:0;padding:10px 12px;display:flex;flex-direction:column;gap:6px;overflow:auto;touch-action:pan-y}.pradio *{touch-action:pan-y}
+.pnow{text-align:center;padding:10px;background:rgba(0,0,0,.3);border-radius:12px;font-size:13px}.pnow b{font-size:18px;color:#ffd84a}
+.pst{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;padding:10px;font-size:15px;text-align:left;cursor:pointer}.pst.on{background:#c99a12;border-color:#ffd84a}.pst.stop{text-align:center;background:rgba(200,40,40,.5);padding:8px 12px}
+.pvol{display:flex;align-items:center;gap:8px;padding:8px 4px}.pvol input{flex:1;padding:0;accent-color:#ffd84a}
+.gpswrap{position:relative;flex:1;min-height:0}#gpsCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
+.gcoord{position:absolute;top:6px;left:6px;font-size:11px;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:8px;pointer-events:none}
+.gwp{max-height:30%;overflow:auto;padding:6px 10px;background:rgba(0,0,0,.35);touch-action:pan-y}.gwp *{touch-action:pan-y}.gwrow{display:flex;align-items:center;gap:8px;font-size:13px;padding:2px 0}.gwrow span{flex:1}
+#web.phoneweb .webbox{width:min(400px,94vw);height:min(760px,92vh);max-height:92vh;border:10px solid #0c0c10;border-radius:30px;box-shadow:0 0 0 3px #3a3a46,0 12px 50px #000}
+#bDismount{display:none;left:40px;bottom:224px;font-size:18px;width:58px;height:58px}body.riding #bDismount{display:flex}
+#mapView{width:min(60vmin,420px)!important}
+@media (max-height:520px){.phone{width:min(620px,94vw);padding:26px 10px 44px;border-radius:26px}.pclock{font-size:34px;margin-top:4px}.pdate{margin-bottom:12px}.papp i{width:50px;height:50px;font-size:26px}.phint{padding:4px;font-size:11px}}
 </style>
 </head>
 <body class="menu">
@@ -142,7 +173,7 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
   <div id="stats"></div>
   <div id="target"></div>
   <div id="toast"></div>
-  <div id="topbtns"><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">🏠 Menu</button></div>
+  <div id="topbtns"><button class="tbtn" id="bPhone" title="Phone (P)"><span>📱</span></button><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">🏠 Menu</button></div>
   <canvas id="vitals" width="366" height="30"></canvas>
   <div id="heldName"></div>
   <div id="hotbar"></div><div id="offSlot"><div class="slot"></div></div>
@@ -152,6 +183,7 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
     <div class="tb" id="bUse">✋</div>
     <div class="tb" id="bJump">⬆️</div>
     <div class="tb" id="bRun">🏃</div>
+    <div class="tb" id="bDismount">🐴⬇</div>
   </div>
 </div>
 <div class="panel" id="bag"><div class="box" id="bagBox"></div></div>
@@ -167,7 +199,8 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
   <div class="play" id="playBtn">🎃 PLAY</div>
   <div id="worlds"></div>
   <div class="help" id="helpText"></div>
-  <div class="by">by Buggy Games YT</div>
+  <div class="by">by Buggy Games YT · <a class="donate" href="https://cash.app/$BuggyGamesYT" target="_blank" rel="noopener">💚 Donate</a></div>
+  <div class="donmsg">I build my games and pages with help from AI, and I can add more features by request. Donations help me buy more AI tokens to keep building. I only make about $10k a year, so any help means a lot during these hard times. 💚</div>
 </div>
 <script type="module" src="game.js"></script>
 </body>
