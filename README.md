@@ -19,5 +19,6 @@ A blocky 3D farming and trading game by **Buggy Games YT**. Grow crops, craft go
 | v1.03 | Difficulty modes, chests, 20-minute days, door and title screen fixes |
 | v1.04 | Main menu with 3 save worlds, in-game Menu button, hold-to-delete |
 | v1.11 | Drug Update: rare psychedelic mushrooms + shroom soup, craftable drugs & drinks with highs, drunk/trip screen effects, crackheads |
+| v1.12 | Hustle Update: street dealing, tolerance & overdose, police raids, turf wars, The Plug delivery jobs, money laundering, Halloween night, fishing |
 
 Made by Buggy · [YouTube](https://www.youtube.com/@BuggyGamesYT)
