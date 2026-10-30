@@ -27,7 +27,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .slot .n{position:absolute;right:3px;bottom:0;font-size:12px;font-weight:700;text-shadow:0 0 3px #000,0 0 3px #000}
 .slot .t{position:absolute;left:2px;top:0;font-size:9px;font-weight:700;color:#bff;text-shadow:0 0 3px #000}
 #target{position:fixed;left:50%;top:calc(50% + 22px);transform:translateX(-50%);font-size:13px;background:rgba(0,0,0,.45);padding:3px 8px;border-radius:6px;display:none;white-space:nowrap}
-#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:rgba(0,0,0,.7);padding:8px 16px;border-radius:10px;font-size:15px;opacity:0;transition:opacity .3s;white-space:nowrap}
+#toast{position:fixed;left:50%;top:118px;max-width:60vw;overflow:hidden;text-overflow:ellipsis;z-index:5;transform:translateX(-50%);background:rgba(0,0,0,.7);padding:8px 16px;border-radius:10px;font-size:15px;opacity:0;transition:opacity .3s;white-space:nowrap}
 #toast.show{opacity:1}
 .panel{position:fixed;inset:0;background:rgba(5,3,14,.72);display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:5}
 .panel.show{display:flex}
@@ -137,9 +137,9 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
 #start .donmsg{margin-top:8px;max-width:560px;padding:0 14px;font-size:11px;line-height:1.35;color:#aaa;text-align:center}
 
 /* v1.09: phone */
-#bPhone{width:34px;height:50px;padding:0;border-radius:9px;background:linear-gradient(#2a2a34,#111118);border:2px solid #9aa0b0;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:inset 0 0 0 2px #000}
+#bPhone{position:fixed;left:12px;top:10px;width:34px;height:62px;pointer-events:auto;box-sizing:border-box;padding:0;border-radius:9px;background:linear-gradient(#2a2a34,#111118);border:2px solid #9aa0b0;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:inset 0 0 0 2px #000}
 #bPhone span{font-size:20px}#bPhone:after{content:"";position:absolute;bottom:3px;left:50%;width:10px;height:3px;margin-left:-5px;border-radius:2px;background:#666}
-.phone{position:relative;width:min(400px,94vw);height:min(760px,92vh);background:#0c0c10;border:3px solid #3a3a46;border-radius:34px;padding:34px 12px 52px;box-shadow:0 12px 50px #000,inset 0 0 0 3px #000;display:flex;flex-direction:column}
+.phone{position:relative;width:min(460px,96vw);height:min(880px,96vh);box-sizing:border-box;background:#0c0c10;border:3px solid #3a3a46;border-radius:34px;padding:34px 12px 52px;box-shadow:0 12px 50px #000,inset 0 0 0 3px #000;display:flex;flex-direction:column}
 .pnotch{position:absolute;top:10px;left:50%;width:90px;height:18px;margin-left:-45px;background:#000;border-radius:10px}
 .pscreen{flex:1;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#2a1450,#0e3a5a 60%,#0a5a4a);display:flex;flex-direction:column;color:#fff;min-height:0}
 .pstatus{display:flex;justify-content:space-between;padding:6px 14px;font-size:12px;font-weight:700;background:rgba(0,0,0,.25)}
@@ -160,10 +160,19 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
 .gpswrap{position:relative;flex:1;min-height:0}#gpsCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
 .gcoord{position:absolute;top:6px;left:6px;font-size:11px;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:8px;pointer-events:none}
 .gwp{max-height:30%;overflow:auto;padding:6px 10px;background:rgba(0,0,0,.35);touch-action:pan-y}.gwp *{touch-action:pan-y}.gwrow{display:flex;align-items:center;gap:8px;font-size:13px;padding:2px 0}.gwrow span{flex:1}
-#web.phoneweb .webbox{width:min(400px,94vw);height:min(760px,92vh);max-height:92vh;border:10px solid #0c0c10;border-radius:30px;box-shadow:0 0 0 3px #3a3a46,0 12px 50px #000}
+.pscreen .pweb{flex:1;min-height:0;width:auto;max-width:none;max-height:none;margin:0;border:none;border-radius:0;box-shadow:none;overflow:auto;padding:0}.pweb .wbar{border-radius:0;padding:6px 8px}.pweb .whead{padding:8px 10px;gap:8px}.pweb .whead b{font-size:20px}.pweb .wsub{display:none}.pweb .wtabs{padding:8px 8px 2px}.pweb .wtabs input{min-width:110px}.pweb #webList{padding:0 6px 10px}
 #bDismount{display:none;left:40px;bottom:224px;font-size:18px;width:58px;height:58px}body.riding #bDismount{display:flex}
 #mapView{width:min(60vmin,420px)!important}
-@media (max-height:520px){.phone{width:min(620px,94vw);padding:26px 10px 44px;border-radius:26px}.pclock{font-size:34px;margin-top:4px}.pdate{margin-bottom:12px}.papp i{width:50px;height:50px;font-size:26px}.phint{padding:4px;font-size:11px}}
+@media (max-height:520px){.phone{width:min(780px,97vw);height:97vh;padding:20px 10px 34px;border-radius:24px}.pnotch{top:5px;height:11px}.pnav{bottom:3px}.pclock{font-size:34px;margin-top:4px}.pdate{margin-bottom:12px}.papp i{width:50px;height:50px;font-size:26px}.phint{padding:4px;font-size:11px}}
+#bUp,#bDown,#bExitAir{display:none}body.flying #bUp,body.flying #bDown,body.flying #bExitAir{display:flex}
+#bUp{right:24px;bottom:150px}#bDown{right:24px;bottom:56px}#bExitAir{right:112px;bottom:70px;font-size:22px}
+body.flying #bBreak,body.flying #bUse,body.flying #bJump,body.flying #bRun,body.flying #bOff{display:none}
+body:not(.touch) #bUp,body:not(.touch) #bDown{display:none!important}body:not(.touch).flying #bExitAir{display:flex;right:24px;bottom:24px}
+#hud4{position:fixed;left:50%;bottom:122px;transform:translateX(-50%);background:rgba(0,0,0,.5);padding:4px 12px;border-radius:10px;font-size:14px;white-space:nowrap;pointer-events:none;display:none;text-shadow:0 1px 2px #000;z-index:4}
+#hud4 .stars{color:#ffd23a;font-size:17px;letter-spacing:1px}#hud4 .stars i{color:rgba(255,255,255,.25);font-style:normal}
+#flashFx{position:fixed;inset:0;background:#fffbe8;pointer-events:none;display:none;z-index:40}
+#stunFx{position:fixed;inset:0;background:radial-gradient(rgba(120,190,255,0),rgba(90,160,255,.45));pointer-events:none;display:none;z-index:6;animation:stunfl .15s infinite alternate}
+@keyframes stunfl{from{opacity:.6}to{opacity:1}}
 </style>
 </head>
 <body class="menu">
@@ -173,7 +182,8 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
   <div id="stats"></div>
   <div id="target"></div>
   <div id="toast"></div>
-  <div id="topbtns"><button class="tbtn" id="bPhone" title="Phone (P)"><span>📱</span></button><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">🏠 Menu</button></div>
+  <button class="tbtn" id="bPhone" title="Phone (P)"><span>📱</span></button>
+  <div id="topbtns"><button class="tbtn" id="bSet">⚙️</button><button class="tbtn" id="bBag">🎒 Bag</button><button class="tbtn" id="bHelp">🏠 Menu</button></div>
   <canvas id="vitals" width="366" height="30"></canvas>
   <div id="heldName"></div>
   <div id="hotbar"></div><div id="offSlot"><div class="slot"></div></div>
@@ -184,6 +194,7 @@ body.touch #netPill{bottom:auto;top:84px;left:auto;right:10px}
     <div class="tb" id="bJump">⬆️</div>
     <div class="tb" id="bRun">🏃</div>
     <div class="tb" id="bDismount">🐴⬇</div>
+    <div class="tb" id="bUp">⏫</div><div class="tb" id="bDown">⏬</div><div class="tb" id="bExitAir">🚪</div>
   </div>
 </div>
 <div class="panel" id="bag"><div class="box" id="bagBox"></div></div>
