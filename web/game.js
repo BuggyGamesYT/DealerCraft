@@ -521,6 +521,91 @@ Object.assign(ITEMS, {
 });
 shaped('drug_lab', 1, ['GGG', 'IFI', 'III'], { G: 'glass', I: 'iron_ingot', F: 'furnace' });
 
+
+// ================== v1.14 STORY UPDATE: items + recipes (gameplay lives in the v1.14 section near the game loop) ==================
+// boss drops, the ray gun's plasma cells, and hot pizzas for the delivery job. No new block ids.
+Object.assign(ITEMS, {
+  gold_rifle: { name: 'Don Calavera\'s Golden AK', px: 'goldrifle', stack: 1, gun: 1 },
+  ray_gun: { name: 'Mothership Ray Gun', px: 'raygun', stack: 1, gun: 1 },
+  plasma_cell: { name: 'Plasma Cell (ray gun ammo)', emoji: '🔋' },
+  mothership_core: { name: 'Mothership Power Core', emoji: '🔮', tag: 'BOSS' },
+  kingpin_crown: { name: 'Kingpin\'s Crown', emoji: '👑', tag: 'BOSS', stack: 1 },
+  pizza_box: { name: 'Hot Pizza (deliver it!)', emoji: '🍕', food: 4, stack: 8 },
+});
+Object.assign(GUNS, {
+  gold_rifle: { ammo: 'rifle_ammo', dmg: 11, rate: 0.1, auto: true, spread: 0.013, range: 95, kick: 0.02, vol: 0.36, f: 1000 },
+  ray_gun: { ammo: 'plasma_cell', dmg: 14, rate: 0.32, auto: false, spread: 0.004, range: 120, kick: 0.015, vol: 0.25, f: 2600 },
+});
+shapeless('plasma_cell', 8, ['alien_tech', 'gunpowder']);
+{ const di4 = drawIconS4; drawIconS4 = function (kind, mat, P) {
+  const R = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) P(x, y, typeof c === 'function' ? c(x, y) : c); };
+  if (kind === 'goldrifle') {
+    R(0, 7, 3, 10, (x, y) => (x + y) % 3 ? '#c99a12' : '#8a6a08'); R(4, 6, 10, 8, (x, y) => y === 6 ? '#ffe680' : '#e0b020'); R(11, 6, 15, 7, (x, y) => y === 6 ? '#fff2a0' : '#c99a12');
+    for (let y = 9; y <= 13; y++) { const s = Math.round((y - 9) * 0.5); R(7 + s, y, 8 + s, y, '#b08010'); } R(5, 9, 5, 10, '#a07a10'); P(12, 8, '#c99a12'); P(9, 5, '#ffffff'); return true;
+  }
+  if (kind === 'raygun') {
+    R(2, 6, 10, 9, (x, y) => y === 6 ? '#e8e8f0' : '#a8acb8'); R(11, 7, 14, 8, '#6aff8a'); P(15, 7, '#d0ffe0'); P(15, 8, '#d0ffe0');
+    for (const x of [4, 6, 8]) R(x, 5, x, 5, '#6aff8a'); R(3, 10, 5, 14, (x, y) => x === 3 ? '#5a5e6a' : '#7a7e8a'); P(7, 10, '#5a5e6a'); P(8, 11, '#5a5e6a'); return true;
+  }
+  return di4(kind, mat, P);
+}; }
+
+
+// ================== v1.14 round 2: deep caves, the Moon, player shops, glitch easter eggs (data) ==================
+// blocks 131-142 (tiles 128-142 in p_d_tiles_v114r2.js). Gameplay lives in p_z4_v114r2.js near the game loop.
+const GOLD_ORE = 131, PLAT_ORE = 132, DIAMOND_ORE = 133, EMERALD_ORE = 134, MOON_DUST = 135, MOON_ROCK = 136, MOON_CRYSTAL = 137,
+  BR_WALL = 138, BR_CARPET = 139, BR_LIGHT = 140, GLITCH = 141, SHOP = 142;
+Object.assign(BT, { [GOLD_ORE]: [128, 128, 128], [PLAT_ORE]: [129, 129, 129], [DIAMOND_ORE]: [130, 130, 130], [EMERALD_ORE]: [131, 131, 131],
+  [MOON_DUST]: [132, 134, 133], [MOON_ROCK]: [134, 134, 134], [MOON_CRYSTAL]: [135, 135, 135], [BR_WALL]: [136, 136, 136], [BR_CARPET]: [137, 137, 137],
+  [BR_LIGHT]: [138, 138, 138], [GLITCH]: [140, 140, 140], [SHOP]: [142, 9, 141] });
+Object.assign(HARD, { [GOLD_ORE]: [3, 'pick', 2], [PLAT_ORE]: [4, 'pick', 3], [DIAMOND_ORE]: [5, 'pick', 3], [EMERALD_ORE]: [4.5, 'pick', 3],
+  [MOON_DUST]: [0.5, 'shovel'], [MOON_ROCK]: [2, 'pick', 1], [MOON_CRYSTAL]: [1.2, 'pick', 1], [BR_WALL]: [1, 'axe'], [BR_CARPET]: [0.6, null], [BR_LIGHT]: [0.5, null],
+  [GLITCH]: [99, 'pick', 9], [SHOP]: [2, 'axe'] });
+Object.assign(BLOCK_DROP, { [GOLD_ORE]: 'gold_ore', [PLAT_ORE]: 'platinum_ore', [DIAMOND_ORE]: 'diamond', [EMERALD_ORE]: 'emerald', [MOON_DUST]: 'moon_dust',
+  [MOON_ROCK]: 'moon_rock', [MOON_CRYSTAL]: 'moon_crystal', [BR_WALL]: 'br_wall', [BR_CARPET]: 'br_carpet', [BR_LIGHT]: 'br_light', [SHOP]: 'shop_stall' });
+Object.assign(TIERS, { diamond: { lvl: 5, speed: 11, dur: 2000, dmg: 5 } });
+Object.assign(ITEMS, {
+  gold_ore: { name: 'Gold Ore', block: GOLD_ORE }, platinum_ore: { name: 'Platinum Ore', block: PLAT_ORE },
+  diamond_ore: { name: 'Diamond Ore', block: DIAMOND_ORE }, emerald_ore: { name: 'Emerald Ore', block: EMERALD_ORE },
+  diamond: { name: 'Diamond', px: 'gem', mat: 'diamond' }, emerald: { name: 'Emerald', px: 'gem', mat: 'emerald' },
+  moon_dust: { name: 'Moon Dust', block: MOON_DUST }, moon_rock: { name: 'Moon Rock', block: MOON_ROCK },
+  moon_crystal: { name: 'Moon Crystal (glows)', px: 'gem', mat: 'moon' }, moon_cheese: { name: 'Moon Cheese (it\'s real!)', emoji: '🧀', food: 5 },
+  alien_relic: { name: 'Alien Relic', emoji: '🗿', tag: 'MOON' },
+  shop_stall: { name: 'Shop Stall (place it, ✋ to sell)', block: SHOP },
+  br_wall: { name: 'Yellow Wallpaper (???)', block: BR_WALL }, br_carpet: { name: 'Damp Carpet (???)', block: BR_CARPET }, br_light: { name: 'Buzzing Ceiling Light', block: BR_LIGHT },
+  golden_bug: { name: 'Buggy\'s Golden Bug 🐛 (one of a kind)', emoji: '🐛', tag: '★', stack: 1 },
+  torn_note: { name: 'Torn Note (✋ to read)', emoji: '📜', stack: 8 },
+});
+ITEMS.diamond_pickaxe = { name: 'Diamond Pickaxe', px: 'pick', mat: 'diamond', tool: { kind: 'pick', tier: 'diamond' }, stack: 1 };
+ITEMS.diamond_axe = { name: 'Diamond Hatchet', px: 'axe', mat: 'diamond', tool: { kind: 'axe', tier: 'diamond' }, stack: 1 };
+ITEMS.diamond_hoe = { name: 'Diamond Hoe (3x3)', px: 'hoe', mat: 'diamond', tool: { kind: 'hoe', tier: 'diamond' }, stack: 1 };
+ITEMS.diamond_sword = { name: 'Diamond Sword', px: 'sword', mat: 'diamond', tool: { kind: 'sword', tier: 'diamond' }, stack: 1 };
+ITEMS.diamond_shovel = { name: 'Diamond Shovel', px: 'shovel', mat: 'diamond', tool: { kind: 'shovel', tier: 'diamond' }, stack: 1 };
+ARMOR_PTS.diamond = [3, 9, 7, 3];
+ARMOR_SLOTS.forEach((s, i) => { ITEMS['diamond_' + s] = { name: 'Diamond ' + ['Helmet', 'Chestplate', 'Leggings', 'Boots'][i], px: s, mat: 'diamond', armor: { slot: i, pts: ARMOR_PTS.diamond[i] }, stack: 1 }; });
+ARMOR_MATS.diamond = ['Diamond', 'diamond'];
+shaped('diamond_pickaxe', 1, ['MMM', '.S.', '.S.'], { M: 'diamond', S: 'stick' });
+shaped('diamond_axe', 1, ['MM', 'MS', '.S'], { M: 'diamond', S: 'stick' });
+shaped('diamond_hoe', 1, ['MM', '.S', '.S'], { M: 'diamond', S: 'stick' });
+shaped('diamond_sword', 1, ['M', 'M', 'S'], { M: 'diamond', S: 'stick' });
+shaped('diamond_shovel', 1, ['M', 'S', 'S'], { M: 'diamond', S: 'stick' });
+shaped('diamond_helmet', 1, ['LLL', 'L.L'], { L: 'diamond' });
+shaped('diamond_chest', 1, ['L.L', 'LLL', 'LLL'], { L: 'diamond' });
+shaped('diamond_legs', 1, ['LLL', 'L.L', 'L.L'], { L: 'diamond' });
+shaped('diamond_boots', 1, ['L.L', 'L.L'], { L: 'diamond' });
+shaped('shop_stall', 1, ['WWW', 'PCP'], { W: 'wool', P: 'planks', C: 'chest' });
+Object.assign(SMELT, { gold_ore: 'gold_ingot', platinum_ore: 'platinum_ingot', moon_dust: 'glass' });
+// gem icon (diamond / emerald / moon crystal)
+{ const di5 = drawIconS4; drawIconS4 = function (kind, mat, P) {
+  if (kind === 'gem') {
+    const [l, d] = MATCOL[mat] || MATCOL.diamond;
+    const rows = ['....######....', '...#LLLLLL#...', '..#LLWLLLLL#..', '.#LLWLLLLLDD#.', '#DDDDDDDDDDDD#', '.#DLLLLLLLDD#.', '..#DLLLLLDD#..', '...#DLLLDD#...', '....#DLDD#....', '.....#DD#.....', '......##......'];
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '.') return; P(x + 1, y + 3, ch === '#' ? '#1a2a3a' : ch === 'W' ? '#ffffff' : ch === 'L' ? l : d); }));
+    return true;
+  }
+  return di5(kind, mat, P);
+}; }
+
 // ================== RANDOM / NOISE ==================
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hash2(x, z, s) { let h = x * 374761393 + z * 668265263 + s * 982451653; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -1235,7 +1320,7 @@ function stampLot3(o) {
 }
 
 // ================== TEXTURES ==================
-const TS = 16, AT = 8, AR = 16; // tile px, atlas tiles per row, rows
+const TS = 16, AT = 8, AR = 32; // tile px, atlas tiles per row, rows
 const atlas = document.createElement('canvas'); atlas.width = TS * AT; atlas.height = TS * AR;
 const actx = atlas.getContext('2d');
 function paintTile(t, fn) {
@@ -1402,6 +1487,31 @@ paintTile(100, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS;
   paintTile(124, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const e = x < 2 || y < 2 || x > 13 || y > 13, d = Math.abs(x - y) < 1.5 || Math.abs(x + y - 15) < 1.5; const k = (r() - .5) * 14;
     px(x, y, e || d ? rgb(60 + k, 72 + k, 40) : rgb(86 + k, 104 + k, 56)); } for (let x = 5; x < 11; x++) px(x, 7, '#e8e0b0'); });
 }
+
+// v1.14 round 2 tiles: 128 gold ore, 129 platinum ore, 130 diamond ore, 131 emerald ore, 132 moon dust top, 133 moon dust side, 134 moon rock,
+// 135 moon crystal (+glow), 136 yellow wallpaper, 137 damp carpet, 138 ceiling light (+glow), 140 glitch block (+glow), 141 shop stall side, 142 shop stall top
+{
+  const emit = (t, x, y, c) => { ectx.fillStyle = c; ectx.fillRect((t % AT) * TS + x, Math.floor(t / AT) * TS + y, 1, 1); };
+  const oreT = (t, a, b) => paintTile(t, (px, r) => { noiseFill(px, r, [118, 118, 120], 30);
+    for (let i = 0; i < 5; i++) { const x = 1 + (r() * 12 | 0), y = 1 + (r() * 12 | 0); px(x, y, a); px(x + 1, y, b); px(x, y + 1, b); px(x + 1, y + 1, '#222'); if (r() < 0.5) px(x + 2, y + 1, a); } });
+  oreT(128, '#ffe14a', '#c9951a'); oreT(129, '#cff8fa', '#5fa0a8'); oreT(130, '#a8faff', '#2fb8c8'); oreT(131, '#7affa0', '#1a9a4a');
+  paintTile(132, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 26 + (r() < 0.05 ? -40 : 0); px(x, y, rgb(178 + k, 178 + k, 184 + k)); } });
+  paintTile(133, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 24; px(x, y, y < 4 ? rgb(176 + k, 176 + k, 182 + k) : rgb(120 + k, 120 + k, 126 + k)); } });
+  paintTile(134, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 22, pit = Math.hypot(x - 5, y - 10) < 2.2 || Math.hypot(x - 11, y - 4) < 1.6 ? -30 : 0; px(x, y, rgb(104 + k + pit, 104 + k + pit, 112 + k + pit)); } });
+  paintTile(135, (px, r) => { noiseFill(px, r, [60, 60, 70], 20); for (let i = 0; i < 4; i++) { const cx = 3 + (r() * 10 | 0); for (let y = 15; y > 5 + (r() * 5 | 0); y--) { px(cx, y, '#c0e8ff'); px(cx + 1, y, '#7a9cff'); } } });
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const d = actx.getImageData((135 % AT) * TS + x, Math.floor(135 / AT) * TS + y, 1, 1).data; if (d[2] > 200) emit(135, x, y, '#6a9cff'); }
+  paintTile(136, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 12, stripe = (x % 4 === 0) ? -16 : 0, stain = Math.hypot(x - 11, y - 13) < 3 ? -22 : 0;
+    px(x, y, rgb(206 + k + stripe + stain, 190 + k + stripe + stain, 112 + k * 0.5 + stain)); } for (let x = 0; x < TS; x += 4) px(x + 2, (x * 3) % 16, '#a89850'); });
+  paintTile(137, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 20; px(x, y, rgb(150 + k, 136 + k, 82 + k)); } });
+  paintTile(138, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const panel = x > 1 && x < 14 && y > 3 && y < 12; px(x, y, panel ? rgb(250, 250, 236) : rgb(196 + (r() - .5) * 10, 192, 170)); } });
+  for (let y = 4; y < 12; y++) for (let x = 2; x < 14; x++) emit(138, x, y, '#fffbe0');
+  paintTile(139, (px, r) => noiseFill(px, r, [196, 192, 170], 14));
+  paintTile(140, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const v = r(); px(x, y, v < 0.25 ? '#ff00ff' : v < 0.5 ? '#000000' : v < 0.7 ? '#00ffff' : v < 0.85 ? '#ffffff' : '#30ff30'); } });
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) if ((x * 5 + y * 3) % 4 === 0) emit(140, x, y, (x + y) % 2 ? '#ff40ff' : '#40ffff');
+  paintTile(141, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 14; px(x, y, y < 5 ? (Math.floor(x / 2) % 2 ? rgb(230, 60, 50) : rgb(245, 240, 230)) : y === 5 ? '#6a4020' : rgb(170 + k, 120 + k, 70 + k)); }
+    for (let x = 4; x < 12; x++) px(x, 9, '#ffd84a'); for (let x = 5; x < 11; x++) px(x, 10, '#c99a12'); });
+  paintTile(142, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 12; px(x, y, (Math.floor(x / 2) % 2 ? rgb(226 + k, 60, 50) : rgb(245 + k * 0.3, 240, 230))); } });
+}
 // survival tiles: bedrock, ores, crafting table, furnace, grave, door
 paintTile(14, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const v = r(); px(x, y, v < .3 ? '#1c1c1c' : v < .7 ? '#3b3b3b' : '#5a5a5a'); } });
 const ore = (dot) => (px, r) => { noiseFill(px, r, [125, 125, 125], 30); for (let i = 0; i < 5; i++) { const x = 1 + (r() * 12 | 0), y = 1 + (r() * 12 | 0); px(x, y, dot); px(x + 1, y, dot); px(x, y + 1, dot); px(x + 1, y + 1, '#222'); } };
@@ -1558,6 +1668,9 @@ const deadCol = (u, v, r) => cshade(cmix([86, 78, 56], [124, 114, 82], grassN(u,
 paintHD(38, (x, y, u, v, r) => deadCol(u, v, r));
 paintHD(40, (x, y, u, v, r) => { const edge = 0.14 + fringe(u, 0.5) * 0.12; return v < edge ? deadCol(u, v, r) : dirtCol(u, v, r); });
 function hdBlit(c, t) { const s = HD_ON ? HS : TS; c.width = c.height = s; c.getContext('2d').drawImage(HD_ON ? hdAtlas : atlas, (t % AT) * s, Math.floor(t / AT) * s, s, s, 0, 0, s, s); return c; }
+// v1.14 round 2: HD versions of the new ores (the rest use the generic upscale)
+oreHD(128, [255, 214, 60], 1281); oreHD(129, [200, 244, 248], 1291); oreHD(130, [120, 240, 255], 1301); oreHD(131, [90, 240, 130], 1311);
+
 const tex = new THREE.CanvasTexture(HD_ON ? hdAtlas : atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false;
 function tileURL(t) { return hdBlit(document.createElement('canvas'), t).toDataURL(); }
@@ -1734,6 +1847,7 @@ function buildChunk(cx, cz) {
   const A = { p: [], n: [], u: [], c: [], i: [] }, Bw = { p: [], n: [], u: [], c: [], i: [] };
   const x0 = cx * CH, z0 = cz * CH, lit = lightKit(x0, z0);
   const look = chunkLook(x0, z0);   // v1.10: season/biome colours and snow cover per column
+  const cull = caveCullFor(cx, cz);   // v1.14: far-away cave interiors are not drawn (see p_z4)
   const nbAt = (lx, y, lz, dx, dy, dz) => { const nx = lx + dx, ny = y + dy, nz = lz + dz; return (nx >= 0 && nz >= 0 && nx < CH && nz < CH) ? (ny < 0 ? STONE : ny >= H ? AIR : c[lidx(nx, ny, nz)]) : get(x0 + nx, ny, z0 + nz); };
   for (let y = 0; y < H; y++) for (let lz = 0; lz < CH; lz++) for (let lx = 0; lx < CH; lx++) {
     const id = c[lidx(lx, y, lz)]; if (id === AIR) continue;
@@ -1769,6 +1883,7 @@ function buildChunk(cx, cz) {
       const nb = nbAt(lx, y, lz, f.d[0], f.d[1], f.d[2]);
       if (wat) { if (isWater(nb) || (nb !== AIR && !seeThrough(nb))) { if (!(f.d[1] === 1 && top < 1 && nb === AIR)) continue; } }
       else if (nb !== AIR && !(seeThrough(nb) && (nb !== id || PLANT.has(nb)))) continue;
+      if (cull && nb === AIR && cull(x + f.d[0], y + f.d[1], z + f.d[2])) continue;
       const tgt = wat ? Bw : A;
       let tile = f.f === 0 ? T[0] : f.f === 1 ? T[1] : T[2], tr = 1, tg = 1, tb = 1;
       if (id === GRASS || id === DEADGRASS || id === LEAVES) { const ci = lx + lz * CH;
@@ -2813,9 +2928,9 @@ function driveCar(c, dt) {
   if (keys.KeyA || keys.ArrowLeft) steer += 1; if (keys.KeyD || keys.ArrowRight) steer -= 1;
   if (joy.id !== null) { thr -= joy.y; steer -= joy.x; }
   thr = Math.max(-1, Math.min(1, thr)); steer = Math.max(-1, Math.min(1, steer));
-  const max = thr >= 0 ? 13 : 5;
-  c.speed += (thr * max - c.speed) * Math.min(1, dt * (thr ? 1.2 : 2.5));
-  c.head += steer * dt * 1.9 * Math.min(1, Math.abs(c.speed) / 4) * Math.sign(c.speed || 1);
+  const md = c.mods || {}, max = (thr >= 0 ? 13 : 5) * (1 + (md.eng || 0) * 0.12);   // v1.14: engine / handling stages from the garage
+  c.speed += (thr * max - c.speed) * Math.min(1, dt * (thr ? 1.2 * (1 + (md.eng || 0) * 0.2) : 2.5));
+  c.head += steer * dt * 1.9 * (1 + (md.hand || 0) * 0.12) * Math.min(1, Math.abs(c.speed) / 4) * Math.sign(c.speed || 1);
   const fx = Math.sin(c.head), fz = Math.cos(c.head), nx = c.x + fx * c.speed * dt, nz = c.z + fz * c.speed * dt, sgn = Math.sign(c.speed) || 1;
   const probe = [[0, 1.85], [0.75, 1.85], [-0.75, 1.85]].map(([sx, a]) => [nx + fx * a * sgn + fz * sx, nz + fz * a * sgn - fx * sx]);
   let blocked = false, step = 0;
@@ -4710,7 +4825,7 @@ function netEdit(k, id) { if (net.on && !netMute) pendEdits[k] = id; }
 function netChests(keys) { if (!net.on) return; const p = {}; for (const k of keys) p['chests/' + k] = JSON.stringify(state.chests[k] || null); db('PATCH', 'rooms/' + net.code, p).catch(() => {}); }
 const cropVal = c => c ? JSON.stringify({ type: c.type, t: Math.round(c.t * 10) / 10, fert: !!c.fert }) : null;
 const cleanCrops = () => { const o = {}; for (const k in state.crops) o[k] = JSON.parse(cropVal(state.crops[k])); return o; };
-const meData = () => ({ n: auth.name, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yw: +player.yaw.toFixed(2), p: +player.pitch.toFixed(2), sl: !!player.sleeping, sk: mySkin(), t: Date.now() });
+const meData = () => ({ n: auth.name, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yw: +player.yaw.toFixed(2), p: +player.pitch.toFixed(2), sl: !!player.sleeping, sk: mySkin(), t: Date.now(), ...meExtra() });
 const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += A[Math.floor(Math.random() * A.length)]; return s; };
 async function hostOnline() {
   if (!auth) { openAccount(); toast('👤 Log in first to play online'); return; }
@@ -4718,8 +4833,8 @@ async function hostOnline() {
   setOnlineMsg('Opening your world...');
   try {
     const code = newCode(), chests = {}; for (const k in state.chests) chests[k] = JSON.stringify(state.chests[k]);
-    await db('PUT', 'rooms/' + code, { meta: { host: auth.uid, hostName: auth.name, open: true, seed: state.seed, created: Date.now(), genV: state.genV || 1, oldCh: (state.oldCh || []).join(';'), townV: state.townV || 0, townOld: (state.townOld || []).join(';'), siteV: state.siteV || 0, siteOld: (state.siteOld || []).join(';') }, clock: { time: state.time, gt: state.gameTime, hb: Date.now() },
-      edits: state.edits, crops: cleanCrops(), dev: state.dev, chests, players: { [auth.uid]: meData() } });
+    await db('PUT', 'rooms/' + code, { meta: { host: auth.uid, hostName: auth.name, open: true, seed: state.seed, created: Date.now(), genV: state.genV || 1, oldCh: (state.oldCh || []).join(';'), townV: state.townV || 0, townOld: (state.townOld || []).join(';'), siteV: state.siteV || 0, siteOld: (state.siteOld || []).join(';'), caveV: (caveInit(), state.caveV || 0), caveOld: (state.caveOld || []).join(';') }, clock: { time: state.time, gt: state.gameTime, hb: Date.now() },
+      edits: state.edits, crops: cleanCrops(), dev: state.dev, chests, shops: shopsNet(), players: { [auth.uid]: meData() } });
     net.on = true; net.role = 'host'; net.code = code; lastCrop = {}; lastDev = {}; for (const k in state.crops) lastCrop[k] = cropVal(state.crops[k]); Object.assign(lastDev, state.dev);
     await openStream(); setOnlineMsg(''); renderOnline(); toast(`🌐 Your world is online! Code: ${code}`);
   } catch (e) { setOnlineMsg('⚠️ ' + e.message); }
@@ -4737,7 +4852,7 @@ async function joinOnline(code) {
     const seats = new Set(others.map(([u]) => u)); if (r.meta.host) seats.add(r.meta.host);
     if (seats.size + 1 > MAX_PLAYERS) throw new Error(`That world is full (${MAX_PLAYERS}/${MAX_PLAYERS})`);
     const host = (r.players || {})[r.meta.host], chests = {}; for (const k in (r.chests || {})) { try { const v = JSON.parse(r.chests[k]); if (v) chests[k] = v; } catch (e) {} }
-    const world = { seed: r.meta.seed, ...(r.meta.genV >= 2 ? { genV: r.meta.genV, oldCh: r.meta.oldCh ? String(r.meta.oldCh).split(';') : [] } : {}), ...(r.meta.townV >= 3 ? { townV: r.meta.townV, townOld: r.meta.townOld ? String(r.meta.townOld).split(';') : [] } : {}), ...(r.meta.siteV >= 4 ? { siteV: r.meta.siteV, siteOld: r.meta.siteOld ? String(r.meta.siteOld).split(';') : [] } : {}), edits: r.edits || {}, crops: r.crops || {}, dev: r.dev || {}, chests, time: r.clock.time, gameTime: r.clock.gt,
+    const world = { seed: r.meta.seed, ...(r.meta.genV >= 2 ? { genV: r.meta.genV, oldCh: r.meta.oldCh ? String(r.meta.oldCh).split(';') : [] } : {}), ...(r.meta.townV >= 3 ? { townV: r.meta.townV, townOld: r.meta.townOld ? String(r.meta.townOld).split(';') : [] } : {}), ...(r.meta.siteV >= 4 ? { siteV: r.meta.siteV, siteOld: r.meta.siteOld ? String(r.meta.siteOld).split(';') : [] } : {}), ...(r.meta.caveV ? { caveV: r.meta.caveV, caveOld: r.meta.caveOld ? String(r.meta.caveOld).split(';') : [] } : {}), shops: (() => { const o = {}; for (const k in (r.shops || {})) { try { const v = JSON.parse(r.shops[k]); if (v) o[k] = v; } catch (e) {} } return o; })(), edits: r.edits || {}, crops: r.crops || {}, dev: r.dev || {}, chests, time: r.clock.time, gameTime: r.clock.gt,
       pos: host ? [host.x + 1, host.y + 0.5, host.z + 1] : state.pos, _welcomed: true };
     save();
     { const inv = {}; for (const k of INV_KEYS) inv[k] = state[k]; localStorage.setItem('dc_mp_inv', JSON.stringify(inv)); }
@@ -4806,10 +4921,11 @@ function onNet(path, data) {
     cropsDirty = true; return;
   }
   if (top === 'dev') { if (!key) { for (const k in (data || {})) onNet('/dev/' + k, data[k]); return; } lastDev[key] = data; if (data == null) delete state.dev[key]; else state.dev[key] = data; return; }
+  if (top === 'shops' || top === 'pay') { netExtra(top, key, rest, data); return; }
   if (top === 'chests') { if (!key) { for (const k in (data || {})) onNet('/chests/' + k, data[k]); return; } if (chestKeys && chestKeys.includes(key)) return; try { const v = JSON.parse(data); if (v) state.chests[key] = v; else delete state.chests[key]; } catch (e) {} }
 }
 let netFlushSoon = false;
-function removeRemote(u) { const r = net.remotes[u]; if (!r) return; if (r.av) scene.remove(r.av.g); if (r.tag) scene.remove(r.tag); delete net.remotes[u]; }
+function removeRemote(u) { const r = net.remotes[u]; if (!r) return; if (r.av) scene.remove(r.av.g); if (r.carMesh) scene.remove(r.carMesh); if (r.tag) scene.remove(r.tag); delete net.remotes[u]; }
 function updateNet(dt, t) {
   if (netFlushSoon) { netFlushSoon = false; flushDirty(); }
   if (cropsDirty) { cropsDirty = false; buildCrops(); }
@@ -4842,6 +4958,7 @@ function updateNet(dt, t) {
     let dy = (d.yw + Math.PI) - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * k;
     r.av.head.rotation.x = -(d.p || 0) * 0.6;
     animAvatar(r.av, Math.hypot(g.position.x - ox, g.position.z - oz) / Math.max(dt, 0.001), t, d.sl);
+    remoteExtra(r, d, dt);
   }
 }
 function setOnlineMsg(m) { const e = document.getElementById('onMsg'); if (e) e.textContent = m; }
@@ -6416,7 +6533,7 @@ function buildHeli() {
   return { g, body, spin: rotor, spinAxis: 'y', tail };
 }
 function spawnAircraft(kind, x, y, z, head, opts = {}) {
-  const parts = kind === 'plane' ? buildPlane() : buildHeli();
+  const parts = kind === 'plane' ? buildPlane() : kind === 'ufo' ? buildUfoCraft() : buildHeli();
   const a = { air: true, kind, ...parts, x, y, z, head, pitch: 0, roll: 0, speed: 0, vy: 0, onGround: true, rpm: 0, owned: !!opts.owned, taken: opts.taken || null, id: opts.id || ('A' + Math.random().toString(36).slice(2, 8)) };
   a.g.position.set(x, y, z); a.g.rotation.y = head; scene.add(a.g); aircraft.push(a); return a;
 }
@@ -6437,7 +6554,7 @@ function showCapturedUfo(s) { if (capUfos.has(s.id)) return; const [x, y, z] = a
 function aimAircraft(maxD = 7) {
   const o = camera.position, d = getDir(); let best = null, bt = maxD;
   for (const a of aircraft) { if (a === player.car) continue; const c = new THREE.Vector3(a.x, a.y + 1.3, a.z), t = c.clone().sub(o).dot(d); if (t < 0 || t > bt + 3) continue;
-    const p = o.clone().addScaledVector(d, t); if (p.distanceTo(c) < (a.kind === 'plane' ? 2.6 : 2.2) && t < bt + 2) { bt = t; best = a; } }
+    const p = o.clone().addScaledVector(d, t); if (p.distanceTo(c) < (a.kind === 'plane' ? 2.6 : a.kind === 'ufo' ? 4 : 2.2) && t < bt + 2) { bt = t; best = a; } }
   return best;
 }
 function aircraftUse(id) {
@@ -6455,7 +6572,8 @@ function boardAircraft(a) {
   player.car = a; a.lastHead = a.head; player.yaw = a.head + Math.PI; player.pitch = -0.12; a.owned = true;
   if (a.parkKey) { (state.takenAir = state.takenAir || {})[a.parkKey] = 1; a.taken = a.parkKey; a.parkKey = null; }
   document.body.classList.add('flying'); syncAircraft();
-  toast(isTouch ? (a.kind === 'plane' ? '✈️ Hold forward for throttle, ⏫ to pull up once you\'re fast · 🚪 to get out' : '🚁 ⏫ to lift off, joystick to fly · 🚪 to get out')
+  if (a.kind === 'ufo') toast(isTouch ? '🛸 ⏫ to lift off, joystick to fly · climb above 128 to reach the Moon · 🚪 to get out' : '🛸 Space = up, Shift = down, WASD = fly, climb above 128 for the Moon, X = get out');
+  else toast(isTouch ? (a.kind === 'plane' ? '✈️ Hold forward for throttle, ⏫ to pull up once you\'re fast · 🚪 to get out' : '🚁 ⏫ to lift off, joystick to fly · 🚪 to get out')
     : (a.kind === 'plane' ? '✈️ W = throttle, Space = pull up, Shift = dive, A/D = turn, X = get out' : '🚁 Space = up, Shift = down, WASD = fly, X = get out')); beep(160, 0.3, 'sawtooth', 0.05);
 }
 function exitAircraft() {
@@ -6505,19 +6623,19 @@ function flyAircraft(a, dt) {
     if (a.onGround && g2 > -99) a.y = g2;
     a.rpm = 4 + a.speed * 1.2;
   } else {
-    a.vy += ((up - down) * 7 - a.vy) * Math.min(1, dt * 3);
+    const ufo = a.kind === 'ufo'; a.vy += ((up - down) * (ufo ? 11 : 7) - a.vy) * Math.min(1, dt * 3);
     if (a.onGround && a.vy <= 0) a.vy = 0;
     if (!loaded && a.y < 50) a.vy = Math.max(0, a.vy);
-    const target = thr * 15; a.speed += (target - a.speed) * Math.min(1, dt * 1.4);
+    const target = thr * (ufo ? 26 : 15); a.speed += (target - a.speed) * Math.min(1, dt * 1.4);
     if (a.onGround) a.speed *= 0.8;
     a.head += turn * dt * 1.7; a.pitch += (a.speed / 15 * -0.22 - a.pitch) * Math.min(1, dt * 3); a.roll += (turn * -0.18 - a.roll) * Math.min(1, dt * 3);
     const fx = Math.sin(a.head), fz = Math.cos(a.head), nx = a.x + fx * a.speed * dt, nz = a.z + fz * a.speed * dt;
-    const pts = [[nx + fx * 2.2, a.y + 1.4, nz + fz * 2.2], [nx, a.y + 2.6, nz], [nx - fx * 4.6, a.y + 1.8, nz - fz * 4.6]];
-    if (pts.some(([x, y, z]) => solid(get(Math.floor(x), Math.floor(y), Math.floor(z))))) { if (Math.abs(a.speed) > 10) { crashAircraft(a, 'The rotor hit something!'); return; } a.speed = -a.speed * 0.3; }
+    const pts = ufo ? [[nx + fx * 3.6, a.y + 1.3, nz + fz * 3.6], [nx + fz * 3.6, a.y + 1.3, nz - fx * 3.6], [nx - fz * 3.6, a.y + 1.3, nz + fx * 3.6], [nx, a.y + 2.2, nz]] : [[nx + fx * 2.2, a.y + 1.4, nz + fz * 2.2], [nx, a.y + 2.6, nz], [nx - fx * 4.6, a.y + 1.8, nz - fz * 4.6]];
+    if (pts.some(([x, y, z]) => solid(get(Math.floor(x), Math.floor(y), Math.floor(z))))) { if (Math.abs(a.speed) > 10 && !ufo) { crashAircraft(a, 'The rotor hit something!'); return; } a.speed = -a.speed * 0.3; }
     else { a.x = nx; a.z = nz; }
     a.y += a.vy * dt; a.y = Math.min(a.y, 140);
     const g2 = airGround(a.x, a.y + 0.5, a.z);
-    if (g2 > -99 && a.y <= g2) { if (a.vy < -12) { crashAircraft(a, 'Hard landing!'); return; } if (!a.onGround && a.rpm > 5) toast('🚁 Touchdown'); a.y = g2; a.onGround = true; a.vy = Math.max(0, a.vy); }
+    if (g2 > -99 && a.y <= g2) { if (a.vy < -12 && !ufo) { crashAircraft(a, 'Hard landing!'); return; } if (!a.onGround && a.rpm > 5) toast(ufo ? '🛸 Touchdown' : '🚁 Touchdown'); a.y = g2; a.onGround = true; a.vy = Math.max(0, a.vy); }
     else if (g2 === -99 || a.y > g2 + 0.3) a.onGround = false;
     a.rpm += ((a.onGround && !up ? 6 : 30) - a.rpm) * Math.min(1, dt * 1.5);
     if (a.tail) a.tail.rotation.x += dt * a.rpm * 1.4;
@@ -6538,7 +6656,9 @@ function updateAircraft(dt) {
   for (const a of [...aircraft]) {
     if (a === player.car) { flyAircraft(a, dt); }
     else {
-      if (!a.onGround) {   // abandoned in the air: it falls and crashes
+      if (!a.onGround && a.kind === 'ufo') {   // a UFO you hop out of just floats down and lands
+        a.y -= dt * 5; a.speed *= 0.95; const g2 = airGround(a.x, a.y + 0.5, a.z); if (g2 > -99 && a.y <= g2) { a.y = g2; a.onGround = true; a.vy = 0; } a.g.position.set(a.x, a.y, a.z);
+      } else if (!a.onGround) {   // abandoned in the air: it falls and crashes
         a.vy -= 20 * dt; a.y += a.vy * dt; a.x += Math.sin(a.head) * a.speed * dt; a.z += Math.cos(a.head) * a.speed * dt; a.speed *= 0.99;
         const g2 = airGround(a.x, a.y + 0.5, a.z); if (g2 > -99 && a.y <= g2) { crashAircraft(a); continue; } if (a.y < -10) { removeAircraft(a); continue; }
         a.g.position.set(a.x, a.y, a.z);
@@ -6550,7 +6670,7 @@ function updateAircraft(dt) {
   }
   for (const [id, u] of capUfos) { u.lights.rotation.y += dt * 0.6; if (Math.hypot(u.g.position.x - player.pos.x, u.g.position.z - player.pos.z) > 240) { scene.remove(u.g); capUfos.delete(id); siteSpawned.delete(id); } }
   airSync += dt; if (airSync > 1) { airSync = 0; syncAircraft(); for (const [k] of siteSpawned) { if (k[0] === 'S') { const s = sitesNear(260).find(q => q.id === k); if (!s) siteSpawned.delete(k); } } }
-  if (!player.car) { const a = aimAircraft(); if (a) { const el = document.getElementById('target'); el.style.display = 'block'; el.textContent = a.kind === 'plane' ? '✈️ ✋ Fly this airplane' : '🚁 ✋ Fly this helicopter'; } }
+  if (!player.car) { const a = aimAircraft(); if (a) { const el = document.getElementById('target'); el.style.display = 'block'; el.textContent = a.kind === 'plane' ? '✈️ ✋ Fly this airplane' : a.kind === 'ufo' ? '🛸 ✋ Fly this UFO' : '🚁 ✋ Fly this helicopter'; } }
 }
 
 // ---- UFOs: they cruise the night sky, hover with a tractor beam and sometimes drop off an alien. Shoot one down for alien tech
@@ -8280,6 +8400,1416 @@ window.__dc13 = { V13, VENUE, venuesOf, venueMesh, liveVenues, homeById, venueNe
   cas, playSlots, bjDeal, bjHit, bjEnd, playRoulette, DAILY, dailyToday, dailyEvent, ACH, checkAch, kpStat, updateV113, openKp, renderKp, payAny, cashTotal, isWeapon,
   get jail() { return jail; }, arrest: () => arrest(), closePanels: () => closePanels(), get playing() { return playing; }, get kpQ() { return kpQ; } };
 
+
+// ================== v1.14 STORY UPDATE: story mode, boss fights (cartel compound + alien mothership), legit jobs (taxi, pizza, trucker) ==================
+// Items/guns are in the v1.14 data block near the top. Everything here grafts onto earlier code by wrapping, like v1.12/v1.13.
+// Save data lives in state.v114 (created lazily, so older saves load fine). Runtime things (bosses, job vehicles) are never saved.
+// Peaceful (canHurtPlayer() false): bosses, guards and jobs never hurt you; you can still beat the bosses.
+function V14() {
+  const v = state.v114 || (state.v114 = {});
+  if (!v.st || typeof v.st !== 'object') v.st = {};
+  const s = v.st; if (typeof s.i !== 'number' || !isFinite(s.i)) s.i = 0; if (!Array.isArray(s.log)) s.log = []; if (s.hud == null) s.hud = true;
+  if (!v.jobs) v.jobs = {}; for (const k of ['taxi', 'pizza', 'trucker', 'earned', 'best']) if (typeof v.jobs[k] !== 'number') v.jobs[k] = 0;
+  if (!v.boss) v.boss = {}; for (const k of ['ms', 'jefe']) if (typeof v.boss[k] !== 'number') v.boss[k] = 0;
+  if (v.boss.msDay == null) v.boss.msDay = -9; if (v.boss.jefeDay == null) v.boss.jefeDay = -9;
+  if (v.cmp === undefined) v.cmp = null;
+  return v;
+}
+V14();
+if (!INV_KEYS.includes('v114')) INV_KEYS.push('v114');   // online guests carry their story/job progress home like their bag
+['gang', 'soldier', 'alien', 'boss'].forEach(c => CREATURE_HIT.add(c));   // peaceful: no enemy gunfire ever lands (they never aim at you there anyway)
+Object.assign(RAW_VALUE, { gold_rifle: 2400, ray_gun: 2800, plasma_cell: 6, mothership_core: 1500, kingpin_crown: 2500, pizza_box: 4 });
+const WEB_HIDE14 = new Set(['gold_rifle', 'ray_gun', 'mothership_core', 'kingpin_crown', 'pizza_box']);   // boss drops can't be bought, only sold
+{ const rw1 = renderWeb; renderWeb = function (keepList) {
+  const r = rw1(keepList); if (webTab !== 'buy') return r;
+  const bx = (webFromPhone && document.getElementById('pWebBox')) || document.getElementById('webBox');
+  if (bx) for (const b of bx.querySelectorAll('[data-wb]')) if (WEB_HIDE14.has(b.dataset.wb)) { const row = b.closest('.row'); if (row) row.remove(); }
+  return r;
+}; }
+const v14css = document.createElement('style');
+v14css.textContent = `#stBanner{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%) scale(.9);z-index:40;pointer-events:none;opacity:0;transition:opacity .4s,transform .4s;text-align:center;
+background:linear-gradient(#2a2410ee,#120f06ee);border:2px solid #ffd84a;border-radius:14px;padding:12px 22px;color:#fff;text-shadow:0 2px 4px #000;max-width:86vw}
+#stBanner.on{opacity:1;transform:translate(-50%,-50%) scale(1)}#stBanner b{display:block;color:#ffd84a;font-size:13px;letter-spacing:2px;text-transform:uppercase}#stBanner span{display:block;font-size:22px;margin:4px 0}#stBanner i{font-style:normal;color:#9aff8a}
+.pplug .pmsg{background:rgba(255,255,255,.1);border-radius:12px 12px 12px 3px;padding:7px 10px;font-size:13px;max-width:92%}.pplug .pmsg em{font-style:normal;opacity:.6;font-size:11px;display:block}
+.pplug .pmis{border:1px solid #ffd84a;border-radius:10px;padding:8px 10px;background:rgba(255,216,74,.08)}.pplug .pmis b{color:#ffd84a}`;
+document.head.appendChild(v14css);
+const stBanner = document.createElement('div'); stBanner.id = 'stBanner'; document.body.appendChild(stBanner);
+let stBannerT = 0;
+function banner(top, mid, low) { stBanner.innerHTML = `<b>${top}</b><span>${mid}</span>${low ? `<i>${low}</i>` : ''}`; stBanner.classList.add('on'); stBannerT = 4; }
+const d2 = (x, z) => Math.hypot(x - player.pos.x, z - player.pos.z);
+const loaded = (x, z) => data.has(ckey(fdiv(Math.floor(x), CH), fdiv(Math.floor(z), CH)));
+function townsFar(r) {   // like townsNear, but scans as many town regions as the radius needs
+  const out = [], seen = new Set(), rx = fdiv(fdiv(Math.floor(player.pos.x), CH), TREG), rz = fdiv(fdiv(Math.floor(player.pos.z), CH), TREG), R = Math.ceil(r / (TREG * CH)) + 1;
+  for (let a = -R; a <= R; a++) for (let b = -R; b <= R; b++) {
+    const t = townOf(rx + a, rz + b); if (!t || seen.has(t.id)) continue; seen.add(t.id);
+    if (d2((t.x0 + t.x1) / 2, (t.z0 + t.z1) / 2) < r) out.push(t);
+  }
+  return out.sort((p, q) => d2((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2) - d2((q.x0 + q.x1) / 2, (q.z0 + q.z1) / 2));
+}
+const marks14 = [];
+function clearMarks14() { for (const m of marks14) scene.remove(m); marks14.length = 0; state.waypoints = (state.waypoints || []).filter(w => !w.job); }
+function mark14(p, col, emo) {
+  const g = new THREE.Group(); g.position.set(p.x + 0.5, p.y, p.z + 0.5);
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 40, 0.6), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3, depthWrite: false, fog: false })); beam.position.y = 20; g.add(beam);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.12, 6, 20), new THREE.MeshBasicMaterial({ color: col, fog: false })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.15; g.add(ring);
+  if (emo) { const tag = nameSprite(emo); tag.position.y = 3; g.add(tag); }
+  scene.add(g); marks14.push(g); state.waypoints.push({ x: Math.floor(p.x), z: Math.floor(p.z), c: '#' + col.toString(16).padStart(6, '0'), job: true }); return g;
+}
+
+// ======================= 1. LEGIT JOBS: 🚕 taxi, 🍕 pizza delivery, 🚚 trucker =======================
+// Clean money (💰). Pay grows with the distance, and a fast run adds a tip / bonus. Start from 📱 💼 Jobs or a 📋 Job Board in town.
+const JOBS = {
+  taxi: { n: '🚕 Taxi Driver', d: 'Pick up fares (🟢) and drive them to their stop (🔴). Faster rides = bigger tips. Keeps going until you end the shift.' },
+  pizza: { n: '🍕 Pizza Delivery', d: 'Hop on the scooter with 3 hot pizzas and get each one to the 🔴 house before the timer runs out.' },
+  trucker: { n: '🚚 Trucker', d: 'Haul a trailer of cargo to another town. Long hauls pay big, early arrival pays a bonus.' },
+};
+const CARGO = ['🥬 fresh produce', '📦 DealerNet parcels', '🪵 lumber', '🛢️ fuel drums', '🍕 frozen pizzas', '🐄 cattle feed', '🧱 bricks', '📺 TVs'];
+const jobsDone = () => { const j = V14().jobs; return j.taxi + j.pizza + j.trucker; };
+let job = null, jobT = 0;
+// vehicles: yellow taxi, pizza scooter, semi truck (meshes only; they drive like any car)
+{ const bc0 = buildCar; buildCar = function (kind, nPeople) {
+  if (kind === 'taxi') {
+    const p = bc0('car', nPeople), body = p.g.children[0].material.color.getHex();
+    for (const o of p.g.children) if (o.isMesh && o.material !== glassMat && o.material.color && o.material.color.getHex() === body) o.material.color.setHex(0xf2c21a);
+    const sign = box(0.62, 0.22, 0.3, 0xfff2a0, 0, 1.58, -0.15, p.g); sign.material.emissive.setHex(0x806a10);
+    for (const sx of [-0.87, 0.87]) for (let k = 0; k < 6; k++) box(0.02, 0.1, 0.24, k % 2 ? 0x111111 : 0xf2f2f2, sx, 0.62, -1.2 + k * 0.48, p.g);
+    return p;
+  }
+  if (kind === 'scooter') {
+    const g = new THREE.Group(), col = 0xd2302a;
+    box(0.55, 0.32, 1.5, col, 0, 0.55, 0, g); box(0.48, 0.14, 0.7, 0x1a1a1a, 0, 0.78, -0.25, g);
+    box(0.14, 0.9, 0.14, 0x9a9a9a, 0, 0.98, 0.62, g); box(0.85, 0.08, 0.08, 0x1a1a1a, 0, 1.42, 0.62, g); box(0.5, 0.4, 0.18, col, 0, 0.75, 0.72, g);
+    const pb = box(0.62, 0.42, 0.62, 0xd2302a, 0, 1.06, -0.62, g); pb.material.emissive.setHex(0x200000); box(0.64, 0.06, 0.64, 0xf2f2f2, 0, 1.28, -0.62, g);
+    for (const wz of [0.62, -0.62]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.16, 12), tyreMat); w.rotation.z = Math.PI / 2; w.position.set(0, 0.3, wz); g.add(w); }
+    const h = box(0.24, 0.16, 0.04, 0xfff2b0, 0, 0.98, 0.82, g); h.material.emissive.setHex(0xffe080);
+    return { g, lights: [], seats: [null, null] };
+  }
+  if (kind === 'truck') {
+    const g = new THREE.Group(), col = [0x2a6ad2, 0xd2302a, 0x3fa34d, 0xf2f2f2][Math.floor(Math.random() * 4)];
+    box(1.95, 1.5, 2.1, col, 0, 1.2, 0.2, g); box(1.97, 0.5, 0.9, col, 0, 0.72, 1.6, g);
+    const ws = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.6, 0.05), glassMat); ws.position.set(0, 1.55, 1.27); g.add(ws);
+    box(2.0, 2.5, 6.4, 0xe8e8e8, 0, 1.75, -3.35, g); box(2.02, 0.35, 6.42, col, 0, 1.0, -3.35, g); box(1.2, 0.12, 0.6, 0x333333, 0, 0.42, -0.6, g);
+    for (const [wx, wz] of [[-0.95, 1.3], [0.95, 1.3], [-0.95, -0.6], [0.95, -0.6], [-1.0, -4.8], [1.0, -4.8], [-1.0, -5.8], [1.0, -5.8]]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), tyreMat); w.rotation.z = Math.PI / 2; w.position.set(wx, 0.42, wz); g.add(w);
+    }
+    for (const hx of [-0.65, 0.65]) { const h = box(0.36, 0.18, 0.04, 0xfff2b0, hx, 0.8, 2.06, g); h.material.emissive.setHex(0xffe080); const t = box(0.3, 0.16, 0.04, 0xd01010, hx * 1.3, 0.75, -6.56, g); t.material.emissive.setHex(0x600000); }
+    box(0.12, 1.2, 0.12, 0x9a9a9a, 0.85, 2.3, -0.75, g);
+    return { g, lights: [], seats: [null, null] };
+  }
+  return bc0(kind, nPeople);
+}; }
+// the truck: slower top speed and a camera pulled back over the trailer
+{ const dc2 = driveCar; driveCar = function (c, dt) {
+  dc2(c, dt); if (player.car !== c || c.kind !== 'truck') return;
+  c.speed = Math.max(-4, Math.min(11, c.speed));
+  const f = new THREE.Vector3(c.x, c.y + 1.6, c.z), dv = camera.position.clone().sub(f); dv.y = 0;
+  if (dv.lengthSq() < 0.01) dv.set(-Math.sin(c.head), 0, -Math.cos(c.head)); dv.normalize();
+  camera.position.set(f.x + dv.x * 12, f.y + 5.5, f.z + dv.z * 12); camera.lookAt(f.x - dv.x * 4, f.y, f.z - dv.z * 4);
+}; }
+const roadVeh = c => c && cars.includes(c) && !c.vessel && !c.air && c.kind !== 'police';
+function jobVehicle(kind, t) {
+  const c0 = player.car;
+  if (kind === 'taxi' && roadVeh(c0) && c0.kind !== 'scooter' && c0.kind !== 'truck') return c0;
+  if (kind === 'pizza' && roadVeh(c0) && c0.kind !== 'truck') return c0;
+  if (kind === 'trucker' && c0 && c0.kind === 'truck') return c0;
+  if (player.car) exitCar();
+  const vk = kind === 'taxi' ? 'taxi' : kind === 'pizza' ? 'scooter' : 'truck';
+  const a = player.yaw, back = vk === 'truck' ? 7 : 4, x = player.pos.x - Math.sin(a) * back, z = player.pos.z - Math.cos(a) * back;
+  const c = spawnCar(t, { kind: vk, people: 0, x, z, head: a + Math.PI });
+  c.y = Math.floor(player.pos.y) + 1; snapCarGround(c); c.jobVeh = true;
+  return c;
+}
+function houseSpot(t, avoid) {
+  const nb = t.nb || 3, vs = venuesOf(t);
+  for (let k = 0; k < 40; k++) {
+    const i = rint(0, nb - 1), j = rint(0, nb - 1); if (t.type !== 'city' && !t.metro && i === 1 && j === 1) continue;
+    const x = t.x0 + i * 16 + rint(5, 11), z = t.z0 + j * 16 + 4;
+    if (vs.some(v => Math.hypot(v.x - x, v.z - z) < 4)) continue;
+    if (avoid && (Math.hypot(avoid.x - x, avoid.z - z) < 25 || (k < 30 && Math.hypot(avoid.x - x, avoid.z - z) > 100))) continue;
+    return { x, y: t.base + 1, z, t: t.id };
+  }
+  return roadSpot(t);
+}
+function canJob() {
+  if (!playing || !player.alive) return false;
+  if (jail) { toast('🔒 No jobs from a prison cell'); return false; }
+  if (court) return false;
+  if (job) { toast(`💼 You're already on a ${JOBS[job.kind].n} shift (end it in 📱 💼 Jobs)`); return false; }
+  return true;
+}
+function startJob(kind) {
+  if (!JOBS[kind] || !canJob()) return false;
+  const t = townsFar(240)[0]; if (!t) { toast('💼 Jobs are in towns and cities. Get closer to one first'); return false; }
+  if (kind === 'pizza' && give('pizza_box', 3) > 0) { take('pizza_box', count('pizza_box')); toast('🍕 Make room in your bag for 3 pizzas'); return false; }
+  let dest = null;
+  if (kind === 'trucker') {
+    const tc = [(t.x0 + t.x1) / 2, (t.z0 + t.z1) / 2], far = townsFar(700).filter(o => o.id !== t.id).map(o => [o, Math.hypot((o.x0 + o.x1) / 2 - tc[0], (o.z0 + o.z1) / 2 - tc[1])]);
+    const pick = far.filter(([, d]) => d >= 150), cand = pick.length ? pick : far.filter(([, d]) => d >= 80);
+    if (!cand.length) { toast('🚚 No other town close enough to haul to. Try from a different town'); return false; }
+    dest = cand[rint(0, cand.length - 1)][0];
+  }
+  const veh = jobVehicle(kind, t);
+  job = { kind, t, veh, stage: 'start', n: 0, made: 0, onTime: 0, outT: 0, dest };
+  if (kind === 'taxi') nextFare();
+  if (kind === 'pizza') { job.left = 3; nextPizza(); }
+  if (kind === 'trucker') {
+    const b = roadSpot(dest), d = d2(b.x, b.z);
+    Object.assign(job, { stage: 'haul', b, d: Math.round(d), limit: Math.round(40 + d / 6), until: state.gameTime + Math.round(40 + d / 6), pay: Math.min(420, Math.round(50 + d * 0.75)), cargo: CARGO[rint(0, CARGO.length - 1)] });
+    clearMarks14(); mark14(b, 0xff3b3b, '🚚 Drop-off');
+    toast(`🚚 Haul ${job.cargo} ${job.d} m to the 🔴 drop-off in ${job.limit}s · 💰${job.pay}+ bonus`);
+  }
+  beep(880, 0.06, 'triangle', 0.05); setTimeout(() => beep(1180, 0.06, 'triangle', 0.05), 120);
+  if (veh !== player.car) setTimeout(() => toast(kind === 'pizza' ? '🛵 Your scooter is right behind you. ✋ it to ride' : kind === 'taxi' ? '🚕 Your cab is right behind you. ✋ it to drive' : '🚚 Your truck is right behind you. ✋ the cab to drive'), 2300);
+  kpStat('jobStart'); return true;
+}
+function nextFare() {
+  const t = job.t; let a = roadSpot(t);
+  for (let k = 0; k < 10 && d2(a.x, a.z) < 18; k++) a = roadSpot(t);
+  Object.assign(job, { stage: 'pickup', a, fare: null, pmesh: null }); clearMarks14(); mark14(a, 0x3bff7a, '🙋 Fare');
+}
+function spawnFare() {
+  const a = job.a; if (!loaded(a.x, a.z) || d2(a.x, a.z) > 75) return;
+  let y = a.y; while (y < a.y + 4 && solid(get(a.x, y, a.z))) y++;
+  const m = spawnMob('ped', a.x + 0.5, y, a.z + 0.5); if (!m) return;
+  m.fare = true; m.home = new THREE.Vector2(a.x, a.z); m.wait = 1e9; job.fare = m;
+}
+function pickUp() {
+  const t = job.t, others = townsFar(260).filter(o => o.id !== t.id);
+  const to = others.length && Math.random() < 0.35 ? others[0] : t;
+  let b = roadSpot(to); for (let k = 0; k < 14 && d2(b.x, b.z) < 40; k++) b = roadSpot(to);
+  const d = d2(b.x, b.z);
+  if (job.fare && mobs.includes(job.fare)) removeMob(job.fare, false); job.fare = null;
+  const c = job.veh; if (c && c.g) { job.pmesh = personMesh(); job.pmesh.position.set(-0.38, 0.95, -0.15); c.g.add(job.pmesh); }
+  Object.assign(job, { stage: 'drop', b, d: Math.round(d), limit: Math.round(14 + d / 5.5), until: state.gameTime + Math.round(14 + d / 5.5), pay: Math.round(12 + d * 0.32) });
+  clearMarks14(); mark14(b, 0xff3b3b, '🏁 Stop');
+  toast(`🙋 "${['Downtown, please', 'Take me home', 'I\'m late, step on it!', 'Follow the GPS, driver', 'Airport... kidding, just here'][rint(0, 4)]}" · ${job.d} m · ${job.limit}s for a tip`); beep(660, 0.05, 'sine', 0.05);
+}
+function payJob(base, frac, what) {
+  const v = V14(), tip = Math.max(0, Math.min(job.kind === 'trucker' ? 500 - base : 1e9, Math.round(base * 0.6 * frac))), total = base + tip;   // round 2: a haul pays 500 max
+  addClean(total, `${what} +💰${base}${tip ? ` +💰${tip} ${job.kind === 'trucker' ? 'early bonus' : 'tip'}` : ''}`);
+  v.jobs[job.kind]++; v.jobs.earned += total; v.jobs.best = Math.max(v.jobs.best, total); job.made += total; job.n++; if (frac > 0) job.onTime++;
+  kpStat('job'); kpStat(job.kind === 'taxi' ? 'fares' : job.kind === 'pizza' ? 'pizzas' : 'hauls');
+  coinSnd(); return total;
+}
+function nextPizza() {
+  if (job.left <= 0) { const bonus = job.onTime >= 3 ? 25 : 0; if (bonus) addClean(bonus, '🍕 All 3 on time! Shift bonus +💰25'); endJob(`🍕 Shift done: ${job.n} delivered · 💰${job.made + bonus} earned`); return; }
+  const from = job.b || { x: player.pos.x, z: player.pos.z }, b = houseSpot(job.t, from), d = d2(b.x, b.z);
+  Object.assign(job, { stage: 'drop', b, d: Math.round(d), limit: Math.round(18 + d / 4.5), until: state.gameTime + Math.round(18 + d / 4.5), pay: Math.round(10 + d * 0.3) });
+  clearMarks14(); mark14(b, 0xff3b3b, '🍕 Customer');
+  toast(`🍕 Pizza ${4 - job.left}/3 · deliver to the 🔴 house ${job.d} m away in ${job.limit}s`);
+}
+function endJob(msg) {
+  if (!job) return; const j = job; job = null;
+  if (j.fare && mobs.includes(j.fare)) removeMob(j.fare, false);
+  if (j.pmesh && j.pmesh.parent) j.pmesh.parent.remove(j.pmesh);
+  clearMarks14(); if (msg) toast(msg);
+}
+function atSpot(p, rFoot, rCar) { const r = player.car ? rCar : rFoot; return d2(p.x + 0.5, p.z + 0.5) < r && Math.abs(player.pos.y - p.y) < 5; }
+function updateJob(dt) {
+  jobT += dt; for (const g of marks14) g.children[1] && (g.children[1].rotation.z += dt * 2);
+  if (!job) return;
+  if (!player.alive || jail) { endJob('💼 Shift over'); return; }
+  const c = job.veh, left = job.until != null ? job.until - state.gameTime : 0;
+  if (job.kind !== 'pizza') {
+    if (!c || !cars.includes(c)) { endJob(job.kind === 'trucker' ? '🚚 You left the truck behind. Haul failed' : '🚕 You lost your cab. Shift over'); return; }
+    if (player.car !== c) { job.outT += dt; if (job.outT > 45) { endJob(job.kind === 'trucker' ? '🚚 You walked off the job. Haul failed' : '🚕 You left the cab too long. Shift over'); return; } } else job.outT = 0;
+  }
+  if (job.kind === 'taxi') {
+    if (job.stage === 'pickup') {
+      if (!job.fare || !mobs.includes(job.fare)) { job.fare = null; spawnFare(); }
+      else { job.fare.wait = 1e9; job.fare.target = null; }
+      if (player.car === c && job.fare && job.fare.g.position.distanceTo(player.pos) < 6 && Math.abs(c.speed) < 4) pickUp();
+      return;
+    }
+    if (job.stage === 'wait') return;
+    if (left <= -25) { if (job.pmesh && job.pmesh.parent) job.pmesh.parent.remove(job.pmesh); toast('😤 "Forget it, I\'ll walk!" The fare got out without paying'); beep(160, 0.3, 'sawtooth', 0.05); nextFare(); return; }
+    if (player.car === c && atSpot(job.b, 0, 6.5) && Math.abs(c.speed) < 5) {
+      if (job.pmesh && job.pmesh.parent) job.pmesh.parent.remove(job.pmesh);
+      payJob(job.pay, Math.max(0, left / job.limit), left > 0 ? '🚕 Fare paid!' : '🚕 Fare paid (no tip, too slow)'); setTimeout(() => { if (job && job.kind === 'taxi') nextFare(); }, 1500); job.stage = 'wait';
+    }
+    return;
+  }
+  if (job.kind === 'pizza') {
+    if (job.stage !== 'drop') return;
+    if (left <= 0) { take('pizza_box', 1); job.left--; toast('🥶 Too slow, the pizza went cold. No pay for that one'); beep(160, 0.3, 'sawtooth', 0.05); nextPizza(); return; }
+    if (atSpot(job.b, 3.5, 6.5)) {
+      if (!count('pizza_box')) { endJob('📦 No pizza left?! Did you eat it? Shift over'); return; }
+      take('pizza_box', 1); job.left--; payJob(job.pay, Math.max(0, left / job.limit), `🍕 "${['Thanks!', 'Smells amazing!', 'Keep the change!', 'Finally!'][rint(0, 3)]}"`); nextPizza();
+    }
+    return;
+  }
+  if (job.kind === 'trucker') {
+    if (player.car === c && atSpot(job.b, 0, 9) && Math.abs(c.speed) < 5) {
+      const total = payJob(job.pay, Math.max(0, left / job.limit) * 0.66, `🚚 Delivered ${job.cargo}!`);
+      endJob(`🚚 Haul complete · 💰${total}`);
+    }
+  }
+}
+{ const ml4 = mobLabel; mobLabel = function (m) { if (m.fare) return '🙋 Your fare · pull up in your cab to pick them up'; return ml4(m); }; }
+{ const im4 = interactMob; interactMob = function (m, id, it) { if (m.fare) { toast('🙋 "I\'m waiting for my cab, not you on foot!"'); return true; } return im4(m, id, it); }; }
+{ const eat0 = eat; eat = function (id) { if (id === 'pizza_box' && job && job.kind === 'pizza') { toast('🍕 That pizza is for a customer!'); return; } return eat0(id); }; }
+function jobsHTML(board) {
+  const v = V14(), j = job;
+  let h = board ? '<h2>📋 Job Board</h2><div class="ksub">Legit work. Paid in 💰 clean coins. Longer and faster = more money.</div>' : '';
+  if (j) {
+    const left = j.until != null ? Math.max(0, Math.ceil(j.until - state.gameTime)) : 0;
+    const what = j.kind === 'taxi' ? (j.stage === 'pickup' ? '🟢 Pick up the fare' : '🔴 Drive them to their stop') : j.kind === 'pizza' ? `🍕 ${j.left} pizza${j.left === 1 ? '' : 's'} left · 🔴 next house` : `🚚 ${j.cargo} · 🔴 drop-off`;
+    h += `<div class="pst pmis"><b>${JOBS[j.kind].n} · on shift</b><br>${what}${j.stage === 'drop' || j.stage === 'haul' ? ` · ${Math.round(d2(j.b.x, j.b.z))} m · ⏱ ${left}s` : ''}<br>Earned this shift 💰${j.made}</div><button class="pst stop" data-kp14="jend">⏹ End shift</button>`;
+  } else for (const [k, o] of Object.entries(JOBS)) h += `<button class="pst ${board ? 'btn kbig' : ''}" data-kp14="job:${k}">${o.n}<br><span style="opacity:.75;font-size:12px">${o.d}</span></button>`;
+  h += `<div class="phint" style="margin-top:4px">🚕 ${v.jobs.taxi} fares · 🍕 ${v.jobs.pizza} pizzas · 🚚 ${v.jobs.trucker} hauls · 💰${v.jobs.earned} earned · best run 💰${v.jobs.best}</div>`;
+  return h;
+}
+
+// ======================= 2. BOSS FIGHTS =======================
+let cartelAlert = 0;
+Object.assign(MOBDEF, {
+  cartel: { hp: 22, w: 0.3, h: 1.9, speed: 1.3, hostile: false, ai: true, npc: true, drops: () => [['rifle_ammo', rint(2, 8)], ['pistol_ammo', rint(0, 6)], ['cocaine', Math.random() < 0.25 ? 1 : 0]] },
+  jefe: { hp: 260, w: 0.4, h: 2.2, speed: 1.2, hostile: false, ai: true, npc: true, drops: () => [] },
+});
+Object.assign(MOB_NAMES, { cartel: '🕶️ Cartel guard', jefe: '💀 Don Calavera' });
+{ const bm2 = buildMob; buildMob = function (type, v = 0) {
+  if (type === 'cartel') {
+    const p = humanoid({ shirt: [0x1a1a1a, 0x3a2a1a, 0xf2f2f2][v % 3], sleeve: 0x1a1a1a, skin: [0xc58c63, 0x8d5524, 0xe0ac69][v % 3], pants: 0x2a2a2a });
+    box(0.4, 0.07, 0.04, 0x050505, 0, 0.05, 0.25, p.head); box(0.5, 0.1, 0.5, 0x1a1a1a, 0, 0.27, 0, p.head); box(0.3, 0.06, 0.05, 0xf2c21a, 0, 1.3, 0.15, p.g); gunMesh(p.arms[1], true); return p;
+  }
+  if (type === 'jefe') {
+    const p = humanoid({ shirt: 0xf2f2f2, sleeve: 0xf2f2f2, skin: 0xe0ac69, pants: 0xf2f2f2, bw: 0.62 });
+    box(0.16, 0.5, 0.04, 0xd01010, 0, 1.18, 0.15, p.g); box(0.62, 0.08, 0.04, 0xf2c21a, 0, 1.42, 0.15, p.g);   // red shirt, gold chain
+    box(0.8, 0.06, 0.8, 0x1a1a1a, 0, 0.27, 0, p.head); box(0.5, 0.22, 0.5, 0x1a1a1a, 0, 0.38, 0, p.head);   // black hat
+    for (const ex of [-0.1, 0.1]) box(0.12, 0.06, 0.03, 0xffffff, ex, 0.12, 0.24, p.head);                // skull face paint
+    box(0.3, 0.05, 0.03, 0xffffff, 0, -0.12, 0.24, p.head); gunMesh(p.arms[1], true).children.forEach(o => o.material && o.material.color.setHex(0xe0b020));
+    p.g.scale.setScalar(1.15); return p;
+  }
+  return bm2(type, v);
+}; }
+{ const ml5 = mobLabel; mobLabel = function (m) {
+  if (m.type === 'cartel') return '🕶️ Cartel guard' + (cartelAlert > 0 && canHurtPlayer() ? ' · 🚨 shooting' : '');
+  if (m.type === 'jefe') return `💀 Don Calavera · ${Math.max(0, Math.round(m.hp / m.maxHp * 100))}%`;
+  return ml5(m); }; }
+function bossShot(m, n, spread) {   // a burst of gunfire at you; only ever called when canHurtPlayer()
+  const p = m.g.position, tp = player.pos.clone().setY(player.pos.y + 1.1);
+  for (let i = 0; i < n; i++) setTimeout(() => { if (!mobs.includes(m) || !canHurtPlayer() || !player.alive) return; const q = tp.clone(); q.x += (Math.random() - .5) * spread; q.z += (Math.random() - .5) * spread; npcShoot(m, q, null, 'gangster'); }, i * 170);
+}
+const fakeNades = [];
+function lobNade(m) {
+  const o = m.g.position.clone().setY(m.g.position.y + 1.8), to = player.pos.clone(), g = new THREE.Mesh(grenGeo, grenMat); g.position.copy(o); scene.add(g);
+  fakeNades.push({ g, o, to, t: 0, T: 1.4 }); beep(500, 0.05, 'triangle', 0.05);
+}
+function updateNades(dt) {
+  for (const n of [...fakeNades]) {
+    n.t += dt; const k = Math.min(1, n.t / n.T); n.g.position.lerpVectors(n.o, n.to, k); n.g.position.y += Math.sin(k * Math.PI) * 4; n.g.rotation.x += dt * 9;
+    if (k >= 1) {
+      scene.remove(n.g); fakeNades.splice(fakeNades.indexOf(n), 1); particles(n.to.x, n.to.y + 0.5, n.to.z, new THREE.Color(1, 0.55, 0.15), 18); smokePuff(n.to.x, n.to.y + 0.6, n.to.z, 4, 0x333333);
+      noiseBurst(0.5, 0.18, 220); shake(0.35, 0.08);
+      const d = player.pos.distanceTo(n.to); if (d < 3.6 && canHurtPlayer()) damage(Math.round((1 - d / 3.6) * 9 * diff().dmg) + 1, 'gang', n.to);
+    }
+  }
+}
+function cartelAI(m, d, dt, dist) {
+  const p = m.g.position, pp = player.pos; m.shootCd = Math.max(0, (m.shootCd || 0) - dt);
+  const c = V14().cmp, inside = c && c.built && pp.x > c.x0 - 1 && pp.x < c.x1 + 1 && pp.z > c.z0 - 1 && pp.z < c.z1 + 1;
+  if (canHurtPlayer() && player.alive && !jail && !player.car && (cartelAlert > 0 || inside || dist < 12) && dist < 42) {
+    cartelAlert = Math.max(cartelAlert, 8);
+    const tp = pp.clone().setY(pp.y + 1.1), dx = tp.x - p.x, dz = tp.z - p.z, dd = Math.hypot(dx, dz) || 1;
+    m.g.rotation.y = Math.atan2(dx, dz); m.aim = 0.3;
+    const los = m.shootCd <= 0 && lineOfSight(p.clone().setY(p.y + 1.5), tp);
+    if (m.type === 'jefe') {
+      m.nadeT = (m.nadeT ?? 6) - dt;
+      if (los) { m.shootCd = 2.1 / Math.max(0.8, diff().spd); bossShot(m, 3, 1.2); }
+      if (m.nadeT <= 0 && dist < 26) { m.nadeT = 8 + Math.random() * 3; lobNade(m); }
+    } else if (los && dist < 32) { m.shootCd = 2.7 + Math.random() * 1.3; npcShoot(m, tp, null, 'gangster'); }   // round 2: guards fire a bit slower
+    const want = m.type === 'jefe' ? 7 : 10, go = dd > want + 1 ? 1 : dd < want - 2 ? -0.5 : 0, strafe = Math.sin(performance.now() / 700 + m.v) * 0.5;
+    if (m.home && Math.hypot(p.x - m.home.x, p.z - m.home.y) > 16) return [(m.home.x - p.x) / 16, (m.home.y - p.z) / 16, 2.5];   // never leaves the compound
+    return [(dx / dd) * go - (dz / dd) * strafe * 0.4, (dz / dd) * go + (dx / dd) * strafe * 0.4, m.type === 'jefe' ? 2.4 : 2.9];
+  }
+  if (m.home) { const hx = m.home.x - p.x, hz = m.home.y - p.z, hd = Math.hypot(hx, hz); if (hd > 2) { m.g.rotation.y = Math.atan2(hx, hz); return [hx / hd, hz / hd, 1.4]; } }
+  if (dist < 9) m.g.rotation.y = Math.atan2(pp.x - p.x, pp.z - p.z);
+  return [0, 0, 0];
+}
+{ const w2 = wildAI; wildAI = function (m, d, dt, dist, t) { if (m.type === 'cartel' || m.type === 'jefe') return cartelAI(m, d, dt, dist); return w2(m, d, dt, dist, t); }; }
+
+// ---- cartel compound: chosen far from your builds, outside towns and sites, then built once out of blocks when you get close
+let cmpEditCh = null, cmpLive = null;   // cmpLive = { guards: [], jefe, waves } while the fight is loaded
+function editChunks() { if (cmpEditCh) return cmpEditCh; cmpEditCh = new Set(); for (const k in state.edits || {}) { const p = k.split(','); cmpEditCh.add(fdiv(+p[0], CH) + ',' + fdiv(+p[2], CH)); } return cmpEditCh; }
+function cmpSpotOk(x, z, spread) {
+  if (Math.hypot(x - VX, z - VZ) < 90) return false;
+  const hs = [], ec = editChunks();
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+    const px = x + a * 15, pz = z + b * 15;
+    if (townAt(Math.floor(px), Math.floor(pz)) || siteAt(px, pz) || ec.has(fdiv(Math.floor(px), CH) + ',' + fdiv(Math.floor(pz), CH))) return false;
+    const t = terrainAt(Math.floor(px), Math.floor(pz)); if (t.h <= SEA + 1 || t.wl > t.h || t.h > 40) return false; hs.push(t.h);
+  }
+  return Math.max(...hs) - Math.min(...hs) <= spread;
+}
+function cmpEnsure() {
+  const v = V14(); if (v.cmp && v.cmp.seed === state.seed) return v.cmp;
+  const r = mulberry(Math.floor(state.seed * 7 + day() * 131 + 77));
+  for (const spread of [3, 6, 10]) for (let k = 0; k < 70; k++) {
+    const a = r() * 6.283, d = 140 + r() * 130, x = Math.floor(player.pos.x + Math.cos(a) * d), z = Math.floor(player.pos.z + Math.sin(a) * d);
+    if (!cmpSpotOk(x, z, spread)) continue;
+    v.cmp = { x, z, seed: state.seed, built: 0, x0: x - 13, x1: x + 13, z0: z - 13, z1: z + 13 }; return v.cmp;
+  }
+  return null;
+}
+const TREEISH = new Set([LOG, LEAVES, SPRUCE, CACTUS, SNOW_LAYER]);
+function groundNat(x, z) { x = Math.floor(x); z = Math.floor(z); for (let y = H - 1; y > 0; y--) { const id = get(x, y, z); if (solid(id) && !TREEISH.has(id)) return y + 1; } return G + 1; }   // ground, ignoring trees
+function cmpBuild(c) {
+  const ok = [[c.x0, c.z0], [c.x1, c.z0], [c.x0, c.z1], [c.x1, c.z1], [c.x, c.z]].every(([x, z]) => loaded(x, z)); if (!ok) return false;
+  const hs = []; for (let a = 0; a < 5; a++) for (let b = 0; b < 5; b++) hs.push(groundNat(c.x0 + 2 + a * 5.5, c.z0 + 2 + b * 5.5)); hs.sort((p, q) => p - q);
+  const Y = hs[12], S = (x, y, z, id) => { if (get(x, y, z) !== id) setBlock(x, y, z, id, false); };
+  for (let x = c.x0; x <= c.x1; x++) for (let z = c.z0; z <= c.z1; z++) {
+    const top = groundNat(x, z), any = groundAt(x + 0.5, z + 0.5);
+    for (let y = top; y < Y - 1; y++) S(x, y, z, DIRT);
+    if (top !== Y || isWater(get(x, Y - 1, z))) S(x, Y - 1, z, GRASS);
+    for (let y = Y; y < Math.max(any, Y + 1); y++) if (get(x, y, z) !== AIR) S(x, y, z, AIR);
+  }
+  // perimeter wall (3 steel + fence on top) with a south gate, corner towers with lamps
+  for (let x = c.x0; x <= c.x1; x++) for (const z of [c.z0, c.z1]) { if (z === c.z1 && Math.abs(x - c.x) <= 1) continue; for (let y = 0; y < 3; y++) S(x, Y + y, z, STEEL); S(x, Y + 3, z, FENCE); }
+  for (let z = c.z0; z <= c.z1; z++) for (const x of [c.x0, c.x1]) { for (let y = 0; y < 3; y++) S(x, Y + y, z, STEEL); S(x, Y + 3, z, FENCE); }
+  for (const [tx, tz] of [[c.x0, c.z0], [c.x1, c.z0], [c.x0, c.z1], [c.x1, c.z1]]) { for (let y = 0; y < 6; y++) S(tx, Y + y, tz, STEEL); S(tx, Y + 6, tz, LAMP); }
+  // the Don's villa
+  const vx0 = c.x - 5, vx1 = c.x + 5, vz0 = c.z0 + 3, vz1 = c.z0 + 11;
+  for (let x = vx0; x <= vx1; x++) for (let z = vz0; z <= vz1; z++) {
+    const edge = x === vx0 || x === vx1 || z === vz0 || z === vz1;
+    S(x, Y - 1, z, PLANKS);
+    if (edge) for (let y = 0; y < 4; y++) { const door = z === vz1 && Math.abs(x - c.x) <= 1 && y < 3, win = y === 1 && (x === vx0 || x === vx1) && (z - vz0) % 3 === 1; S(x, Y + y, z, door ? AIR : win ? GLASS : WHITEWALL); }
+    S(x, Y + 4, z, ROOF);
+  }
+  S(c.x - 3, Y, vz0 + 1, CRATE); S(c.x + 3, Y, vz0 + 1, CRATE); S(c.x + 3, Y + 1, vz0 + 1, CRATE); S(c.x - 4, Y + 2, vz0 + 4, LAMP); S(c.x + 4, Y + 2, vz0 + 4, LAMP);
+  // courtyard cover
+  for (const [x, z, h] of [[c.x - 8, c.z + 4, 2], [c.x + 7, c.z + 3, 1], [c.x - 3, c.z + 8, 1], [c.x + 4, c.z + 9, 2], [c.x - 9, c.z - 5, 1], [c.x + 9, c.z - 6, 2]]) for (let y = 0; y < h; y++) S(x, Y + y, z, CRATE);
+  flushDirty(); c.built = 1; c.y = Y; c.boss = [c.x + 0.5, Y, vz0 + 4.5];
+  if (typeof netEdit === 'function') {} // edits already went to the room through setBlock
+  return true;
+}
+const jefeHome = () => { const v = V14(), s = curMission(); return (s && s.id === 'kingpin') || (v.boss.jefe > 0 && day() > v.boss.jefeDay); };
+function cmpSpawn(c) {
+  const live = { guards: [], jefe: null, waves: 0 }, Y = c.y;
+  const spots = [[c.x - 7, c.z + 5], [c.x + 7, c.z + 5], [c.x - 9, c.z - 2], [c.x + 9, c.z - 2], [c.x - 3, c.z1 - 2], [c.x + 3, c.z1 - 2]];
+  if (settings.difficulty === 'hard' || settings.difficulty === 'insane') spots.push([c.x, c.z + 2], [c.x - 6, c.z0 + 13]);
+  for (const [x, z] of spots) { const m = spawnMob('cartel', x + 0.5, Y, z + 0.5, rint(0, 99)); if (m) { m.home = new THREE.Vector2(x, z); m.cmp = true; live.guards.push(m); } }
+  if (jefeHome()) {
+    const [bx, by, bz] = c.boss, m = spawnMob('jefe', bx, by, bz, 0);
+    if (m) { m.maxHp = m.hp = Math.round(MOBDEF.jefe.hp * (settings.difficulty === 'peaceful' ? 1 : diff().hp)); m.home = new THREE.Vector2(bx, bz); m.boss = true; m.cmp = true; live.jefe = m; }
+  }
+  cmpLive = live; return live;
+}
+function cmpWave(c, n) {
+  for (let i = 0; i < n; i++) { const x = c.x + rint(-2, 2), z = c.z1 + 3 + rint(0, 2), y = groundNear(x + 0.5, c.y + 3, z + 0.5);
+    const m = spawnMob('cartel', x + 0.5, y, z + 0.5, rint(0, 99)); if (m) { m.home = new THREE.Vector2(c.x, c.z + 4); m.cmp = true; cmpLive.guards.push(m); } }
+  kpToast('📞 Don Calavera: "¡Refuerzos! Get him!" More guards at the gate');
+}
+let cmpT = 0;
+function updateCompound(dt) {
+  cartelAlert = Math.max(0, cartelAlert - dt); cmpT -= dt; if (cmpT > 0) return; cmpT = 0.5;
+  const v = V14(), c = v.cmp; if (!c || c.seed !== state.seed) return;
+  const dc = d2(c.x, c.z);
+  if (!c.built) { if (dc < 85 && !MP_GUEST) cmpBuild(c); return; }
+  if (cmpLive) {
+    const j = cmpLive.jefe;
+    if (j && !mobs.includes(j)) { if (j.hp > 0 && dc > 80) cmpLive.jefe = null; }
+    if (j && mobs.includes(j)) { const f = j.hp / j.maxHp; if (cmpLive.waves === 0 && f < 0.66) { cmpLive.waves = 1; cmpWave(c, 3); } else if (cmpLive.waves === 1 && f < 0.33) { cmpLive.waves = 2; cmpWave(c, 3); } }
+    if (dc > 100) { for (const m of [...cmpLive.guards, cmpLive.jefe]) if (m && mobs.includes(m)) removeMob(m, false); cmpLive = null; }
+    return;
+  }
+  if (dc < 55 && !player.car) {
+    const live = cmpSpawn(c);
+    if (live.jefe) { banner('Boss fight', '💀 Don Calavera', canHurtPlayer() ? 'Take out the cartel boss in his villa' : '😇 Peaceful: they can\'t hurt you'); bossSnd(); }
+  }
+}
+function bossSnd() { beep(110, 0.6, 'sawtooth', 0.06); setTimeout(() => beep(98, 0.6, 'sawtooth', 0.06), 450); setTimeout(() => beep(82, 0.9, 'sawtooth', 0.07), 900); }
+function jefeDown(m) {
+  const v = V14(), first = v.boss.jefe === 0; v.boss.jefe++; v.boss.jefeDay = day();
+  if (first) { give('gold_rifle', 1); give('kingpin_crown', 1); }
+  give('rifle_ammo', 60); give('cocaine_prime', rint(3, 6)); addDirty(first ? 3000 : 1200, null);
+  banner('Boss defeated', '💀 Don Calavera is down!', first ? '+ 💵3000 dirty · 👑 Kingpin\'s Crown · Golden AK' : '+ 💵1200 dirty · ammo · product');
+  kpStat('jefe'); cartelAlert = 0; coinSnd(); shake(0.4, 0.06);
+  for (const g of (cmpLive && cmpLive.guards) || []) if (mobs.includes(g)) { g.calm = 60; }
+}
+
+// ---- the alien mothership: hovers over Area 51 or a UFO crash site. Shoot out the 4 glowing weak points, then the core.
+let ship = null, shipT = 0;
+const WP_N = 4, CORE_HP = 130;   // round 2: core a little weaker (was 160)
+function shipMesh() {
+  const g = new THREE.Group(), hull = new THREE.MeshLambertMaterial({ color: 0x8a90a0 });
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(12, 9, 2.2, 28), hull); g.add(disc);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(12.6, 12.6, 0.5, 28), new THREE.MeshLambertMaterial({ color: 0x5a6070 })); g.add(rim);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(5, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9ad8ff, transparent: true, opacity: 0.6 })); dome.position.y = 1.1; g.add(dome);
+  const under = new THREE.Mesh(new THREE.CylinderGeometry(7, 4, 1.4, 20), hull); under.position.y = -1.6; g.add(under);
+  const lights = new THREE.Group(); g.add(lights);
+  for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283, l = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 4), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff3bd0 : 0x3bffd0, fog: false })); l.position.set(Math.cos(a) * 11.3, -0.6, Math.sin(a) * 11.3); lights.add(l); }
+  const wps = [];
+  for (let i = 0; i < WP_N; i++) { const a = i / WP_N * 6.283 + 0.4, m = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 8), new THREE.MeshBasicMaterial({ color: 0x6aff8a, fog: false })); m.position.set(Math.cos(a) * 8.5, -1.5, Math.sin(a) * 8.5); g.add(m); wps.push({ m, hp: 32, alive: true }); }
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1.8, 14, 10), new THREE.MeshBasicMaterial({ color: 0x4a1020, fog: false })); core.position.y = -2.6; g.add(core);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 6, 26, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x9affc0, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+  beam.position.y = -15.5; beam.visible = false; g.add(beam);
+  return { g, lights, wps, core, beam };
+}
+function spawnShip(cx, cz, gy) {
+  if (ship) return ship; const parts = shipMesh();
+  ship = { ...parts, cx, cz, gy, x: cx, y: gy + 26, z: cz, phase: 1, coreHp: CORE_HP, t: 0, laserT: 4, dropT: 10, beamT: 16, beamOn: 0, dying: 0, hitT: 0 };
+  ship.g.position.set(ship.x, ship.y + 30, ship.z); scene.add(ship.g); ship.arrive = 1;
+  banner('Boss fight', '🛸 The Mothership', canHurtPlayer() ? 'Shoot the 4 glowing weak points, then the core' : '😇 Peaceful: it can\'t hurt you · shoot the weak points'); bossSnd();
+  return ship;
+}
+function removeShip() { if (!ship) return; scene.remove(ship.g); ship = null; }
+const shipTargets = () => ship && !ship.dying ? (ship.phase === 1 ? ship.wps.filter(w => w.alive).map(w => ({ w, m: w.m, r: 1.5 })) : [{ core: true, m: ship.core, r: 2.3 }]) : [];
+function shipHit(tg, dmg) {
+  const wp = new THREE.Vector3(); tg.m.getWorldPosition(wp); flashAt(wp, 1.2); particles(wp.x, wp.y, wp.z, new THREE.Color(0.4, 1, 0.6), 6); beep(1500, 0.04, 'square', 0.04); ship.hitT = 0.12;
+  if (tg.w) {
+    tg.w.hp -= dmg; if (tg.w.hp > 0) return;
+    tg.w.alive = false; tg.m.material.color.setHex(0x222222); smokePuff(wp.x, wp.y, wp.z, 5, 0x333333); noiseBurst(0.4, 0.14, 300);
+    const left = ship.wps.filter(w => w.alive).length;
+    if (left) toast(`💥 Weak point destroyed! ${left} left`);
+    else { ship.phase = 2; ship.core.material.color.setHex(0xff2a4a); toast('⚠️ The shield is down! Shoot the red CORE underneath!'); beep(300, 0.4, 'sawtooth', 0.06); }
+    return;
+  }
+  ship.coreHp -= dmg; if (ship.coreHp <= 0) { ship.dying = 3.2; toast('🛸 The mothership is going down!!'); noiseBurst(1.2, 0.2, 180); shake(0.8, 0.12); }
+}
+{ const us0 = ufoShot; ufoShot = function (o, dir, maxT) {
+  if (ship && !ship.dying) {
+    let best = null, bt = Math.max(maxT, 160); const c = new THREE.Vector3();
+    for (const tg of shipTargets()) { tg.m.getWorldPosition(c); const t = c.clone().sub(o).dot(dir); if (t < 0 || t > bt) continue; if (o.clone().addScaledVector(dir, t).distanceTo(c) < tg.r) { bt = t; best = tg; } }
+    if (best) { const g = GUNS[heldGun()] || GUNS.pistol; shipHit(best, g.dmg); return true; }
+  }
+  return us0(o, dir, maxT);
+}; }
+{ const ba0 = blastAircraft; blastAircraft = function (c, r) {
+  ba0(c, r); if (!ship || ship.dying) return; const p = new THREE.Vector3();
+  for (const tg of shipTargets()) { tg.m.getWorldPosition(p); if (p.distanceTo(c) < r + tg.r) shipHit(tg, 20); }
+}; }
+let rayFire = false;
+{ const tf0 = tryFire; tryFire = function () { rayFire = heldGun() === 'ray_gun'; try { return tf0(); } finally { rayFire = false; } }; }
+{ const tr0 = tracer; tracer = function (a, b, kind) { return tr0(a, b, kind || (rayFire ? 'ray' : kind)); }; }
+function msSite() {   // the nearest Area 51 or crash site in range: { x, z, y }
+  let best = null, bd = 1e9;
+  for (const s of sitesNear(200)) if (s.type === 'area51') { const x = (s.x0 + s.x1) / 2, z = (s.z0 + s.z1) / 2, d = d2(x, z); if (d < bd) { bd = d; best = { x, z, y: s.base + 1, n: '👽 Area 51' }; } }
+  for (const cs of crashSites.values()) { const d = d2(cs.x, cs.z); if (d < bd) { bd = d; best = { x: cs.x, z: cs.z, y: cs.y, n: '🛸 UFO crash site' }; } }
+  return best ? { ...best, d: bd } : null;
+}
+const msWanted = () => { const v = V14(), s = curMission(); return (s && s.id === 'mothership') || v.msWant || (v.boss.ms > 0 && day() > v.boss.msDay && nightAmt > 0.5); };
+function updateShip(dt, t) {
+  shipT -= dt;
+  if (!ship) { if (shipT <= 0) { shipT = 2; if (msWanted() && playing && player.alive && !jail) { const s = msSite(); if (s && s.d < 75) { const v = V14(), re = !!v.msWant; v.msWant = false; spawnShip(s.x, s.z, s.y).rematch = re; } } } return; }
+  const s = ship, pp = player.pos; s.t += dt; s.lights.rotation.y += dt * 1.8; s.hitT = Math.max(0, s.hitT - dt);
+  if (s.dying > 0) {
+    s.dying -= dt; s.y -= dt * 7; s.g.rotation.z += dt * 0.5; s.g.rotation.x += dt * 0.25; s.beam.visible = false;
+    if (Math.random() < dt * 14) { const a = Math.random() * 6.28; smokePuff(s.x + Math.cos(a) * 8, s.y, s.z + Math.sin(a) * 8, 2, 0x333333); particles(s.x + Math.cos(a) * 6, s.y, s.z + Math.sin(a) * 6, new THREE.Color(1, 0.6, 0.2), 8); }
+    s.g.position.set(s.x, s.y, s.z);
+    if (s.dying <= 0) { flashAt(new THREE.Vector3(s.x, s.y, s.z), 14); noiseBurst(1.5, 0.25, 140); shake(1, 0.15); removeShip(); msDown(); }
+    return;
+  }
+  const dc = d2(s.cx, s.cz); if (dc > 170 || !player.alive || jail) { if (s.rematch) V14().msWant = true; removeShip(); return; }
+  if (s.arrive > 0) { s.arrive = Math.max(0, s.arrive - dt * 0.35); }
+  const a = s.t * 0.12, R = s.phase === 1 ? 14 : 8, hy = s.gy + (s.phase === 1 ? 26 : 18);
+  s.x = s.cx + Math.cos(a) * R; s.z = s.cz + Math.sin(a) * R; s.y += (hy - s.y) * Math.min(1, dt * 0.6);
+  s.g.position.set(s.x, s.y + s.arrive * 30, s.z); s.g.rotation.y += dt * 0.25;
+  for (const w of s.wps) if (w.alive) w.m.material.color.setHex(Math.floor(t * 4) % 2 ? 0x6aff8a : 0x3acf5a);
+  if (s.phase === 2) s.core.material.color.setHex(Math.floor(t * 6) % 2 ? 0xff2a4a : 0xc0102a);
+  s.beam.visible = s.beamOn > 0;
+  if (!canHurtPlayer() || !player.alive || s.arrive > 0.05) return;   // peaceful: it just hovers there
+  const dp = d2(s.x, s.z), eye = pp.clone().setY(pp.y + 1.1), under = new THREE.Vector3(); s.core.getWorldPosition(under);
+  if (dp > 75) return;
+  s.laserT -= dt;
+  if (s.laserT <= 0) {
+    s.laserT = (s.phase === 1 ? 2.6 : 2.1) / Math.max(0.8, diff().spd);
+    const hit = Math.random() < 0.5, to = eye.clone(); if (!hit) { to.x += (Math.random() - .5) * 4; to.z += (Math.random() - .5) * 4; }
+    tracer(under, to, 'ray'); flashAt(under, 1.2); raySnd(Math.max(0.2, 1 - dp / 80));
+    if (hit && lineOfSight(under, eye)) damage(3, 'alien', under);
+  }
+  s.dropT -= dt;
+  if (s.dropT <= 0) { s.dropT = 14; if (mobs.filter(m => m.type === 'alien').length < 6) for (let i = 0; i < 2; i++) {
+    const aa = Math.random() * 6.28, x = pp.x + Math.cos(aa) * (6 + Math.random() * 4), z = pp.z + Math.sin(aa) * (6 + Math.random() * 4); if (!loaded(x, z)) continue;
+    const m = spawnMob('alien', x, groundNear(x, pp.y + 4, z), z, rint(0, 9)); if (m) { m.angry = 40; particles(x, m.g.position.y + 1, z, new THREE.Color(0.5, 1, 0.6), 10); } }
+    toast('👽 The mothership beamed down aliens!'); }
+  s.beamT -= dt; if (s.beamOn > 0) s.beamOn -= dt;
+  if (s.beamT <= 0) { s.beamT = 20; s.beamOn = 3.5; beep(220, 1.2, 'sine', 0.05); }
+  if (s.beamOn > 0 && dp < 7) { player.vel.y = Math.max(player.vel.y, 6.5); player.fallStart = null; s.beamDmg = (s.beamDmg || 0) + dt; if (s.beamDmg > 1) { s.beamDmg = 0; damage(1, 'alien'); } }
+}
+function msDown() {
+  const v = V14(), first = v.boss.ms === 0; v.boss.ms++; v.boss.msDay = day();
+  if (first) give('ray_gun', 1);
+  give('mothership_core', 1); give('plasma_cell', first ? 40 : 24); give('alien_tech', first ? 8 : 4);
+  banner('Boss defeated', '🛸 Mothership destroyed!', first ? '+ 🔮 Power Core · Ray Gun · 🔋 plasma cells · alien tech' : '+ 🔮 Power Core · 🔋 cells · alien tech');
+  kpStat('mothership'); coinSnd();
+}
+{ const hm4 = hurtMob; hurtMob = function (m, dmg, from, noDrop) {
+  const was = m && mobs.includes(m), type = m && m.type;
+  if (was && (type === 'cartel' || type === 'jefe') && from === player.pos) cartelAlert = 30;
+  const r = hm4(m, dmg, from, noDrop);
+  if (was && m.boss && mobs.includes(m)) { m.vel.x *= 0.15; m.vel.z *= 0.15; m.vel.y = Math.min(m.vel.y, 1); }
+  if (was && !mobs.includes(m) && m.hp <= 0) { if (type === 'jefe') jefeDown(m); else if (type === 'cartel' && from === player.pos) addDirty(rint(15, 45), null); }
+  return r; }; }
+
+// ======================= 3. STORY MODE: from broke farm kid to kingpin =======================
+// 14 missions built on the systems that already exist. Progress = how much you did since the mission started
+// (except "own a ..." missions, which check what you own). Uncle Ray texts you each step; Don Calavera is the final boss.
+const st13 = () => V13().stats, stN = k => st13()[k] || 0;
+function stSnap() { return { earned: state.earned, sell: stN('sell'), heist: stN('heist'), pawn: stN('pawn'), mod: stN('mod'), hired: stN('hired'), cook: stN('cook'), bank: stN('bank'), rep: V12().rep, jobs: jobsDone(), ms: V14().boss.ms, jefe: V14().boss.jefe }; }
+const RAY = '👴 Uncle Ray', DON = '💀 Don Calavera';
+const STORY = [
+  { id: 'dirt', t: '🌱 Dirt Poor', who: RAY, say: 'Your grandpa left you this farm and not one coin. Grow some crops and sell them to the traders. Make 💰100 and call me.', goal: 'Earn 100 coins', need: 100, prog: b => state.earned - b.earned, cash: 50, hint: 'Plant seeds on farmland, harvest, sell to the village traders.' },
+  { id: 'corner', t: '🌿 Corner Boy', who: RAY, say: 'Farming won\'t pay the bills, kid. Folks in town pay good for the green stuff. Sell 3 drugs on the street. Watch for cops.', goal: 'Sell 3 drugs on the street', need: 3, prog: b => stN('sell') - b.sell, cash: 150, hint: 'Grow 🌿 weed or craft product, hold it and ✋ a townsperson.' },
+  { id: 'dayjob', t: '💼 Day Job', who: RAY, say: 'Cops are asking questions. Get a legit job so it looks like you earn your money honest. Do 2 runs.', goal: 'Finish 2 job runs (taxi fare, pizza or haul)', need: 2, prog: b => jobsDone() - b.jobs, cash: 150, hint: '📱 💼 Jobs or a 📋 Job Board in town.' },
+  { id: 'plug', t: '🔌 Meet the Plug', who: RAY, say: 'I put in a word with the Plug. He\'s got a package that needs moving. Don\'t let the cops see it.', goal: 'Finish a Plug delivery job', need: 1, prog: b => V12().rep - b.rep, cash: 200, hint: '📱 🔌 Plug app. Pick up at 🟢, deliver to 🔴.' },
+  { id: 'stickup', t: '🔫 Stick-Up Kid', who: RAY, say: 'You want real money? The gas station on the corner keeps cash in the register. Don\'t tell your aunt I said that.', goal: 'Pull off a heist', need: 1, prog: b => stN('heist') - b.heist, cash: 250, hint: 'Hold a weapon and ✋ a ⛽ / 💎 / 🏦 counter. Stay close until it\'s done.' },
+  { id: 'fence', t: '🏪 The Fence', who: RAY, say: 'Hot jewelry\'s no good in your pocket. Take it to the pawn shop, they don\'t ask questions.', goal: 'Pawn 2 stolen items', need: 2, prog: b => stN('pawn') - b.pawn, cash: 200, hint: 'Rob a 💎 Jewelry Store, then ✋ a 🏪 Pawn Shop.' },
+  { id: 'wheels', t: '🚗 Wheels', who: RAY, say: 'A player needs a ride. Find a car, take it to the garage and make it yours.', goal: 'Buy a mod at a 🔧 Garage', need: 1, prog: b => stN('mod') - b.mod, cash: 300, hint: 'Drive any car up to a 🔧 Garage counter in a city.' },
+  { id: 'crew', t: '👥 Boss Up', who: RAY, say: 'You can\'t be on every corner yourself. Hire somebody you trust. Or somebody cheap.', goal: 'Hire a crew member', need: 1, prog: b => stN('hired') - b.hired, cash: 300, hint: '📱 👥 Crew app.' },
+  { id: 'wash', t: '🧺 Clean Hands', who: RAY, say: 'All that dirty money is gonna get you caught. Buy a business and wash it clean.', goal: 'Own a Laundromat or Car Wash', need: 1, prog: () => V12().biz.length ? 1 : 0, cash: 400, hint: 'DealerNet (📱 🌐) › 💼 Business.' },
+  { id: 'home', t: '🏠 Home Base', who: RAY, say: 'Grandpa\'s farm is the first place they\'d look. Get yourself a safehouse.', goal: 'Own a safehouse', need: 1, prog: () => V13().homes.length ? 1 : 0, cash: 500, hint: 'Buy a deed on DealerNet › 🏠 Property, then ✋ it where you want to live.' },
+  { id: 'cook', t: '⚗️ Cook Up', who: RAY, say: 'Street stuff is cut to nothing. Cook your own and the whole county will want it.', goal: 'Cook a batch in a drug lab', need: 1, prog: b => stN('cook') - b.cook, cash: 500, hint: 'Craft a ⚗️ Drug Lab (glass, iron, furnace), place it and ✋ it.' },
+  { id: 'bank', t: '🏦 The Big Score', who: RAY, say: 'This is it, kid. The bank vault. In and out. Don\'t get greedy.', goal: 'Empty a bank vault', need: 1, prog: b => stN('bank') - b.bank, cash: 800, hint: 'Hold a weapon and ✋ a 🏦 Bank counter in a city. 24 seconds.' },
+  { id: 'mothership', t: '👽 Something in the Sky', who: RAY, say: 'Kid, I\'m not crazy. There\'s a ship over the desert. It took my cows in \'86. Shoot it down and I\'ll tell you who\'s really been running this county.', goal: 'Destroy the alien Mothership', need: 1, prog: b => V14().boss.ms - b.ms, cash: 1500, hint: 'Go to 👽 Area 51 (desert) or a 🛸 UFO crash site with a gun. 📍 pins the nearest one.', pin: 'ms' },
+  { id: 'kingpin', t: '💀 Kingpin', who: DON, say: 'So you\'re the farm boy taking my money. Come to my compound, niño. Let\'s see if you\'re a kingpin or just a kid.', goal: 'Take down Don Calavera at his compound', need: 1, prog: b => V14().boss.jefe - b.jefe, cash: 5000, hint: 'His compound is pinned on your GPS (📍). Bring guns, ammo and food.', pin: 'cmp' },
+];
+const curMission = () => { const s = V14().st; return s.i < STORY.length ? STORY[s.i] : null; };
+function stLog(who, text) { const s = V14().st; s.log.push({ who, text, d: day() }); if (s.log.length > 40) s.log.splice(0, s.log.length - 40); }
+function stStart() {
+  const s = V14().st, m = curMission(); s.base = stSnap(); if (!m) return;
+  stLog(m.who, m.say); s.pinned = false;
+  if (m.pin === 'cmp') stPin();
+}
+function stPin() {
+  const m = curMission(); if (!m) return false;
+  state.waypoints = (state.waypoints || []).filter(w => !w.story);
+  if (m.pin === 'cmp') {
+    if (MP_GUEST) { toast('🌐 Play in your own world to take on Don Calavera'); return false; }
+    const c = cmpEnsure(); if (!c) { toast('📍 No spot for the compound found nearby. Try again somewhere else'); return false; }
+    state.waypoints.push({ x: c.x, z: c.z, c: '#ff3b3b', story: true }); toast(`📍 Don Calavera's compound is on your GPS · ${Math.round(d2(c.x, c.z))} m`); return true;
+  }
+  if (m.pin === 'ms') {
+    const s = findSite('area51', 40); let best = s ? { x: (s.x0 + s.x1) / 2, z: (s.z0 + s.z1) / 2, n: '👽 Area 51' } : null;
+    for (const cs of crashSites.values()) if (!best || d2(cs.x, cs.z) < d2(best.x, best.z)) best = { x: cs.x, z: cs.z, n: '🛸 UFO crash site' };
+    if (!best) { toast('📍 No Area 51 found nearby. Look for deserts or scorched UFO crash craters'); return false; }
+    state.waypoints.push({ x: Math.floor(best.x), z: Math.floor(best.z), c: '#6aff8a', story: true }); toast(`📍 ${best.n} pinned on your GPS · ${Math.round(d2(best.x, best.z))} m`); return true;
+  }
+  return false;
+}
+const stProg = m => { const s = V14().st; return Math.max(0, Math.min(m.need, Math.floor(m.prog(s.base || stSnap())))); };
+let stT = 1, stIntro = 8;
+function updateStory(dt) {
+  if (stBannerT > 0) { stBannerT -= dt; if (stBannerT <= 0) stBanner.classList.remove('on'); }
+  const v = V14(), s = v.st;
+  if (!s.intro) { stIntro -= dt; if (stIntro <= 0) { s.intro = 1; if (!s.base) stStart(); kpToast('📖 NEW: Story mode! Open 📱 → 📖 Story to see your mission'); } return; }
+  if (!s.base) stStart();
+  stT -= dt; if (stT > 0) return; stT = 0.5;
+  const m = curMission(); if (!m) return;
+  if (stProg(m) < m.need) return;
+  const k = s.i; s.i++; s.base = null;
+  addClean(m.cash, null); if (m.item && m.item[1] > 0) give(m.item[0], m.item[1]);
+  stLog('✅', `${m.t} done · +💰${m.cash}`);
+  state.waypoints = (state.waypoints || []).filter(w => !w.story);
+  if (s.i >= STORY.length) {
+    s.done = day(); banner('Story complete', '👑 Kingpin of the County', `+💰${m.cash} · you went from broke farm kid to the top`);
+    stLog(RAY, 'You did it, kid. Grandpa would be... well, he\'d be something. The county is yours now.'); kpStat('story');
+  } else { banner(`Mission ${k + 1}/${STORY.length} complete`, m.t, `+💰${m.cash} clean`); stStart(); setTimeout(() => toast(`📖 New mission: ${curMission().t} · 📱 📖 Story`), 4300); }
+  coinSnd(); beep(660, 0.1, 'triangle', 0.06); setTimeout(() => beep(990, 0.18, 'triangle', 0.06), 160);
+}
+function storyApp() {
+  const v = V14(), s = v.st, m = curMission();
+  let h = `<div class="pappbar">📖 Story <span style="margin-left:auto;font-size:12px;opacity:.8">${Math.min(s.i, STORY.length)}/${STORY.length}</span></div><div class="pplug">`;
+  if (m) {
+    const p = stProg(m);
+    h += `<div class="pst pmis"><b>Mission ${s.i + 1} · ${m.t}</b><br>${m.goal} · ${p}/${m.need}<div class="pbar"><i style="width:${Math.round(p / m.need * 100)}%"></i></div><span style="opacity:.75;font-size:12px">💡 ${m.hint}</span><br>Reward 💰${m.cash}</div>`;
+    if (m.pin) h += `<button class="pst" data-kp14="pin">📍 ${m.pin === 'cmp' ? 'Pin the compound on GPS' : 'Pin the nearest Area 51 / crash site'}</button>`;
+  } else h += `<div class="pst pmis"><b>👑 Kingpin of the County</b><br>Story complete. The county is yours.</div>`;
+  h += `<button class="pst" data-kp14="hud">${s.hud ? '👁 Mission on HUD: on' : '🙈 Mission on HUD: off'}</button>`;
+  if (v.boss.ms || v.boss.jefe) {
+    h += '<h4>🔁 Boss rematches</h4>';
+    if (v.boss.ms) h += `<button class="pst" data-kp14="rems">🛸 Mothership · beaten ${v.boss.ms}× · ${v.msWant ? 'waiting at the next Area 51 / crash site' : 'call it back'}</button>`;
+    if (v.boss.jefe) h += `<div class="pst">💀 Don Calavera · beaten ${v.boss.jefe}× · ${day() > v.boss.jefeDay ? 'back at his compound' : 'back tomorrow'}</div><button class="pst" data-kp14="pincmp">📍 Pin the compound</button>`;
+  }
+  h += '<h4>💬 Messages</h4>' + [...s.log].reverse().slice(0, 12).map(l => `<div class="pmsg"><em>${l.who} · day ${l.d}</em>${l.text}</div>`).join('');
+  h += '<h4>Missions</h4>' + STORY.map((q, i) => `<div class="pst" style="${i > s.i ? 'opacity:.45' : ''}">${i < s.i ? '✅' : i === s.i ? '▶️' : '🔒'} ${i + 1}. ${i > s.i ? '???' : q.t} <span style="float:right">💰${q.cash}</span></div>`).join('');
+  return h + '</div>';
+}
+function jobsApp() { return `<div class="pappbar">💼 Jobs</div><div class="pplug">${jobsHTML(false)}</div>`; }
+{ const rp2 = renderPhone; renderPhone = function () {
+  rp2(); const el = document.getElementById('pScreen'); if (!el) return;
+  if (phoneApp === 'home') {
+    const a = el.querySelector('.papps');
+    if (a && !a.querySelector('[data-app="story"]')) a.insertAdjacentHTML('beforeend', '<button class="papp" data-app="story"><i style="background:linear-gradient(#c070ff,#6a1ab0)">📖</i>Story</button><button class="papp" data-app="jobs"><i style="background:linear-gradient(#5ad0ff,#1a6ab0)">💼</i>Jobs</button>');
+    return;
+  }
+  if (phoneApp === 'story') el.innerHTML = phoneStatus() + storyApp();
+  else if (phoneApp === 'jobs') el.innerHTML = phoneStatus() + jobsApp();
+}; }
+function kp14Click(a, arg) {
+  const v = V14();
+  if (a === 'job') { closePanels(); startJob(arg); return true; }
+  if (a === 'jend') endJob(job ? `💼 Shift ended · 💰${job.made} earned` : null);
+  else if (a === 'pin') stPin();
+  else if (a === 'hud') v.st.hud = !v.st.hud;
+  else if (a === 'rems') { v.msWant = true; toast('🛸 Go to an Area 51 or UFO crash site. It\'ll be waiting'); }
+  else if (a === 'pincmp') { const c = v.cmp; if (c) { state.waypoints = state.waypoints.filter(w => !w.story); state.waypoints.push({ x: c.x, z: c.z, c: '#ff3b3b', story: true }); toast(`📍 Compound pinned · ${Math.round(d2(c.x, c.z))} m`); } }
+  return false;
+}
+phoneEl.addEventListener('click', e => { const b = e.target.closest('[data-kp14]'); if (!b) return; const [a, arg] = b.dataset.kp14.split(':'); if (kp14Click(a, arg)) return; renderPhone(); beep(990, 0.03, 'sine', 0.04); });
+kpEl.addEventListener('click', e => { const b = e.target.closest('[data-kp14]'); if (!b) return; const [a, arg] = b.dataset.kp14.split(':'); if (kp14Click(a, arg)) return; if (kpShown()) renderKp(); });
+
+// ---- 📋 Job Board kiosk in every town and city (a v1.13-style venue: a mesh, so no world blocks change)
+VENUE.jobs = { n: '📋 Job Board', col: 0x2a8a4a, shirt: 0x2a8a4a };
+{ const vo0 = venuesOf; venuesOf = function (t) {
+  const out = vo0(t); if (out._jobs) return out; out._jobs = true;
+  const nb = t.nb || 3, used = new Set(out.map(v => Math.round((v.x - 6 - t.x0) / 16) + ',' + Math.round((v.z - 4 - t.z0) / 16)));
+  const r = mulberry(Math.floor(hash2(t.x0, t.z0, state.seed + 1414) * 1e9)), lots = [];
+  for (let i = 0; i < nb; i++) for (let j = 0; j < nb; j++) if (!used.has(i + ',' + j) && !(t.type !== 'city' && i === 1 && j === 1)) lots.push([i, j]);
+  if (!lots.length) return out;
+  const lot = lots[Math.floor(r() * lots.length)], x = t.x0 + lot[0] * 16 + 6, z = t.z0 + lot[1] * 16 + 4;
+  out.push({ kind: 'jobs', x, z, j: lot[1], key: 'jobs@' + x + ',' + z, t, mesh: null, y: t.base + 1 });
+  return out;
+}; }
+{ const vm0 = venueMesh; venueMesh = function (vn) {
+  const g = vm0(vn); if (vn.kind !== 'jobs') return g;
+  box(1.4, 0.9, 0.06, 0xb08a5a, 0, 1.75, -0.38, g);
+  for (const [x, y, c] of [[-0.4, 1.9, 0xffffff], [0.05, 1.75, 0xfff2a0], [0.42, 1.92, 0xa0d8ff], [-0.25, 1.55, 0xffc0c0]]) box(0.28, 0.32, 0.02, c, x, y, -0.42, g);
+  return g;
+}; }
+{ const uv0 = useVenue; useVenue = function (vn) { if (vn.kind === 'jobs') { openKp('jobs', vn); return; } return uv0(vn); }; }
+{ const rk0 = renderKp; renderKp = function () {
+  if (kpMode !== 'jobs') return rk0();
+  document.getElementById('kpBox').innerHTML = '<button class="btn close" data-kpx="1" style="float:right">✕</button>' + jobsHTML(true);
+}; }
+{ const ut1 = updateTarget; updateTarget = function () {
+  ut1(); if (!playing) return; const el = document.getElementById('target');
+  const vn = venueNear(player.car ? 7 : 2.8); if (vn && vn.kind === 'jobs') { el.style.display = 'block'; el.textContent = player.car ? '📋 Job Board · get out to read it' : '📋 Job Board · ✋ find work'; }
+}; }
+
+// ---- achievements + a daily challenge for the new stuff
+ACH.push(
+  ['cabbie', '🚕 Cabbie', 'Drive 10 taxi fares', s => s.fares >= 10],
+  ['pizzaguy', '🍕 30 Minutes or Less', 'Deliver 10 pizzas', s => s.pizzas >= 10],
+  ['haul', '🚚 Long Haul', 'Finish 5 truck hauls', s => s.hauls >= 5],
+  ['ufo', '🛸 Close Encounter', 'Destroy the alien Mothership', s => s.mothership >= 1],
+  ['dethroned', '💀 Dethroned', 'Take down Don Calavera', s => s.jefe >= 1],
+  ['kingpin', '👑 Kingpin of the County', 'Finish story mode', s => s.story >= 1],
+);
+DAILY.job = { t: '💼 Finish 3 legit job runs', n: 3, cash: 120 };
+
+// ---- HUD line (joins the wanted / heist / nitro line)
+{ const rh2 = renderHud4; renderHud4 = function () {
+  rh2(); const bits = [], v = V14();
+  if (job) {
+    const left = job.until != null ? Math.ceil(job.until - state.gameTime) : 0, far = job.b ? Math.round(d2(job.b.x, job.b.z)) : 0;
+    if (job.kind === 'taxi') bits.push(job.stage === 'pickup' ? `🚕 Pick up the 🟢 fare${job.fare ? ` · ${Math.round(job.fare.g.position.distanceTo(player.pos))} m` : ''}` : job.stage === 'drop' ? `🚕 Drop-off 🔴 ${far} m · ${left > 0 ? `⏱ ${left}s tip` : '😤 no tip'} · 💰${job.pay}` : '🚕 Next fare...');
+    else if (job.kind === 'pizza') bits.push(`🍕 ${far} m · ⏱ ${Math.max(0, left)}s · ${job.left} left`);
+    else bits.push(`🚚 ${job.cargo} · ${far} m · ${left > 0 ? `⏱ ${left}s bonus` : 'late'}`);
+  }
+  if (ship) bits.push(ship.dying ? '🛸 Going down!' : ship.phase === 1 ? `🛸 Mothership · weak points ${ship.wps.filter(w => w.alive).length}/${WP_N}` : `🛸 CORE ${Math.max(0, Math.round(ship.coreHp / CORE_HP * 100))}%`);
+  const jf = cmpLive && cmpLive.jefe; if (jf && mobs.includes(jf)) { const f = Math.max(0, jf.hp / jf.maxHp); bits.push(`💀 Don Calavera <span style="letter-spacing:-1px;color:#ff5a5a">${'▮'.repeat(Math.ceil(f * 10))}<i style="opacity:.3;font-style:normal">${'▮'.repeat(10 - Math.ceil(f * 10))}</i></span>`); }
+  const m = curMission(); if (m && v.st.hud && !job && !ship && !(jf && mobs.includes(jf)) && v.st.base) bits.push(`📖 ${m.t} · ${m.goal} ${stProg(m)}/${m.need}`);
+  if (!bits.length) return;
+  const extra = bits.join(' &nbsp; '), html = hud4.innerHTML ? hud4.innerHTML + ' &nbsp; ' + extra : extra;
+  if (hud4.innerHTML !== html) hud4.innerHTML = html; hud4.style.display = 'block';
+}; }
+
+// ---- leaving the world: nothing from this section carries into the title screen / another world
+function reset14() { endJob(null); removeShip(); if (cmpLive) { for (const m of [...cmpLive.guards, cmpLive.jefe]) if (m && mobs.includes(m)) removeMob(m, false); cmpLive = null; } for (const n of fakeNades) scene.remove(n.g); fakeNades.length = 0; }
+
+// ---- the per-frame hook (runs right after updateV113 from the main loop)
+{ const u13 = updateV113; updateV113 = function (dt, t) {
+  u13(dt, t);
+  if (!playing) { if (job || ship || cmpLive) reset14(); return; }
+  updateJob(dt); updateCompound(dt); updateShip(dt, t); updateNades(dt); updateStory(dt);
+}; }
+window.__dc14 = { V14, STORY, curMission, stSnap, stProg, stStart, stPin, updateStory, JOBS, startJob, endJob, get job() { return job; }, nextFare, pickUp, nextPizza, houseSpot, townsFar,
+  spawnShip, removeShip, get ship() { return ship; }, shipHit, shipTargets, msSite, cmpEnsure, cmpBuild, cmpSpawn, get cmpLive() { return cmpLive; }, updateCompound, jefeDown, msDown,
+  cartelAI, lobNade, updateJob, updateShip, updateNades, findSite, sitesNear, crashSites, venuesOf: t => venuesOf(t), tryFire: () => tryFire(), renderHud4: () => renderHud4(), updateTarget: () => updateTarget(), openKp: (m, v) => openKp(m, v), renderPhone: () => renderPhone(), setPhoneApp: a => { phoneApp = a; }, get cartelAlert() { return cartelAlert; }, reset14, kp14Click, storyApp, jobsHTML, banner };
+
+
+// ================== v1.14 round 2: deep caves, the Moon, car mods+, player shops, hidden glitches ==================
+// Blocks/items are in the round-2 data block near the top (p_a10). Everything here grafts on by wrapping, like v1.12-v1.14.
+// Save data: state.r2 (lazy), state.shops, state.caveV/caveOld. Old saves: chunks you already built in or explored never get caves/ores.
+// Peaceful (canHurtPlayer() false): cave monsters never spawn; nothing here can hurt you there.
+function R2() {
+  const v = state.r2 || (state.r2 = {});
+  if (!v.gl || typeof v.gl !== 'object') v.gl = {};        // glitches found: id -> gameTime
+  if (!Array.isArray(v.from) && v.from != null) v.from = null;   // where you left Earth for the Moon [x, z]
+  if (v.brFrom === undefined) v.brFrom = null;               // where you clipped into the Backrooms [x, y, z]
+  return v;
+}
+R2();
+MATCOL.emerald = ['#7affa0', '#1a9a4a']; MATCOL.moon = ['#e8f0ff', '#7a8cff'];
+if (!state.shops || typeof state.shops !== 'object') state.shops = {};
+if (!INV_KEYS.includes('r2')) INV_KEYS.push('r2');          // online guests carry their glitch finds home
+Object.assign(RAW_VALUE, { diamond: 120, emerald: 90, gold_ore: 14, platinum_ore: 24, diamond_ore: 120, emerald_ore: 90, moon_dust: 2, moon_rock: 40, moon_crystal: 160,
+  moon_cheese: 25, alien_relic: 300, shop_stall: 30, br_wall: 5, br_carpet: 5, br_light: 8, torn_note: 1 });
+Object.assign(VILLAGERS[3].buys, { diamond: 110, emerald: 80, moon_rock: 35, moon_crystal: 140, alien_relic: 260 });
+for (const id of ['diamond', 'emerald', 'gold_ore', 'platinum_ore', 'diamond_ore', 'emerald_ore', 'moon_dust', 'moon_rock', 'moon_crystal', 'moon_cheese', 'alien_relic',
+  'br_wall', 'br_carpet', 'br_light', 'golden_bug', 'torn_note', ...Object.keys(ITEMS).filter(k => k.startsWith('diamond_'))]) WEB_HIDE14.add(id);
+const r2css = document.createElement('style');
+r2css.textContent = `#r2fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:60;transition:opacity .5s}#r2fade.on{opacity:1}
+#r2void{position:fixed;inset:0;background:#000;z-index:61;display:none;align-items:center;justify-content:center;flex-direction:column;color:#7aff7a;font:18px monospace;text-align:center;padding:20px}
+#r2void.on{display:flex}#r2void b{font-size:clamp(16px,4.4vw,30px);color:#fff;letter-spacing:4px;animation:r2g .18s infinite}#r2void i{font-style:normal;opacity:.75;margin-top:14px}
+@keyframes r2g{0%{transform:translate(0,0)}25%{transform:translate(-2px,1px);color:#f0f}50%{transform:translate(2px,-1px);color:#0ff}75%{transform:translate(-1px,-2px)}}
+#bHorn{display:none;right:90px;bottom:236px;font-size:24px}body.r2drive.touch #bHorn{display:flex}body.r2drive:not(.touch) #bHorn{display:none}
+.r2sw{display:inline-block;width:30px;height:30px;border-radius:50%;margin:3px;border:2px solid #fff;cursor:pointer;vertical-align:middle}.r2sw.on{box-shadow:0 0 0 3px #ffd84a}
+.r2pr{display:inline-flex;gap:4px;align-items:center}.r2pr .btn{min-width:30px;padding:4px 8px}`;
+document.head.appendChild(r2css);
+const r2fade = document.createElement('div'); r2fade.id = 'r2fade'; document.body.appendChild(r2fade);
+const r2void = document.createElement('div'); r2void.id = 'r2void'; document.body.appendChild(r2void);
+const pl2 = () => player.pos;
+
+// ======================= realms: the Moon (far east) and the Backrooms (far west) =======================
+// They are just far-away strips of the same endless world, so saving, streaming, edits and online sync all work unchanged.
+const MOON_X0 = 60000, BACK_X1 = -60000, PAD_X = MOON_X0 + 120, PAD_Z = 0, BR_X = BACK_X1 - 100, BR_Y = 20;
+const realmAt = x => x >= MOON_X0 ? 'moon' : x < BACK_X1 ? 'back' : null;
+const realmCh = cx => realmAt(cx * CH + 8);
+const realm = () => realmAt(player.pos.x);
+const onMoon = () => realm() === 'moon';
+const gravMul = () => onMoon() ? 0.3 : 1;
+const realmRegion = rx => { const x0 = rx * TREG * CH; return x0 + TREG * CH > MOON_X0 - 400 || x0 < BACK_X1 + 400; };
+{ const to0 = townOf; townOf = function (rx, rz) { if (realmRegion(rx)) return null; return to0(rx, rz); }; }
+{ const mo0 = metroOf; metroOf = function (mx, mz) { if (realmRegion(mx * 2) || realmRegion(mx * 2 + 1)) return null; return mo0(mx, mz); }; }
+{ const so0 = siteOf; siteOf = function (rx, rz) { if (realmRegion(rx)) return null; return so0(rx, rz); }; }
+{ const wa0 = weatherAt; weatherAt = function (x, z, tm) { if (realmAt(x)) return 'clear'; return wa0(x, z, tm); }; }
+{ const uw0 = updateWildlife; updateWildlife = function (dt) { if (realm()) return; return uw0(dt); }; }
+{ const uc0 = updateCrackheads; updateCrackheads = function (dt, t) { if (realm()) return; return uc0(dt, t); }; }
+{ const ug0 = updateGangs; updateGangs = function (dt) { if (realm()) return; return ug0(dt); }; }
+{ const ucp = updateCompound; updateCompound = function (dt) { if (realm()) return; return ucp(dt); }; }
+// moon terrain: grey dust plains, craters with rims, a landing pad
+function moonH(x, z) {
+  const s = state.seed;
+  let h = 24 + (vnoise(x / 40, z / 40, s + 61) - 0.5) * 10 + (vnoise(x / 11, z / 11, s + 62) - 0.5) * 3;
+  const C = 28, ci = Math.floor(x / C), cj = Math.floor(z / C);
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+    const i = ci + a, j = cj + b; if (hash2(i, j, s + 63) > 0.55) continue;
+    const mx = (i + hash2(i, j, s + 64)) * C, mz = (j + hash2(i, j, s + 65)) * C, r = 4 + hash2(i, j, s + 66) * 9, d = Math.hypot(x - mx, z - mz);
+    if (d < r) h -= (1 - (d / r) ** 2) * r * 0.45; else if (d < r * 1.4) h += (1 - (d - r) / (r * 0.4)) * r * 0.16;
+  }
+  const dp = Math.hypot(x - PAD_X, z - PAD_Z); if (dp < 16) { const k = Math.max(0, (dp - 7) / 9); h = 24 + (h - 24) * k * k; }
+  return Math.max(4, Math.min(50, Math.round(h)));
+}
+const realmChests = new Map();   // "x,y,z" -> loot kind ('cave' | 'moon' | 'bug'): generated chests, filled the first time you open (or break) them
+function reapplyEdits(cx, cz, c) {
+  const x0 = cx * CH, z0 = cz * CH, ed = editIdx.get(ckey(cx, cz));
+  if (ed) for (const k of ed) { const [x, y, z] = k.split(',').map(Number), lx = x - x0, lz = z - z0; if (lx >= 0 && lz >= 0 && lx < CH && lz < CH && y >= 0 && y < H) c[lidx(lx, y, lz)] = state.edits[k]; }
+}
+function genMoon(cx, cz) {
+  const c = new Uint8Array(CH * CH * H); data.set(ckey(cx, cz), c);
+  const x0 = cx * CH, z0 = cz * CH, L = (lx, y, lz, v) => { if (lx >= 0 && lz >= 0 && lx < CH && lz < CH && y >= 0 && y < H) c[lidx(lx, y, lz)] = v; }, hm = new Int16Array(CH * CH);
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const x = x0 + lx, z = z0 + lz, h = moonH(x, z); hm[lx + lz * CH] = h;
+    for (let y = 0; y <= h; y++) L(lx, y, lz, y === 0 ? BEDROCK : y >= h - 1 ? MOON_DUST : MOON_ROCK);
+    const r = hash2(x, z, state.seed + 77);
+    if (Math.hypot(x - PAD_X, z - PAD_Z) > 9) { if (r < 0.0035) L(lx, h + 1, lz, MOON_CRYSTAL); else if (r > 0.992) { L(lx, h + 1, lz, MOON_ROCK); if (r > 0.997) L(lx, h + 2, lz, MOON_ROCK); } }
+  }
+  // landing pad
+  if (Math.abs(x0 + 8 - PAD_X) < 24 && Math.abs(z0 + 8 - PAD_Z) < 24) for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const dx = x0 + lx - PAD_X, dz = z0 + lz - PAD_Z; if (Math.abs(dx) > 5 || Math.abs(dz) > 5) continue;
+    L(lx, 24, lz, Math.abs(dx) === 5 || Math.abs(dz) === 5 ? HAZARD : STEEL); for (let y = 25; y < 30; y++) L(lx, y, lz, AIR);
+  }
+  // an old alien outpost now and then: a ring of hull plating with a loot chest inside
+  if (hash2(cx, cz, state.seed + 999) < 0.05 && Math.hypot(x0 + 8 - PAD_X, z0 + 8 - PAD_Z) > 30) {
+    const hc = hm[8 + 8 * CH];
+    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) { const d = Math.hypot(dx, dz);
+      if (d < 4.6) { L(8 + dx, hc, 8 + dz, ALIEN_METAL); for (let y = hc + 1; y < hc + 5; y++) L(8 + dx, y, 8 + dz, AIR); }
+      if (d > 3.6 && d < 4.6 && !(dz === 4 && Math.abs(dx) <= 1)) for (let y = hc + 1; y <= hc + 2 + (hash3(dx, 0, dz, cx) < 0.5 ? 1 : 0); y++) L(8 + dx, y, 8 + dz, ALIEN_METAL);
+    }
+    L(8, hc + 1, 7, CHEST); realmChests.set((x0 + 8) + ',' + (hc + 1) + ',' + (z0 + 7), 'moon');
+  }
+  reapplyEdits(cx, cz, c); chunkColors(cx, cz);
+}
+// the Backrooms: endless yellow office maze, buzzing lights, a floor you can fall through in one spot
+function brWall(x, z) {
+  const S = 6, gx = Math.floor(x / S), gz = Math.floor(z / S), lx = ((x % S) + S) % S, lz = ((z % S) + S) % S;
+  if (Math.abs(x - BR_X) < 9 && Math.abs(z) < 9) return false;   // the room you arrive in is open
+  if (lx === 0 && lz === 0) return true;                        // pillars
+  if (lx === 0 && hash2(gx, gz, state.seed + 5) < 0.42 && !(lz === 2 || lz === 3)) return true;
+  if (lz === 0 && hash2(gx, gz, state.seed + 6) < 0.42 && !(lx === 3 || lx === 4)) return true;
+  return false;
+}
+const BR_EXIT = [BR_X - 22, BR_Y + 1, 7], BR_BUG = [BR_X - 41, BR_Y + 1, -19], BR_HOLE = [BR_X - 58, 31];
+function genBack(cx, cz) {
+  const c = new Uint8Array(CH * CH * H); data.set(ckey(cx, cz), c);
+  const x0 = cx * CH, z0 = cz * CH, L = (lx, y, lz, v) => { if (lx >= 0 && lz >= 0 && lx < CH && lz < CH && y >= 0 && y < H) c[lidx(lx, y, lz)] = v; };
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const x = x0 + lx, z = z0 + lz, hole = Math.abs(x - BR_HOLE[0]) <= 1 && Math.abs(z - BR_HOLE[1]) <= 1;
+    if (!hole) L(lx, BR_Y, lz, BR_CARPET);
+    const w = brWall(x, z); for (let y = BR_Y + 1; y <= BR_Y + 4; y++) L(lx, y, lz, w ? BR_WALL : AIR);
+    L(lx, BR_Y + 5, lz, (((x % 4) + 4) % 4 === 1 && ((z % 4) + 4) % 4 === 1) ? BR_LIGHT : BR_CEIL);
+  }
+  for (const [x, y, z, id] of [[BR_EXIT[0], BR_EXIT[1], BR_EXIT[2], GLITCH], [BR_EXIT[0], BR_EXIT[1] + 1, BR_EXIT[2], GLITCH], [BR_BUG[0], BR_BUG[1], BR_BUG[2], CHEST]]) {
+    const lx = x - x0, lz = z - z0; if (lx < 0 || lz < 0 || lx >= CH || lz >= CH) continue;
+    for (let yy = BR_Y + 1; yy <= BR_Y + 4; yy++) for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) L(lx + ax, yy, lz + az, AIR);
+    L(lx, y, lz, id); if (id === CHEST) realmChests.set(x + ',' + y + ',' + z, 'bug');
+  }
+  reapplyEdits(cx, cz, c); chunkColors(cx, cz);
+}
+const BR_CEIL = 143;
+BT[BR_CEIL] = [139, 139, 139]; HARD[BR_CEIL] = [0.8, null]; BLOCK_DROP[BR_CEIL] = 'br_carpet';
+BT[BR_LIGHT] = [139, 138, 139];
+
+// ======================= 1. DEEP CAVES: tunnels, caverns, underground lakes, new ores, treasure chests =======================
+// Old saves: every chunk you had built in or explored (plus the older protected lists) keeps its rock solid, like oldCh/townOld/siteOld.
+let caveOldSet = null;
+function caveInit() {
+  if (state.caveV) return;
+  if (MP_GUEST) { state.caveV = 1; state.caveOld = ['*']; return; }   // a host without caves: match it
+  const ks = new Set([...(state.oldCh || []), ...(state.townOld || []), ...(state.siteOld || []), ...(state.gyOld || [])]);
+  for (const k in state.edits || {}) { const p = k.split(','); ks.add(Math.floor(+p[0] / 16) + ',' + Math.floor(+p[2] / 16)); }
+  try { const o = JSON.parse(localStorage.getItem('dealercraft_map_' + SLOT)); if (o && o.seed === state.seed && o.c) for (const k in o.c) ks.add(k); } catch (e) {}
+  state.caveOld = [...ks]; state.caveV = 1;
+}
+function caveChOld(cx, cz) { caveInit(); if (!caveOldSet) caveOldSet = new Set(state.caveOld || []); return caveOldSet.has('*') || caveOldSet.has(cx + ',' + cz); }
+// 3D value noise on a coarse lattice (smooth, cheap)
+function lattice3(cx, cz, seed, sx, sy) {
+  const x0 = cx * CH, z0 = cz * CH, ix0 = Math.floor(x0 / sx), iz0 = Math.floor(z0 / sx), nx = Math.floor((x0 + CH) / sx) - ix0 + 2, ny = Math.floor(H / sy) + 2;
+  const g = new Float32Array(nx * nx * ny);
+  for (let a = 0; a < nx; a++) for (let b = 0; b < nx; b++) for (let c = 0; c < ny; c++) g[(a * nx + b) * ny + c] = hash3(ix0 + a, c, iz0 + b, seed);
+  const sm = t => t * t * (3 - 2 * t);
+  return (x, y, z) => { const fx = x / sx - ix0, fz = z / sx - iz0, fy = y / sy, a = Math.floor(fx), b = Math.floor(fz), c = Math.floor(fy), u = sm(fx - a), w = sm(fz - b), v = sm(fy - c);
+    const G = (i, j, k) => g[((a + i) * nx + (b + j)) * ny + (c + k)];
+    const l0 = (G(0, 0, 0) * (1 - u) + G(1, 0, 0) * u) * (1 - w) + (G(0, 1, 0) * (1 - u) + G(1, 1, 0) * u) * w, l1 = (G(0, 0, 1) * (1 - u) + G(1, 0, 1) * u) * (1 - w) + (G(0, 1, 1) * (1 - u) + G(1, 1, 1) * u) * w;
+    return l0 * (1 - v) + l1 * v; };
+}
+const NATURAL = new Set([STONE, DIRT, GRASS, SAND, COAL_ORE, IRON_ORE, SNOW_GRASS, SNOW, DEADGRASS, GRAVE_DIRT]);
+let caveStats = { chunks: 0, carved: 0, chests: 0, ores: 0, culled: 0 };
+// cave interiors more than a couple of chunks away are skipped by the mesher (you can't see them through the rock anyway); they are
+// redrawn in full as you get close. caveMask marks carved cells that sit well under the surface.
+const caveMask = new Map(), meshCull = new Map();
+let cullPC = null;
+function caveCullFor(cx, cz) {
+  const key = ckey(cx, cz);
+  if (!caveMask.has(key) && !caveMask.has(ckey(cx + 1, cz)) && !caveMask.has(ckey(cx - 1, cz)) && !caveMask.has(ckey(cx, cz + 1)) && !caveMask.has(ckey(cx, cz - 1))) { meshCull.delete(key); return null; }
+  const pcx = fdiv(Math.floor(player.pos.x), CH), pcz = fdiv(Math.floor(player.pos.z), CH), far = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) >= (underground() ? 3 : 2);
+  meshCull.set(key, far); if (!far) return null; caveStats.culled++;
+  return (x, y, z) => { const m = caveMask.get(ckey(fdiv(x, CH), fdiv(z, CH))); return !!(m && y >= 0 && y < H && m[lidx(x - fdiv(x, CH) * CH, y, z - fdiv(z, CH) * CH)]); };
+}
+const recull = [];
+function updateCaveCull() {
+  const pcx = fdiv(Math.floor(player.pos.x), CH), pcz = fdiv(Math.floor(player.pos.z), CH), ug = underground(), pk = pcx + ',' + pcz + ',' + ug;
+  if (pk !== cullPC) { cullPC = pk; recull.length = 0; const R = ug ? 3 : 2;
+    for (const [k, far] of meshCull) { if (!chunks[k]) { meshCull.delete(k); continue; } const [cx, cz] = k.split(',').map(Number), want = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) >= R;
+      if (want !== far) recull.push([want ? 1 : 0, Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)), cx, cz]); }
+    recull.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const k of caveMask.keys()) if (!data.has(k)) caveMask.delete(k);
+  }
+  for (let i = 0; i < 2 && recull.length; i++) { const [, , cx, cz] = recull.shift(); if (chunks[ckey(cx, cz)]) buildChunk(cx, cz); }
+}
+function carveCaves(cx, cz) {
+  const c = data.get(ckey(cx, cz)); if (!c) return;
+  const x0 = cx * CH, z0 = cz * CH, s = state.seed;
+  if (caveChOld(cx, cz) || isOldCh(cx, cz) || Math.hypot(x0 + 8 - VX, z0 + 8 - VZ) < 56) return;
+  const sR = siteOf(fdiv(cx, TREG), fdiv(cz, TREG)); if (sR && sR.x0 - 24 < x0 + CH && sR.x1 + 24 > x0 && sR.z0 - 24 < z0 + CH && sR.z1 + 24 > z0) return;
+  if (crashSites.has(ckey(cx, cz))) return;
+  const town = townAt(x0 + 8, z0 + 8), tChunk = town && inTown(town, x0 + 8, z0 + 8, 10);
+  const dens = vnoise((x0 + 8) / 120, (z0 + 8) / 120, s + 31), on = dens > 0.5;
+  const A = lattice3(cx, cz, s + 3101, 11, 7), B = lattice3(cx, cz, s + 3102, 11, 7), C = lattice3(cx, cz, s + 3103, 17, 9);
+  const entrance = !tChunk && hash2(cx, cz, s + 3104) < 0.1;
+  let carved = 0, chestSpot = null, oreN = 0; const mask = new Uint8Array(CH * CH * H);
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const x = x0 + lx, z = z0 + lz, t = terrainAt(x, z), h = t.h, wet = t.wl >= h;
+    const top = entrance && !wet && h > SEA + 3 ? h + 1 : h - (wet ? 6 : 4);
+    for (let y = 2; y < Math.min(top, H - 2); y++) {
+      const i = lidx(lx, y, lz), id = c[i];
+      if (!NATURAL.has(id)) continue;
+      let cave = false;
+      if (on) {
+        const a = A(x, y, z) - 0.5, b = B(x, y, z) - 0.5, rr = y > h - 6 ? 0.0016 : 0.0032;
+        if (a * a + b * b < rr * (0.4 + dens)) cave = true;
+        else if (y >= 3 && y <= 24 && C(x, y, z) - Math.abs(y - 11) * 0.012 > 0.715) cave = true;
+      }
+      if (cave) { c[i] = y <= 4 && C(x, y, z) > 0.7 ? WATER : AIR; carved++; if (c[i] === AIR && y < h - 5) mask[i] = 1; if (!chestSpot && y <= 20 && c[i] === AIR && hash3(x, y, z, s + 3105) < 0.012) chestSpot = [lx, y, lz]; continue; }
+      if (id === STONE && y < h - 2) {   // new ores, only in fresh chunks
+        const r = hash3(x, y, z, s + 9001);
+        if (y <= 12 && r < 0.001) c[i] = DIAMOND_ORE; else if (y <= 22 && r < (h >= 30 ? 0.0028 : 0.0017) && r >= 0.001) c[i] = EMERALD_ORE;
+        else if (y <= 16 && r > 0.9955) c[i] = PLAT_ORE; else if (y <= 26 && r > 0.985 && r <= 0.9955) c[i] = GOLD_ORE;
+        if (c[i] !== STONE) { caveStats.ores++; oreN++; }
+      }
+    }
+  }
+  if (chestSpot && hash2(cx, cz, s + 3106) < 0.45) {
+    const [lx, y, lz] = chestSpot; let yy = y; while (yy > 2 && c[lidx(lx, yy - 1, lz)] === AIR) yy--;
+    if (solid(c[lidx(lx, yy - 1, lz)]) && c[lidx(lx, yy, lz)] === AIR) { c[lidx(lx, yy, lz)] = CHEST; realmChests.set((x0 + lx) + ',' + yy + ',' + (z0 + lz), 'cave'); caveStats.chests++; }
+  }
+  if (carved) { caveStats.chunks++; caveStats.carved += carved; caveMask.set(ckey(cx, cz), mask); }
+  if (carved || oreN) reapplyEdits(cx, cz, c);
+}
+{ const gc0 = genChunk; genChunk = function (cx, cz) {
+  const r = realmCh(cx);
+  if (r === 'moon') return genMoon(cx, cz);
+  if (r === 'back') return genBack(cx, cz);
+  gc0(cx, cz); carveCaves(cx, cz);
+}; }
+// loot (same for everyone in an online world: it comes from the chest's position)
+function lootFor(key, kind) {
+  const r = mulberry(Math.floor(hash3(...key.split(',').map(Number), state.seed + 4242) * 1e9)), L = [], n = (a, b) => a + Math.floor(r() * (b - a + 1));
+  if (kind === 'bug') return [['golden_bug', 1], ['torn_note', 1], ['br_light', 2]];
+  if (kind === 'moon') { L.push(['alien_relic', n(1, 2)], ['moon_crystal', n(1, 3)], ['moon_cheese', n(1, 4)], ['alien_tech', n(1, 3)]); if (r() < 0.45) L.push(['plasma_cell', n(4, 12)]); if (r() < 0.3) L.push(['uranium', n(1, 2)]); if (r() < 0.2) L.push(['torn_note', 1]); return L; }
+  L.push(['gold_ingot', n(1, 4)], ['iron_ingot', n(2, 5)], ['coal', n(3, 9)], ['torch', n(3, 8)]);
+  if (r() < 0.35) L.push(['diamond', n(1, 2)]); if (r() < 0.3) L.push(['emerald', n(1, 2)]); if (r() < 0.4) L.push(['platinum_ingot', n(1, 2)]);
+  if (r() < 0.2) L.push(['gold_jewelry', 1]); if (r() < 0.05) L.push(['diamond_jewelry', 1]); if (r() < 0.4) L.push(['torn_note', 1]); if (r() < 0.3) L.push(['apple', n(1, 3)]);
+  return L;
+}
+function lootChest(x, y, z) { const k = x + ',' + y + ',' + z, kind = realmChests.get(k); if (kind && get(x, y, z) === CHEST) fillLoot(k, lootFor(k, kind)); }
+{ const oc0 = openChest; openChest = function (x, y, z) { lootChest(x, y, z); return oc0(x, y, z); }; }
+// caves are dark: deep pockets far from any opening get darker than a roofed room (torches still light them up)
+{ const lk0 = lightKit; lightKit = function (x0, z0) {
+  if (realmAt(x0 + 8) === 'back') return () => [0.95, 0.1];
+  const f = lk0(x0, z0);
+  return (x, y, z) => { const r = f(x, y, z); if (r[0] === 0.24 && r[1] === 0 && y < 40 && NATURAL.has(get(x, y + 3, z)) && NATURAL.has(get(x, y + 6, z))) r[0] = 0.11; return r; };
+}; }
+// cave monsters: night-mob level, any time of day, only in the dark underground (never on peaceful)
+let caveSpawnT = 3;
+function underground() { const p = pl2(); if (realm() || skyAbove(p.x, p.y, p.z)) return false; return p.y < terrainAt(Math.floor(p.x), Math.floor(p.z)).h - 3; }
+function torchNear(x, y, z, r) { for (const k of torches) { const [a, b, c] = k.split(',').map(Number); if (Math.abs(a - x) < r && Math.abs(b - y) < r && Math.abs(c - z) < r) return true; } return false; }
+function updateCaveMobs(dt) {
+  caveSpawnT -= dt; if (caveSpawnT > 0) return; caveSpawnT = settings.difficulty === 'insane' ? 1.5 : settings.difficulty === 'hard' ? 2.2 : 3;
+  if (!canHurtPlayer() || diff().max === 0 || !underground()) return;
+  const hostile = mobs.filter(m => MOBDEF[m.type].hostile && m.type !== 'crackhead').length; if (hostile >= diff().max) return;
+  const p = pl2();
+  for (let k = 0; k < 8; k++) {
+    const a = Math.random() * 6.28, r = 10 + Math.random() * 12, x = Math.floor(p.x + Math.cos(a) * r), z = Math.floor(p.z + Math.sin(a) * r);
+    if (!loaded(x, z)) continue;
+    for (let y = Math.floor(p.y) + 5; y > Math.max(2, p.y - 8); y--) {
+      if (get(x, y, z) === AIR && get(x, y + 1, z) === AIR && solid(get(x, y - 1, z)) && !skyAbove(x, y, z) && !torchNear(x, y, z, 8)) {
+        const m = spawnMob(['zombie', 'zombie', 'skeleton', 'creeper'][rint(0, 3)], x + 0.5, y, z + 0.5); if (m) m.cave = true; return;
+      }
+    }
+  }
+}
+
+// ======================= 2. UFOs + THE MOON =======================
+// A working saucer sits next to every UFO crash site, and the mothership leaves one behind. Fly it above the clouds to reach the Moon.
+function buildUfoCraft() { const u = buildUfo(), g = new THREE.Group(); u.g.position.y = 1.25; g.add(u.g); u.lights.visible = true; return { g, body: u.g, spin: u.lights, spinAxis: 'y' }; }
+let warpT = 0, warping = 0, padT = 0, ufoCd = 0;
+for (const r of state.aircraft || []) if (r && r.kind === 'ufo') spawnAircraft('ufo', r.x, r.y, r.z, r.head, { owned: true, taken: r.taken, id: r.id });   // saved saucers (planes/helis load in p_x_air)
+const isUfo = a => a && a.air && a.kind === 'ufo';
+function warp(a) {
+  const v = R2(), here = realmAt(a.x); warping = 1.2; r2fade.classList.add('on'); beep(140, 1.2, 'sine', 0.06); noiseBurst(1, 0.08, 300);
+  setTimeout(() => {
+    let nx, nz, msg;
+    if (here === 'moon') { const f = v.from || [VX + 20, VZ + 20]; nx = f[0] + (Math.random() - .5) * 20; nz = f[1] + (Math.random() - .5) * 20; msg = '🌍 Welcome back to Earth!'; }
+    else { v.from = [Math.round(a.x), Math.round(a.z)]; nx = PAD_X + (Math.random() - .5) * 6; nz = PAD_Z + 14; msg = '🌙 You made it to the Moon! Low gravity: jump high. Climb back above the stars to go home'; }
+    a.x = nx; a.z = nz; a.y = 118; a.vy = 0; a.speed = 0; a.onGround = false; a.g.position.set(a.x, a.y, a.z);
+    player.pos.set(a.x, a.y + 0.3, a.z); player.fallStart = null;
+    for (const m of [...mobs]) if (!m.petId && m !== player.horse) removeMob(m, false);
+    syncAircraft(); save();
+    setTimeout(() => { r2fade.classList.remove('on'); toast(msg); if (here !== 'moon') { banner('Lunar landing', '🌙 The Moon', 'Grab moon rocks, crystals and alien relics to sell back home'); kpStat('moon'); } }, 700);
+  }, 550);
+}
+function ufoNear(r, rm) { return aircraft.filter(a => a.kind === 'ufo' && realmAt(a.x) === rm && Math.hypot(a.x - pl2().x, a.z - pl2().z) < r); }
+function summonUfo() {
+  if (player.car) { toast('🛸 Get out first'); return false; }
+  if (realm() === 'back') { toast('🛸 ...no signal down here'); return false; }
+  const mine = aircraft.find(a => a.kind === 'ufo' && a.owned);
+  if (!mine) { toast('🛸 You don\'t have a UFO yet. There\'s a working one at every 🛸 crash site'); return false; }
+  if (Math.hypot(mine.x - pl2().x, mine.z - pl2().z) < 30 && realmAt(mine.x) === realm()) { toast('🛸 Your UFO is right here'); return false; }
+  if (ufoCd > 0) { toast(`🛸 Your UFO is on its way... (${Math.ceil(ufoCd)}s)`); return false; }
+  const a = player.yaw, x = pl2().x - Math.sin(a) * 7, z = pl2().z - Math.cos(a) * 7;
+  if (!loaded(x, z)) { toast('🛸 No room to land here'); return false; }
+  mine.x = x; mine.z = z; mine.y = groundAt(x, z); mine.onGround = true; mine.vy = 0; mine.speed = 0; mine.g.position.set(mine.x, mine.y, mine.z);
+  ufoCd = 45; particles(x, mine.y + 1, z, new THREE.Color(0.5, 1, 0.7), 20); syncAircraft(); toast('🛸 Your UFO is landing next to you'); beep(300, 0.4, 'sine', 0.05); return true;
+}
+{ const md0 = msDown; msDown = function () {
+  md0(); const p = pl2(), x = p.x + 8, z = p.z + 8, y = groundAt(x, z);
+  const a = spawnAircraft('ufo', x, y, z, player.yaw, { owned: true }); syncAircraft();
+  setTimeout(() => toast('🛸 An escape saucer fell out of the mothership. It still works! ✋ to fly it, climb high to reach the Moon'), 4500);
+}; }
+function updateUfoWorld(dt) {
+  ufoCd = Math.max(0, ufoCd - dt);
+  const rm = realm(), p = pl2();
+  if (!rm) {   // a parked, working saucer next to each crash site
+    for (const [k, c] of crashSites) {
+      const key = 'ufo:' + k; if ((state.takenAir || {})[key] || Math.hypot(c.x - p.x, c.z - p.z) > 85) continue;
+      const x = c.x + 9.5, z = c.z + 0.5; if (aircraft.some(a => Math.hypot(a.x - x, a.z - z) < 6)) continue;
+      if (!loaded(x, z)) continue; const a = spawnAircraft('ufo', x, groundAt(x, z), z, 0.4); a.parkKey = key;
+    }
+  }
+  if (rm === 'moon') {   // never stranded: a spare shuttle saucer waits at the landing pad
+    padT -= dt; if (padT <= 0) { padT = 3; if (!aircraft.some(a => a.kind === 'ufo' && realmAt(a.x) === 'moon') && loaded(PAD_X, PAD_Z)) spawnAircraft('ufo', PAD_X + 0.5, 25, PAD_Z + 0.5, 0); }
+  }
+  const a = player.car;
+  if (isUfo(a) && !warping) {
+    if (a.y >= 128) { warpT += dt; if (warpT > 1.6) { warpT = 0; warp(a); } } else warpT = 0;
+  } else warpT = 0;
+  if (warping > 0) warping -= dt;
+}
+// moon sky: black with stars, the Earth hanging overhead; Backrooms: flat yellow murk
+function earthTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 30, 64, 64, 64); g.addColorStop(0, 'rgba(120,180,255,.5)'); g.addColorStop(1, 'rgba(120,180,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  x.save(); x.beginPath(); x.arc(64, 64, 34, 0, 7); x.clip(); x.fillStyle = '#2a6ad2'; x.fillRect(0, 0, 128, 128);
+  x.fillStyle = '#3fa34d'; for (const [a, b, w, h] of [[40, 44, 26, 18], [70, 60, 22, 26], [48, 76, 14, 10], [80, 38, 12, 8]]) { x.beginPath(); x.ellipse(a, b, w / 2, h / 2, 0.4, 0, 7); x.fill(); }
+  x.fillStyle = 'rgba(255,255,255,.8)'; for (const [a, b, w] of [[52, 40, 20], [76, 72, 18], [40, 64, 12], [66, 90, 16]]) { x.fillRect(a - w / 2, b, w, 3); }
+  x.fillStyle = 'rgba(0,0,30,.35)'; x.beginPath(); x.arc(84, 64, 34, 0, 7); x.fill(); x.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const earth = new THREE.Sprite(new THREE.SpriteMaterial({ map: earthTexture(), fog: false, depthWrite: false, transparent: true })); earth.scale.set(46, 46, 1); earth.renderOrder = -1; earth.visible = false; scene.add(earth);
+const _edir = new THREE.Vector3(0.45, 0.55, -0.7).normalize();
+{ const us0 = updateSky; updateSky = function () {
+  us0(); const rm = realm(); earth.visible = rm === 'moon';
+  if (!rm) return;
+  nightAmt = 0.2;   // no night monsters, UFO raids or ghosts up here
+  if (rm === 'moon') {
+    sky.setRGB(0.01, 0.01, 0.025); scene.background = sky; scene.fog.color.setRGB(0.02, 0.02, 0.04); scene.fog.near = 30 * VIEW / 4; scene.fog.far = 80 * VIEW / 4;
+    stars.position.copy(camera.position); starMat.opacity = 1; moon.material.opacity = 0; earth.position.copy(camera.position).addScaledVector(_edir, 160);
+    ambient.color.setRGB(0.85, 0.88, 1); ambient.intensity = 0.55; sun.intensity = 0.75; sun.position.set(40, 60, 30); moonLight.intensity = 0;
+  } else {
+    sky.setRGB(0.32, 0.29, 0.14); scene.background = sky; scene.fog.color.setRGB(0.42, 0.38, 0.2); scene.fog.near = 4; scene.fog.far = 34;
+    starMat.opacity = 0; moon.material.opacity = 0; ambient.color.setRGB(1, 0.97, 0.8); ambient.intensity = 0.75; sun.intensity = 0.2; moonLight.intensity = 0;
+  }
+}; }
+
+// ======================= 3. CAR MODS+: engine & handling stages, rims, neon (nitro + paint were v1.13) =======================
+const ENG = [0, 300, 650, 1100], HAND = [0, 250, 500, 850], RIMS = [0xd8d8d8, 0xffc830, 0x18181a, 0xd02020, 0x2a6ad2, 0x40ff80], RIM_PRICE = 120;
+const NEON = [0xff3ad0, 0x30a0ff, 0x30ff80, 0xff3030, 0xa040ff, 0xff9a20], NEON_PRICE = 200;
+function applyLooks(c) {
+  const m = c.mods || {};
+  if (m.rim != null && RIMS[m.rim] != null) for (const o of c.g.children) if (o.isMesh && (o.material === rimMat || o.userData.rim)) { if (!o.userData.rim) { o.material = new THREE.MeshLambertMaterial({ color: RIMS[m.rim] }); o.userData.rim = true; } else o.material.color.setHex(RIMS[m.rim]); }
+  if (m.neon != null && NEON[m.neon] != null) {
+    if (!c.neonMesh) { c.neonMesh = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.04, 4), new THREE.MeshBasicMaterial({ color: NEON[m.neon], transparent: true, opacity: 0.55, depthWrite: false })); c.neonMesh.position.y = 0.1; c.g.add(c.neonMesh); }
+    c.neonMesh.material.color.setHex(NEON[m.neon]);
+  }
+}
+{ const am0 = applyMods; applyMods = function (c, mods) { am0(c, mods); applyLooks(c); }; }
+function buyMod2(what, arg) {
+  const c = garageCar(); if (!c) { toast('🔧 Drive a car up to the garage first'); return false; }
+  if (c.kind === 'police') { toast('🚓 "I ain\'t touching a cop car, man."'); return false; }
+  const m = c.mods || {};
+  if (what === 'eng' || what === 'hand') {
+    const lv = (m[what] || 0) + 1, P = what === 'eng' ? ENG : HAND; if (lv >= P.length) { toast('🔧 Already maxed out'); return false; }
+    if (!payAny(P[lv], false)) { toast(`💸 Stage ${lv} costs 💰${P[lv]}`); return false; }
+    makeMine(c)[what] = lv; toast(what === 'eng' ? `⚙️ Engine stage ${lv}! Faster top speed and acceleration` : `🛞 Handling stage ${lv}! Sharper steering`);
+  } else if (what === 'rim' || what === 'neon') {
+    const i = +arg, list = what === 'rim' ? RIMS : NEON, price = what === 'rim' ? RIM_PRICE : NEON_PRICE; if (list[i] == null) return false;
+    if (!payAny(price, false)) { toast(`💸 That's 💰${price}`); return false; }
+    makeMine(c)[what] = i; applyLooks(c); toast(what === 'rim' ? '🛞 New rims fitted!' : '💡 Underglow on! Looks sick at night');
+  } else return false;
+  V13().car = { ...c.mods }; coinSnd(); kpStat('mod'); kpStat('mod2'); return true;
+}
+{ const gh0 = garageHTML; garageHTML = function () {
+  let h = gh0(); const c = garageCar(); if (!c || c.kind === 'police') return h; const m = c.mods || {};
+  const stage = (k, P, lab) => { const lv = m[k] || 0; return `<div class="krow"><span class="nm"><b>${lab}</b> · stage ${lv}/3<br><span style="opacity:.7;font-size:12px">${k === 'eng' ? '+12% top speed, +20% acceleration per stage' : '+12% steering per stage'}</span></span>${lv >= 3 ? '<b>✅ maxed</b>' : `<button class="btn gold" data-kp15="${k}" ${cashTotal() >= P[lv + 1] ? '' : 'disabled'}>💰 ${P[lv + 1]}</button>`}</div>`; };
+  h += `<h3>⚙️ Performance</h3>${stage('eng', ENG, '⚙️ Engine tune')}${stage('hand', HAND, '🛞 Handling')}`;
+  h += `<h3>🛞 Rims · 💰${RIM_PRICE}</h3><div>${RIMS.map((col, i) => `<span class="r2sw${m.rim === i ? ' on' : ''}" data-kp15="rim:${i}" style="background:#${col.toString(16).padStart(6, '0')}"></span>`).join('')}</div>`;
+  h += `<h3>💡 Underglow neon · 💰${NEON_PRICE}</h3><div>${NEON.map((col, i) => `<span class="r2sw${m.neon === i ? ' on' : ''}" data-kp15="neon:${i}" style="background:#${col.toString(16).padStart(6, '0')}"></span>`).join('')}</div>`;
+  return h;
+}; }
+// horn: H / 📯 while driving. Honk 5 times fast and... well, find out.
+let honks = [];
+function honk() {
+  const c = player.car; if (!c || c.air || c.vessel || !cars.includes(c)) return;
+  beep(392, 0.22, 'square', 0.05); setTimeout(() => beep(330, 0.22, 'square', 0.05), 40);
+  const now = performance.now() / 1000; honks = honks.filter(t => now - t < 4); honks.push(now);
+  for (const m of mobs) if (m.type === 'ped' && m.g.position.distanceTo(c.g.position) < 9 && !m.glitch) { m.panic = Math.max(m.panic || 0, 1.5); }
+  if (honks.length >= 5 && !(c.floatT > 0)) { honks = []; c.floatT = 7; c.floatY = c.y + 3.5; toast('🚗💨 ...the car is floating??'); glitchFound('floatcar'); }
+}
+addEventListener('keydown', e => { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; if (e.code === 'KeyH' && playing && !uiOpen) honk(); });
+{ const hb = document.createElement('div'); hb.className = 'tb'; hb.id = 'bHorn'; hb.textContent = '📯'; const ref = document.getElementById('bUp'); (ref ? ref.parentNode : document.body).appendChild(hb); hb.addEventListener('click', () => honk()); }
+function updateFloatCars(dt) {
+  for (const c of cars) if (c.floatT > 0) {
+    c.floatT -= dt; c.vy = 0; c.y += (c.floatY - c.y) * Math.min(1, dt * 2); c.g.position.y = c.y; c.g.rotation.z = Math.sin(performance.now() / 300) * 0.06;
+    if (c === player.car) { player.pos.y = c.y + 1.2 - EYE; }
+    if (c.floatT <= 0) c.g.rotation.z = 0;
+  }
+  document.body.classList.toggle('r2drive', !!(player.car && !player.car.air && !player.car.vessel && cars.includes(player.car)));
+}
+// online: other players see your ride (kind, paint, rims, neon) or your aircraft
+function meExtra() {
+  const c = player.car; if (!c) return {};
+  if (c.air) return { car: { k: c.kind, h: +c.head.toFixed(2), y: +c.y.toFixed(2) } };
+  if (c.vessel || !cars.includes(c)) return {};
+  const m = c.mods || {};
+  return { car: { k: c.kind === 'police' ? 'police' : 'car', h: +c.head.toFixed(2), y: +c.y.toFixed(2), c: c.col != null ? c.col : null, r: m.rim ?? null, n: m.neon ?? null } };
+}
+function remoteExtra(r, d, dt) {
+  const cd = d && d.car, key = cd ? JSON.stringify([cd.k, cd.c, cd.r, cd.n]) : '';
+  if (r.carKey !== key) {
+    if (r.carMesh) { scene.remove(r.carMesh); r.carMesh = null; }
+    r.carKey = key;
+    if (cd) {
+      let g;
+      if (cd.k === 'ufo') g = buildUfoCraft().g; else if (cd.k === 'plane') g = buildPlane().g; else if (cd.k === 'helicopter') g = buildHeli().g;
+      else { const o = buildCar(cd.k === 'police' ? 'police' : 'car', 0); const fake = { g: o.g, mods: { rim: cd.r, neon: cd.n } }; if (cd.c != null) paintCar(fake, cd.c); applyLooks(fake); g = o.g; }
+      r.carMesh = g; scene.add(g); g.position.set(d.x, cd.y, d.z);
+    }
+  }
+  if (r.carMesh && cd) { const g = r.carMesh, k = Math.min(1, dt * 10); g.position.x += (d.x - g.position.x) * k; g.position.y += (cd.y - g.position.y) * k; g.position.z += (d.z - g.position.z) * k;
+    let dy = cd.h - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * k; g.visible = performance.now() - r.recv < 12000; if (r.av && cd.k !== 'ufo' && cd.k !== 'plane' && cd.k !== 'helicopter') r.av.g.visible = false; }
+}
+
+// ======================= 4. PLAYER SHOPS: a stall you stock and price; players (online) and townsfolk buy from it =======================
+const myId = () => auth ? auth.uid : 'local';
+const myName = () => auth ? auth.name : 'You';
+const shopMine = s => s && (s.o === myId() || (s.o === 'local' && !MP_GUEST));
+const ownerHere = s => { if (shopMine(s)) return true; if (!net.on) return false; const r = net.remotes[s.o]; return !!(r && performance.now() - r.recv < 15000); };
+const shopVal = id => Math.max(1, Math.round(itemValue(id) || 1));
+function netShop(k) { if (!net.on) return; db('PATCH', 'rooms/' + net.code, { ['shops/' + k]: JSON.stringify(state.shops[k] || null) }).catch(() => {}); }
+const shopsNet = () => { const o = {}; for (const k in state.shops) o[k] = JSON.stringify(state.shops[k]); return o; };
+const paidSeen = new Set();
+function netExtra(top, key, rest, data) {
+  if (top === 'shops') {
+    if (!key) { for (const k in (data || {})) netExtra('shops', k, [], data[k]); return; }
+    try { const v = typeof data === 'string' ? JSON.parse(data) : data; if (v) state.shops[key] = v; else delete state.shops[key]; } catch (e) {}
+    if (kpShown() && kpMode === 'shop' && kpVenue === key) renderKp(); return;
+  }
+  if (top === 'pay') {
+    if (!key) { for (const u in (data || {})) netExtra('pay', u, [], data[u]); return; }
+    if (!auth || key !== auth.uid) return;
+    const recs = rest.length ? { [rest[0]]: data } : (data || {});
+    for (const rid in recs) { const p = recs[rid]; if (!p || paidSeen.has(rid)) continue; paidSeen.add(rid);
+      const s = state.shops[p.k]; if (s) { s.sold = (s.sold || 0) + 1; }
+      addClean(p.a, `🛒 ${String(p.b || 'Someone').slice(0, 16)} bought ${ITEMS[p.i] ? ITEMS[p.i].name : 'something'} from your shop · +💰${p.a}`); kpStat('shopSale');
+      db('DELETE', `rooms/${net.code}/pay/${auth.uid}/${rid}`).catch(() => {}); }
+  }
+}
+{ const sb0 = setBlock; setBlock = function (x, y, z, id, now) {
+  const k = x + ',' + y + ',' + z, old = get(x, y, z); const r = sb0(x, y, z, id, now);
+  if (id === SHOP && old !== SHOP && !netMute && !state.shops[k]) { state.shops[k] = { o: myId(), on: myName(), items: [], till: 0, sold: 0 }; netShop(k); setTimeout(() => toast('🏪 Shop stall placed! ✋ it to stock items and set prices'), 50); }
+  return r;
+}; }
+{ const fb0 = finishBreak; finishBreak = function (h) {
+  if (h.id === GLITCH) { toast('🐛 *bzzzt* ...it doesn\'t want to break'); return; }
+  if (h.id === CHEST) lootChest(h.x, h.y, h.z);
+  if (h.id === SHOP) {
+    const k = h.x + ',' + h.y + ',' + h.z, s = state.shops[k];
+    if (s && !shopMine(s)) { toast(`🏪 That's ${esc(s.on || 'someone')}'s shop. Only the owner can take it down`); return; }
+    const r = fb0(h);
+    if (s) { for (const it of s.items) if (it.n > 0) give(it.id, it.n); if (s.till > 0) addClean(s.till, `🏪 Emptied the till: +💰${s.till}`); delete state.shops[k]; netShop(k); }
+    return r;
+  }
+  return fb0(h);
+}; }
+function shopHTML(k) {
+  const s = state.shops[k]; if (!s) return '<h2>🏪 Shop</h2><div class="ksub">This stall is closed.</div>';
+  const mine = shopMine(s);
+  let h = `<h2>🏪 ${esc(mine ? 'Your shop' : (s.on || 'Player') + '\'s shop')}</h2>${balHTML()}`;
+  if (mine) {
+    h += `<div class="ksub">Stock items from your bag and set a price. Friends in your online world can buy while you're here, and townsfolk drop by now and then and buy cheap stuff (money goes in the till).</div>`;
+    h += `<div class="krow"><span class="nm">💰 Till: <b>${Math.floor(s.till || 0)}</b> · sold ${s.sold || 0}</span><button class="btn gold" data-kp15="till:${k}" ${s.till >= 1 ? '' : 'disabled'}>Collect</button></div><h3>On the shelf</h3>`;
+    h += s.items.length ? s.items.map((it, i) => `<div class="krow"><span class="ic">${iconHTML(it.id)}</span><span class="nm">${ITEMS[it.id] ? ITEMS[it.id].name : it.id} ×${it.n}<br><span style="opacity:.6;font-size:12px">worth ~${shopVal(it.id)}</span></span><span class="r2pr"><button class="btn" data-kp15="pdn:${k}:${i}">−</button><b>💰${it.p}</b><button class="btn" data-kp15="pup:${k}:${i}">+</button></span><button class="btn" data-kp15="back:${k}:${i}">Take back</button></div>`).join('') : '<div class="ksub" style="text-align:center">Empty shelf. Stock something below.</div>';
+    const bag = []; const seen = new Set(); for (const sl of state.slots) if (sl && !seen.has(sl.id) && !ITEMS[sl.id].tool && !ITEMS[sl.id].armor && sl.id !== 'golden_bug' && !GUNS[sl.id]) { seen.add(sl.id); bag.push(sl.id); }
+    h += '<h3>Stock from your bag</h3>' + (bag.length ? bag.map(id => `<div class="krow"><span class="ic">${iconHTML(id)}</span><span class="nm">${ITEMS[id].name} <span style="opacity:.6">(have ${count(id)})</span></span><button class="btn" data-kp15="st1:${k}:${id}">+1</button><button class="btn gold" data-kp15="stA:${k}:${id}">All</button></div>`).join('') : '<div class="ksub">Nothing you can sell in your bag (tools, armour and guns stay with you).</div>');
+  } else {
+    const here = ownerHere(s);
+    h += `<div class="ksub">${here ? 'Pay with 💰 clean first, then 💵 dirty. The money goes straight to the owner.' : '😴 The owner isn\'t here right now, so the shop is closed. Come back when they\'re online in this world.'}</div>`;
+    h += s.items.filter(it => it.n > 0).map((it, i) => `<div class="krow"><span class="ic">${iconHTML(it.id)}</span><span class="nm">${ITEMS[it.id] ? ITEMS[it.id].name : it.id} ×${it.n}</span><b>💰${it.p}</b><button class="btn gold" data-kp15="buy:${k}:${s.items.indexOf(it)}" ${here && cashTotal() >= it.p ? '' : 'disabled'}>Buy 1</button></div>`).join('') || '<div class="ksub" style="text-align:center">Sold out!</div>';
+  }
+  return h;
+}
+function shopAct(a, k, arg) {
+  const s = state.shops[k]; if (!s) return;
+  if (a === 'buy') {
+    const it = s.items[+arg]; if (!it || it.n <= 0 || shopMine(s) || !ownerHere(s)) return;
+    if (!payAny(it.p, false)) { toast(`💸 That's 💰${it.p}`); return; }
+    it.n--; give(it.id, 1); const paid = it.p, id = it.id; if (it.n <= 0) s.items.splice(+arg, 1); netShop(k);
+    if (net.on) db('PATCH', `rooms/${net.code}/pay/${s.o}`, { ['p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)]: { a: paid, i: id, k, b: myName() } }).catch(() => {});
+    coinSnd(); toast(`🛒 Bought ${ITEMS[id].name} for 💰${paid}`); return;
+  }
+  if (!shopMine(s)) return;
+  if (a === 'till') { const n = Math.floor(s.till || 0); if (n > 0) { s.till -= n; addClean(n, `🏪 Collected 💰${n} from the till`); } }
+  else if (a === 'st1' || a === 'stA') {
+    const id = arg, have = count(id); if (!have || !ITEMS[id]) return; const n = a === 'stA' ? have : 1;
+    let it = s.items.find(q => q.id === id); if (!it) { if (s.items.length >= 12) { toast('🏪 The shelf is full (12 kinds)'); return; } it = { id, n: 0, p: Math.max(1, Math.round(shopVal(id) * 1.2)) }; s.items.push(it); }
+    take(id, n); it.n += n;
+  } else if (a === 'back') { const it = s.items[+arg]; if (it) { if (it.n > 0) give(it.id, it.n); s.items.splice(+arg, 1); } }
+  else if (a === 'pup' || a === 'pdn') { const it = s.items[+arg]; if (it) it.p = Math.max(1, Math.min(99999, a === 'pup' ? Math.max(it.p + 1, Math.round(it.p * 1.1)) : Math.min(it.p - 1, Math.round(it.p * 0.9)))); }
+  netShop(k);
+}
+// townsfolk shoppers (solo, or for your own stalls online): cheaper than it's worth = sells faster
+let shopT = 0;
+function updateShops(dt) {
+  shopT += dt; if (shopT < 1) return; const step = shopT; shopT = 0;
+  if (net.on && net.role === 'host') for (const k in state.shops) { const s = state.shops[k]; if (s.o === 'local' && auth) { s.o = auth.uid; s.on = auth.name; netShop(k); } }
+  for (const k in state.shops) {
+    const s = state.shops[k]; if (!shopMine(s)) continue;
+    const [x, y, z] = k.split(',').map(Number); if (!loaded(x, z)) continue;
+    if (get(x, y, z) !== SHOP) { delete state.shops[k]; netShop(k); continue; }   // blown up or replaced
+    if (Math.hypot(x - pl2().x, z - pl2().z) > 140 || !s.items.some(it => it.n > 0)) continue;
+    s.npcT = (s.npcT ?? 30 + Math.random() * 40) - step; if (s.npcT > 0) continue;
+    s.npcT = (realmAt(x) ? 120 : townAt(x, z) && inTown(townAt(x, z), x, z, 6) ? 40 : 75) + Math.random() * 50;
+    const it = s.items.filter(q => q.n > 0)[rint(0, s.items.filter(q => q.n > 0).length - 1)], ratio = it.p / shopVal(it.id);
+    if (Math.random() > Math.max(0.04, Math.min(0.92, 1.55 - ratio))) continue;
+    it.n--; s.till = (s.till || 0) + it.p; s.sold = (s.sold || 0) + 1; const nm = ITEMS[it.id] ? ITEMS[it.id].name : it.id; if (it.n <= 0) s.items.splice(s.items.indexOf(it), 1);
+    netShop(k); kpStat('shopSale');
+    if (Math.hypot(x - pl2().x, z - pl2().z) < 40) { toast(`🛒 A shopper bought ${nm} from your stall · +💰${it.p} in the till`); coinSnd(); particles(x + 0.5, y + 1.3, z + 0.5, new THREE.Color(1, 0.85, 0.2), 8); }
+  }
+}
+const shopTags = new Map();
+function updateShopTags() {
+  for (const [k, sp] of shopTags) if (!state.shops[k] || sp.position.distanceTo(pl2()) > 40) { scene.remove(sp); shopTags.delete(k); }
+  for (const k in state.shops) { if (shopTags.has(k)) continue; const [x, y, z] = k.split(',').map(Number); if (Math.hypot(x - pl2().x, z - pl2().z) > 36) continue;
+    const s = state.shops[k], sp = nameSprite(`🏪 ${shopMine(s) ? 'Your shop' : (s.on || 'Player') + '\'s shop'}`); sp.position.set(x + 0.5, y + 1.9, z + 0.5); scene.add(sp); shopTags.set(k, sp); }
+}
+
+// ======================= 5. HIDDEN GLITCHES (Glitch Hunter x/6) =======================
+// All harmless: nothing here edits the world, and every glitch puts you somewhere safe afterwards.
+const GLITCHES = {
+  backrooms: { n: '🟨 No-clip into the Backrooms', h: 'Deep, deep down... push a wall long enough and it gives up.' },
+  tpose: { n: '🧍 ped_NULL, the T-posing townie', h: 'Some townsfolk forget their animations. ✋ one.' },
+  floatcar: { n: '🚗 Anti-gravity honk', h: 'Cars don\'t like being honked at. A lot.' },
+  void: { n: '🕳️ Fell out of the world', h: 'In a place with no exits, look down.' },
+  bug: { n: '🐛 Buggy\'s Golden Bug', h: 'Somewhere in the yellow rooms, someone left a present.' },
+  cowexe: { n: '🐄 cow.exe has stopped working', h: 'Out in the fields, look up. Way up.' },
+};
+const GL_IDS = Object.keys(GLITCHES);
+const glitchN = () => GL_IDS.filter(k => R2().gl[k]).length;
+function glitchFound(id) {
+  const v = R2(); if (v.gl[id] || !GLITCHES[id]) return false;
+  v.gl[id] = Math.max(1, Math.round(state.gameTime)); const n = glitchN();
+  banner('Glitch found', `🐛 Glitch Hunter ${n}/6`, GLITCHES[id].n); kpStat('glitch');
+  noiseBurst(0.4, 0.1, 1800); beep(180, 0.08, 'square', 0.05); setTimeout(() => beep(1400, 0.12, 'square', 0.05), 90);
+  return true;
+}
+ACH.push(['glitch1', '🐛 Bug Spotter', 'Find your first hidden glitch', s => s.glitch >= 1], ['glitch6', '🐛 Glitch Hunter', 'Find all 6 hidden glitches', s => s.glitch >= 6],
+  ['moon', '🌙 One Small Step', 'Fly a UFO to the Moon', s => s.moon >= 1], ['shopkeep', '🏪 Open for Business', 'Sell 10 things from your own shop', s => s.shopSale >= 10],
+  ['tuner', '⚙️ Tuner', 'Buy 5 performance / looks mods', s => s.mod2 >= 5]);
+const NOTES = ['"If you\'re deep enough underground and you push a wall for long enough... it lets you in." — B.', '"Honk honk honk honk honk. Trust me." — B.',
+  '"The yellow rooms have a hole in the floor. Don\'t look down. Or do." — B.', '"Saw a cow in the sky past the farms. Nobody believes me." — B.',
+  '"Some townies glitch out and T-pose. Go say hi." — B.', '"Diamonds sit deep, under y 12. Emeralds love the mountains." — B.', '"Thanks for watching Buggy Games YT. Subscribe or the bugs win." — B.'];
+// Backrooms entry: deep in the dark (y < 12, under rock), keep walking into a wall for 4 seconds
+let pushT = 0, lastPP = null, voidT = 0, brLeaving = false;
+function updateGlitches(dt, t) {
+  const p = pl2(), rm = realm();
+  // 1. wall push no-clip
+  const fwd = (keys.KeyW || keys.ArrowUp) || (joy.id !== null && joy.y < -0.5);
+  if (!rm && !player.car && fwd && p.y < 12 && !uiOpen && (pushT > 0 || p.y < terrainAt(Math.floor(p.x), Math.floor(p.z)).h - 3)) {
+    const moved = lastPP ? Math.hypot(p.x - lastPP.x, p.z - lastPP.z) : 1;
+    const fx = Math.floor(p.x - Math.sin(player.yaw) * 0.6), fz = Math.floor(p.z - Math.cos(player.yaw) * 0.6);
+    if (moved < 0.01 && solid(get(fx, Math.floor(p.y + 0.5), fz))) { pushT += dt; if (pushT > 2.5 && Math.random() < dt * 6) shake(0.1, 0.03); if (pushT > 4) { pushT = 0; enterBackrooms(); } } else pushT = Math.max(0, pushT - dt * 2);
+  } else pushT = 0;
+  lastPP = p.clone();
+  // in the Backrooms: the exit and the hole to the void
+  if (rm === 'back' && !voidT && !brLeaving && !tpWait) {
+    if (Math.hypot(p.x - (BR_EXIT[0] + 0.5), p.z - (BR_EXIT[2] + 0.5)) < 1.25 && p.y < BR_Y + 4) leaveBackrooms('🟩 You glitched back into reality.');
+    else if (p.y < BR_Y - 6) startVoid();
+  }
+  if (voidT > 0) { voidT -= dt; player.pos.set(BR_HOLE[0] + 0.5, BR_Y - 7, BR_HOLE[1] + 0.5); player.vel.set(0, 0, 0); player.fallStart = null; if (voidT <= 0) { r2void.classList.remove('on'); voidT = 0; leaveBackrooms('🌍 ...you woke up back home.'); } }
+  if (count('golden_bug') > 0) glitchFound('bug');
+  // glitch mobs: T-posing ped in towns, cow.exe floating over the fields
+  for (const m of mobs) if (m.glitch) {
+    if (m.glitch === 'tpose') { for (const a of m.arms || []) { a.rotation.x = 0; a.rotation.z = (a.position.x < 0 ? -1 : 1) * Math.PI / 2; } for (const l of m.legs || []) l.rotation.x = 0; m.g.rotation.y += dt * 1.5; m.g.visible = Math.random() > 0.04; }
+    else if (m.glitch === 'cow') { m.vel.set(0, 0, 0); m.g.position.y = m.fy + Math.sin(t * 1.3) * 0.35; m.g.rotation.z = Math.PI; m.g.rotation.y += dt * 0.4; }
+  }
+  glT -= dt; if (glT > 0) return; glT = 15;
+  if (rm || !player.alive || player.car) return;
+  const v = R2(), tn = townsNear(30)[0];
+  if (tn && !v.gl.tpose && !mobs.some(m => m.glitch === 'tpose') && Math.random() < 0.12) spawnGlitchMob('tpose');
+  if (!tn && !v.gl.cowexe && !mobs.some(m => m.glitch === 'cow') && Math.random() < 0.06 && (chunkBiome.get(ckey(fdiv(Math.floor(p.x), CH), fdiv(Math.floor(p.z), CH))) || 'plains') !== 'desert') spawnGlitchMob('cow');
+}
+let glT = 20;
+function spawnGlitchMob(kind) {
+  const p = pl2();
+  for (let k = 0; k < 10; k++) {
+    const a = Math.random() * 6.28, r = 14 + Math.random() * 10, x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r; if (!loaded(x, z)) continue;
+    const y = groundAt(x, z); if (isWater(get(Math.floor(x), y - 1, Math.floor(z))) || y > H - 10) continue;
+    const m = spawnMob(kind === 'tpose' ? 'ped' : 'cow', Math.floor(x) + 0.5, kind === 'tpose' ? y : y + 6, Math.floor(z) + 0.5); if (!m) return null;
+    m.glitch = kind; m.fy = y + 6; m.wait = 1e9;
+    const tag = nameSprite(kind === 'tpose' ? 'ped_NULL' : 'cow.exe'); tag.position.y = kind === 'tpose' ? 2.4 : 2; m.g.add(tag); m.glTag = tag;
+    return m;
+  }
+  return null;
+}
+function unglitch(m) {
+  if (!m.glitch) return; const k = m.glitch; m.glitch = null; if (m.glTag) m.g.remove(m.glTag); m.g.rotation.z = 0; m.g.visible = true;
+  particles(m.g.position.x, m.g.position.y + 1, m.g.position.z, new THREE.Color(1, 0.2, 1), 16); noiseBurst(0.3, 0.1, 2200);
+  glitchFound(k === 'tpose' ? 'tpose' : 'cowexe'); toast(k === 'tpose' ? '🧍 ped_NULL finally loaded its animations' : '🐄 cow.exe restarted... and fell out of the sky');
+}
+{ const im5 = interactMob; interactMob = function (m, id, it) { if (m && m.glitch) { unglitch(m); return true; } return im5(m, id, it); }; }
+{ const hm5 = hurtMob; hurtMob = function (m, dmg, from, noDrop) { if (m && m.glitch) { unglitch(m); return; } return hm5(m, dmg, from, noDrop); }; }
+{ const ml5 = mobLabel; mobLabel = function (m) { if (m && m.glitch) return m.glitch === 'tpose' ? '🧍 ped_NULL · ✋ ???' : '🐄 cow.exe · ✋ ???'; return ml5(m); }; }
+// teleport and hold still until the land there has loaded, then stand on the first free spot
+let tpWait = null;
+function tpSafe(x, y, z, cb) { tpWait = { x, y, z, cb, t: 0 }; window.__freeze = 1; player.pos.set(x, y, z); player.vel.set(0, 0, 0); player.fallStart = null; }
+function updateTp(dt) {
+  if (!tpWait) return; const w = tpWait; w.t += dt; player.pos.set(w.x, w.y, w.z); player.vel.set(0, 0, 0); player.fallStart = null;
+  if (!loaded(w.x, w.z) && w.t < 20) return;
+  const bx = Math.floor(w.x), bz = Math.floor(w.z); let y = Math.max(1, Math.floor(w.y)); while (y < H - 2 && (solid(get(bx, y, bz)) || solid(get(bx, y + 1, bz)))) y++;
+  player.pos.set(w.x, y + 0.01, w.z); tpWait = null; window.__freeze = 0; if (w.cb) w.cb();
+}
+function enterBackrooms() {
+  const v = R2(), p = pl2(); v.brFrom = [Math.round(p.x * 10) / 10, Math.ceil(p.y), Math.round(p.z * 10) / 10];
+  // a safe way home: the spot you clipped from, or the nearest open air above it
+  r2fade.classList.add('on'); noiseBurst(0.8, 0.12, 2400);
+  setTimeout(() => { for (const m of [...mobs]) if (!m.petId && m !== player.horse) removeMob(m, false);
+    tpSafe(BR_X + 0.5, BR_Y + 1.01, 0.5, () => { r2fade.classList.remove('on'); toast('🟨 You no-clipped out of reality... find the glitchy EXIT'); glitchFound('backrooms'); }); }, 400);
+}
+function leaveBackrooms(msg) {
+  const v = R2(), f = v.brFrom; r2fade.classList.add('on'); brLeaving = true;
+  setTimeout(() => {
+    const done = () => { brLeaving = false; setTimeout(() => { r2fade.classList.remove('on'); toast(msg); }, 300); };
+    if (f) tpSafe(Math.floor(f[0]) + 0.5, Math.max(2, f[1]), Math.floor(f[2]) + 0.5, done); else tpSafe(VX + 0.5, G + 2, VZ - 4.5, done);
+    v.brFrom = null;
+  }, 450);
+}
+function startVoid() {
+  voidT = 7; window.__freeze = 1; glitchFound('void');
+  r2void.innerHTML = '<b>YOU FELL OUT OF THE WORLD</b><i>there is nothing down here. well... almost nothing.</i><i>🐛 BUGGY WAS HERE 🐛</i><i>thanks for watching Buggy Games YT. glitch hunters never stop.</i>';
+  r2void.classList.add('on'); beep(60, 2.5, 'sine', 0.06);
+}
+// ✋ actions: shop stalls, torn notes, UFO parking, the golden bug
+{ const use5 = useAction; useAction = function () {
+  if (!player.alive) return;
+  if (!uiOpen && !player.car && !player.horse) {
+    const id = held();
+    const h = raycast();
+    if (h && h.kind === 'block' && h.id === SHOP) { const k = h.x + ',' + h.y + ',' + h.z; if (!state.shops[k]) state.shops[k] = { o: myId(), on: myName(), items: [], till: 0, sold: 0 }; openKp('shop', k); return; }
+    if (id === 'torn_note') { toast('📜 ' + NOTES[Math.floor(hash2(state.gameTime | 0, count('torn_note'), 7) * NOTES.length) % NOTES.length]); swing(); return; }
+    if (id === 'golden_bug') { swing(); toast(['🐛 *bzzzt*', '🐛 The Golden Bug hums: "subscribe"', '🐛 It glitches a little in your hand', '🐛 Buggy\'s Golden Bug sparkles'][rint(0, 3)]); particles(pl2().x, pl2().y + 1.4, pl2().z, new THREE.Color(1, 0.85, 0.1), 10); return; }
+  }
+  return use5();
+}; }
+{ const rk5 = renderKp; renderKp = function () {
+  if (kpMode !== 'shop') return rk5();
+  document.getElementById('kpBox').innerHTML = '<button class="btn close" data-kpx="1" style="float:right">✕</button>' + shopHTML(kpVenue);
+}; }
+kpEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-kp15]'); if (!b || b.disabled) return; const [a, x, y] = b.dataset.kp15.split(':');
+  if (a === 'eng' || a === 'hand') buyMod2(a); else if (a === 'rim' || a === 'neon') buyMod2(a, x); else shopAct(a, x, y);
+  if (kpShown()) renderKp();
+});
+{ const ut5 = updateTarget; updateTarget = function () {
+  ut5(); if (!playing || player.car) return; const el = document.getElementById('target'), h = raycast();
+  if (h && h.kind === 'block' && h.id === SHOP) { const s = state.shops[h.x + ',' + h.y + ',' + h.z]; el.style.display = 'block'; el.textContent = s && !shopMine(s) ? `🏪 ${s.on || 'Player'}'s shop · ✋ browse` : '🏪 Your shop · ✋ stock & prices'; }
+  else if (h && h.kind === 'block' && h.id === GLITCH) { el.style.display = 'block'; el.textContent = '▓▒░ E X I T ░▒▓'; }
+}; }
+
+// ---- 📱 🛸 Extras app: UFO, Moon, shops, Glitch Hunter
+function extrasApp() {
+  const v = R2(), mine = aircraft.find(a => a.kind === 'ufo' && a.owned), shops = Object.entries(state.shops).filter(([, s]) => shopMine(s));
+  let h = `<div class="pappbar">🛸 Extras</div><div class="pplug">`;
+  h += `<h4>🛸 UFO & the Moon</h4><div class="pst">${mine ? `Your UFO is ${realmAt(mine.x) === 'moon' ? 'on the 🌙 Moon' : realmAt(mine.x) ? 'somewhere weird' : 'on 🌍 Earth'} · ${Math.round(Math.hypot(mine.x - pl2().x, mine.z - pl2().z))} m away` : 'No UFO yet. A working saucer sits next to every 🛸 crash site (and the mothership drops one).'}<br><span style="opacity:.75;font-size:12px">Fly it straight up above 128 to leave for the Moon, and do the same on the Moon to come home.</span></div>`;
+  if (mine) h += `<button class="pst" data-kp15p="ufo">🛸 Call my UFO here</button>`;
+  h += `<h4>⛏️ Deep caves</h4><div class="pst" style="font-size:13px">Caves run under fresh land: bring torches. 💎 Diamonds under y 12, 🟩 emeralds (more in mountains), plus gold & platinum ore you can smelt. Chests hide down there too.</div>`;
+  h += `<h4>🏪 My shops</h4>` + (shops.length ? shops.map(([k, s]) => `<div class="pst">🏪 ${k.split(',').filter((_, i) => i !== 1).join(', ')} · ${s.items.reduce((a, b) => a + b.n, 0)} items · till 💰${Math.floor(s.till || 0)} · sold ${s.sold || 0}</div>`).join('') : '<div class="pst">Craft a 🏪 Shop Stall (3 wool over planks-chest-planks) and place it anywhere.</div>');
+  h += `<h4>🐛 Glitch Hunter ${glitchN()}/6</h4>` + GL_IDS.map(k => `<div class="pst" style="${v.gl[k] ? '' : 'opacity:.6'}">${v.gl[k] ? '✅ ' + GLITCHES[k].n : '❓ ??? · <span style="font-size:12px">' + GLITCHES[k].h + '</span>'}</div>`).join('');
+  return h + '</div>';
+}
+{ const rp5 = renderPhone; renderPhone = function () {
+  rp5(); const el = document.getElementById('pScreen'); if (!el) return;
+  if (phoneApp === 'home') { const a = el.querySelector('.papps'); if (a && !a.querySelector('[data-app="extras"]')) a.insertAdjacentHTML('beforeend', '<button class="papp" data-app="extras"><i style="background:linear-gradient(#3a3a6a,#0a0a2a)">🛸</i>Extras</button>'); return; }
+  if (phoneApp === 'extras') el.innerHTML = phoneStatus() + extrasApp();
+}; }
+phoneEl.addEventListener('click', e => { const b = e.target.closest('[data-kp15p]'); if (!b) return; if (b.dataset.kp15p === 'ufo') { summonUfo(); closePanels(); } });
+
+// ---- HUD line
+{ const rh5 = renderHud4; renderHud4 = function () {
+  rh5(); const bits = [], rm = realm(), a = player.car;
+  if (rm === 'moon') bits.push('🌙 The Moon · low gravity');
+  if (rm === 'back') bits.push('🟨 ??? · find the EXIT');
+  if (isUfo(a)) bits.push(a.y >= 128 ? `🚀 ${rm === 'moon' ? 'Heading home' : 'Leaving Earth'}... ${Math.min(100, Math.round(warpT / 1.6 * 100))}%` : `🛸 Altitude ${Math.round(a.y)} · climb above 128 for ${rm === 'moon' ? '🌍 Earth' : '🌙 the Moon'}`);
+  if (pushT > 1.5) bits.push('▓▒░ the wall feels thin ░▒▓');
+  if (!bits.length) return;
+  const extra = bits.join(' &nbsp; '), html = hud4.innerHTML ? hud4.innerHTML + ' &nbsp; ' + extra : extra;
+  if (hud4.innerHTML !== html) hud4.innerHTML = html; hud4.style.display = 'block';
+}; }
+// ---- leaving the world: nothing carries into the title screen / another world
+function reset15() { for (const m of [...mobs]) if (m.glitch) removeMob(m, false); brLeaving = false; if (voidT || tpWait) { voidT = 0; tpWait = null; window.__freeze = 0; r2void.classList.remove('on'); } r2fade.classList.remove('on'); pushT = 0; honks = []; }
+// ---- the per-frame hook (runs right after the v1.14 story hook)
+{ const u14 = updateV113; updateV113 = function (dt, t) {
+  u14(dt, t);
+  if (!playing) { reset15(); return; }
+  if (realm() && typeof job !== 'undefined' && job) endJob('💼 Shift ended (you left the planet)');
+  updateTp(dt); updateCaveCull(); updateCaveMobs(dt); updateUfoWorld(dt); updateFloatCars(dt); updateShops(dt); updateShopTags(); updateGlitches(dt, t);
+}; }
+window.__dc15 = { R2, realm, realmAt, onMoon, gravMul, moonH, genMoon, genBack, caveInit, caveChOld, carveCaves, get caveStats() { return caveStats; }, realmChests, lootFor, lootChest, underground, updateCaveMobs,
+  warp, summonUfo, buildUfoCraft, ufoNear, updateUfoWorld, MOON_X0, BACK_X1, PAD_X, PAD_Z, BR_X, BR_Y, BR_EXIT, BR_BUG, BR_HOLE, earth,
+  ENG, HAND, RIMS, NEON, buyMod2, applyLooks, honk, meExtra, remoteExtra, shopHTML, shopAct, updateShops, shopMine, ownerHere, netExtra, shopsNet,
+  GLITCHES, glitchFound, glitchN, spawnGlitchMob, unglitch, enterBackrooms, leaveBackrooms, startVoid, get voidT() { return voidT; }, get pushT() { return pushT; }, reset15, extrasApp };
+
 // ================== SOUNDS ==================
 let ambStarted = false;
 function startAmbience() {
@@ -8401,7 +9931,7 @@ function updatePlayer(dt) {
   else { player.vel.x = mx * sp; player.vel.z = mz * sp; }
   if (!data.has(ckey(fdiv(Math.floor(p.x + mx), CH), fdiv(Math.floor(p.z + mz), CH)))) { player.vel.x = 0; player.vel.z = 0; }
   if (water) { player.vel.y -= 9 * dt; player.vel.y = Math.max(player.vel.y, -2.5); if (keys.Space || wantJump) player.vel.y = 3.2; player.fallStart = null; }
-  else { player.vel.y -= 26 * dt; if ((keys.Space || wantJump) && player.onGround) { player.vel.y = 8.4; exhaust(player.sprint ? 0.2 : 0.05); } }
+  else { player.vel.y -= 26 * dt * gravMul(); if ((keys.Space || wantJump) && player.onGround) { player.vel.y = 8.4; exhaust(player.sprint ? 0.2 : 0.05); } }
   player.vel.y = Math.max(player.vel.y, -40);
   const ox = p.x, oz = p.z;
   for (const ax of ['x', 'z']) {
@@ -8417,7 +9947,7 @@ function updatePlayer(dt) {
   if (collides(p)) { if (player.vel.y < 0) { p.y = landTop(p, oy); if (collides(p)) p.y = oy; player.onGround = true; } else p.y = oy; player.vel.y = 0; }
   // fall damage (more than 3 blocks), cancelled by landing in water
   if (!player.onGround && !water) { if (player.fallStart === null || p.y > player.fallStart) player.fallStart = p.y; }
-  if (player.onGround && player.fallStart !== null) { const fall = player.fallStart - p.y; player.fallStart = null; if (fall > 3.4) damage(Math.floor(fall - 3), 'fall'); }
+  if (player.onGround && player.fallStart !== null) { const fall = (player.fallStart - p.y) * gravMul(); player.fallStart = null; if (fall > 3.4) damage(Math.floor(fall - 3), 'fall'); }
   if (p.y < -10) { p.set(VX + 0.5, G + 2, VZ - 4.5); player.vel.set(0, 0, 0); player.fallStart = null; }
   camera.position.set(p.x, p.y + EYE, p.z);
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');

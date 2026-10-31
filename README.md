@@ -21,5 +21,6 @@ A blocky 3D farming and trading game by **Buggy Games YT**. Grow crops, craft go
 | v1.11 | Drug Update: rare psychedelic mushrooms + shroom soup, craftable drugs & drinks with highs, drunk/trip screen effects, crackheads |
 | v1.12 | Hustle Update: street dealing, tolerance & overdose, police raids, turf wars, The Plug delivery jobs, money laundering, Halloween night, fishing |
 | v1.13 | Kingpin Update: heists + pawn shop, car garage, real estate, hire a crew, court & lawyers, drug lab, casino, daily challenges & achievements |
+| v1.14 | Story & Space Update: 14-mission story mode, cartel + alien mothership bosses, taxi/pizza/trucker jobs, deep caves with diamonds & treasure, UFO trips to the Moon, car mods, player shop stalls, six hidden glitches |
 
 Made by Buggy · [YouTube](https://www.youtube.com/@BuggyGamesYT)
