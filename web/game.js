@@ -496,6 +496,31 @@ Object.assign(VILLAGERS[3].buys, { tropical_fish: 12, pufferfish: 18, moonfish: 
 Object.assign(VILLAGERS[4].sells, { halloween_candy: 2 });
 Object.assign(VILLAGERS[4].buys, { halloween_candy: 3, pufferfish: 20 });
 
+// ================== v1.13 KINGPIN UPDATE: items, blocks, recipes (gameplay lives in the v1.13 section near the game loop) ==================
+// drug lab block: ✋ it to cook (steel sides, hazard-stripe top)
+const LAB = 130;
+Object.assign(BT, { [LAB]: [121, 114, 114] });
+Object.assign(HARD, { [LAB]: [2.5, 'pick'] });
+Object.assign(BLOCK_DROP, { [LAB]: 'drug_lab' });
+Object.assign(ITEMS, {
+  drug_lab: { name: 'Drug Lab (✋ to cook)', block: LAB },
+  // heist loot (only the pawn shop wants it)
+  stolen_watch: { name: 'Stolen Gold Watch', emoji: '⌚', tag: 'HOT' },
+  stolen_necklace: { name: 'Stolen Necklace', emoji: '📿', tag: 'HOT' },
+  diamond_ring: { name: 'Stolen Diamond Ring', emoji: '💍', tag: 'HOT' },
+  vault_gold: { name: 'Vault Gold Bar (stolen)', emoji: '🪙', tag: 'HOT' },
+  scratch_ticket: { name: 'Scratch-off Ticket (✋ to scratch)', emoji: '🎟️', stack: 16 },
+  // lab-cooked drugs: higher purity sells for more (Pure = 70-89%, Blue Sky / Fishscale / Rock Star = 90%+)
+  meth_pure: { name: 'Pure Meth (70-89%)', emoji: '🧊', tag: 'PURE', food: 1 }, meth_prime: { name: 'Blue Sky Meth (90%+)', emoji: '💎', tag: '99%', food: 1 },
+  cocaine_pure: { name: 'Pure Cocaine (70-89%)', emoji: '❄️', tag: 'PURE', food: 1 }, cocaine_prime: { name: 'Fishscale Cocaine (90%+)', emoji: '❄️', tag: '99%', food: 1 },
+  crack_pure: { name: 'Pure Crack (70-89%)', emoji: '🪨', tag: 'PURE', food: 1 }, crack_prime: { name: 'Rock Star Crack (90%+)', emoji: '🪨', tag: '99%', food: 1 },
+  // property deeds (DealerNet 🏠 Property): ✋ one to move in where you stand
+  deed_apartment: { name: 'Apartment Deed (✋ to move in)', emoji: '🏢', stack: 1 },
+  deed_house: { name: 'House Deed (✋ to move in)', emoji: '🏠', stack: 1 },
+  deed_penthouse: { name: 'Penthouse Deed (✋ to move in)', emoji: '🌆', stack: 1 },
+});
+shaped('drug_lab', 1, ['GGG', 'IFI', 'III'], { G: 'glass', I: 'iron_ingot', F: 'furnace' });
+
 // ================== RANDOM / NOISE ==================
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hash2(x, z, s) { let h = x * 374761393 + z * 668265263 + s * 982451653; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -7381,6 +7406,880 @@ window.__dc12 = { V12, ILLEGAL, streetSale, overdose, get odLoad() { return odLo
   get retake() { return retake; }, plugOffers, acceptJob, failJob, washRate, openBiz, isHalloweenDay, updateHalloween, castRod, reelIn, rollCatch, get fishing() { return fishing; }, updateV112,
   t: { get state() { return state; }, give, count, take, spawnMob, mobs, villagers, interactMob: (...a) => interactMob(...a), takeDrug: (...a) => takeDrug(...a), useAction: () => useAction(), finishBreak: (h) => finishBreak(h), setBlock, get, renderPhone: () => renderPhone(), openPhone, openTrade, renderHud4: () => renderHud4(), renderSettings: () => renderSettings(), player, settings, ghettoZones, STASH, ITEMS, get wanted() { return wanted; }, set wanted(x) { wanted = x; }, get wantedLvl() { return wantedLvl; }, set wantedLvl(x) { wantedLvl = x; }, updateFishing, closePanels, get trickT() { return trickT; }, set trickT(x) { trickT = x; } } };
 
+// ================== v1.13 KINGPIN UPDATE: heists + pawn shop, car garage, real estate, crew, court & lawyers, drug lab, casino, daily challenges & achievements ==================
+// Items/blocks/recipes are in the v1.13 data block near the top. Everything here grafts onto earlier code by wrapping.
+// Save data lives in state.v113 (created lazily, so older saves load fine).
+// Town "venues" (gas stations, jewelry stores, banks, pawn shops, garages, casinos) are kiosks with a clerk placed on the
+// sidewalk in front of a lot. They are meshes, not blocks, so no world chunk changes and old worlds get them too.
+function V13() {
+  const v = state.v113 || (state.v113 = {});
+  if (!v.cd) v.cd = {};                          // heist cooldowns: venue key -> gameTime it can be hit again
+  if (v.car === undefined) v.car = null;         // your modded ride { col, nitro, armor, hidden }
+  if (!Array.isArray(v.homes)) v.homes = [];     // safehouses { id, kind, x, y, z }
+  if (v.spawnHome === undefined) v.spawnHome = null;
+  if (!Array.isArray(v.crew)) v.crew = [];       // { id, kind, name, post, stock, cash, sold, unpaid }
+  if (v.nextId == null) v.nextId = 1;
+  if (!v.stats) v.stats = {};
+  if (!v.ach) v.ach = {};
+  if (v.lastDay == null) v.lastDay = day();
+  if (v.lastRep == null) v.lastRep = V12().rep;
+  return v;
+}
+V13();
+const KP_STOLEN = ['stolen_watch', 'stolen_necklace', 'diamond_ring', 'vault_gold'];
+const KP_LABDRUGS = ['meth_pure', 'meth_prime', 'cocaine_pure', 'cocaine_prime', 'crack_pure', 'crack_prime'];
+const PURITY_MULT = { pure: 1.6, prime: 2.5 };
+// lab drugs work like the street versions (a little longer), count as illegal, and sell for more
+for (const id of KP_LABDRUGS) {
+  const [base, grade] = id.split('_'), d = DRUGS[base];
+  DRUGS[id] = { ...d, dur: Math.round(d.dur * (grade === 'prime' ? 1.4 : 1.2)), n: d.n + (grade === 'prime' ? ' (pure)' : '') };
+  DRUG_MSG[id] = DRUG_MSG[base]; OD_LOAD[id] = (OD_LOAD[base] || 2) + (grade === 'prime' ? 1 : 0.5); ILLEGAL.add(id);
+  const val = Math.round(itemValue(base) * PURITY_MULT[grade]); RAW_VALUE[id] = val; TOWN_TRADES[3].buys[id] = val; VILLAGERS[3].buys[id] = Math.round(val * 0.9);
+}
+Object.assign(RAW_VALUE, { drug_lab: 90, stolen_watch: 70, stolen_necklace: 95, diamond_ring: 180, vault_gold: 320, scratch_ticket: 5 });
+FUEL.scratch_ticket = 0.2;
+
+// ---- money helpers
+const cashTotal = () => state.coins + dirtyCash();
+function payAny(n, dirtyFirst) {   // pay n from both wallets; false (and nothing taken) if you can't cover it
+  n = Math.round(n); const v = V12(); if (n <= 0) return true; if (state.coins + Math.floor(v.dirty) < n) return false;
+  if (dirtyFirst) { const d = Math.min(Math.floor(v.dirty), n); v.dirty -= d; state.coins -= n - d; }
+  else { const c = Math.min(state.coins, n); state.coins -= c; v.dirty -= n - c; }
+  renderStats(); return true;
+}
+function addClean(n, why) { n = Math.round(n); if (n <= 0) return; state.coins += n; state.earned += n; if (why) toast(why); coinSnd(); renderStats(); }
+// queued toasts (achievements / challenges) so they don't stomp on the action toast
+const kpQ = []; let kpQT = 0;
+function kpToast(msg) { kpQ.push(msg); }
+
+// ======================= 8. DAILY CHALLENGES + ACHIEVEMENTS (events used by every feature, so they come first) =======================
+const DAILY = {
+  sell: { t: '💊 Sell 10 drugs on the street', n: 10, cash: 150 },
+  fish: { t: '🎣 Catch 5 fish', n: 5, cash: 100 },
+  koi: { t: '⭐ Catch a Golden Koi', n: 1, cash: 300, item: ['diamond_ring', 1] },
+  plug: { t: '🔌 Complete a Plug job', n: 1, cash: 200 },
+  casinoWin: { t: '🎰 Win a game at the casino', n: 1, cash: 120 },
+  heist: { t: '🔫 Pull off a heist', n: 1, cash: 250, item: ['pistol_ammo', 24] },
+  pawn: { t: '🏪 Pawn 3 stolen items', n: 3, cash: 150 },
+  cook: { t: '⚗️ Cook a batch in a drug lab', n: 1, cash: 150 },
+  gang: { t: '🧢 Knock out 3 gang members', n: 3, cash: 200, item: ['pistol_ammo', 12] },
+  dirty: { t: '💵 Earn 500 dirty cash', n: 500, cash: 200 },
+  mod: { t: '🔧 Buy a mod at a garage', n: 1, cash: 100 },
+  crewSale: { t: '👥 Have your runners sell 5 drugs', n: 5, cash: 150, item: ['scratch_ticket', 3] },
+};
+function dailyToday() {
+  const v = V13(), d = day();
+  if (!v.daily || v.daily.day !== d) {
+    const keys = Object.keys(DAILY), pick = [];
+    for (let i = 0; pick.length < 3 && i < 60; i++) { const k = keys[Math.floor(hash2(d, i, state.seed + 1313) * keys.length)]; if (!pick.includes(k)) pick.push(k); }
+    v.daily = { day: d, ids: pick, prog: {}, done: {} };
+  }
+  return v.daily;
+}
+function dailyEvent(k, n = 1) {
+  const dl = dailyToday(), c = DAILY[k]; if (!c || !dl.ids.includes(k) || dl.done[k]) return;
+  dl.prog[k] = Math.min(c.n, (dl.prog[k] || 0) + n);
+  if (dl.prog[k] < c.n) return;
+  dl.done[k] = true; state.coins += c.cash; state.earned += c.cash; let extra = '';
+  if (c.item) { give(c.item[0], c.item[1]); extra = ` + ${c.item[1] > 1 ? c.item[1] + '× ' : ''}${ITEMS[c.item[0]].name}`; }
+  const v = V13(); v.stats.dailies = (v.stats.dailies || 0) + 1; coinSnd(); renderStats();
+  kpToast(`✅ Daily challenge done: ${c.t}! +💰${c.cash}${extra}`);
+}
+const ACH = [
+  ['corner', '🤝 Corner Boy', 'Sell your first drug on the street', s => s.sell >= 1],
+  ['block', '👑 King of the Block', 'Sell 100 drugs on the street', s => s.sell >= 100],
+  ['stick', '🔫 Stick \'Em Up', 'Pull off your first heist', s => s.heist >= 1],
+  ['bankjob', '🏦 The Bank Job', 'Empty a bank vault', s => s.bank >= 1],
+  ['fence', '🏪 The Fence', 'Pawn 10 stolen items', s => s.pawn >= 10],
+  ['pimp', '🔧 Pimp My Ride', 'Fit nitro, armor and a hidden compartment on one ride', s => s.fullMod >= 1],
+  ['landlord', '🏠 Landlord', 'Own a safehouse', s => s.homes >= 1],
+  ['mogul', '🌆 Property Mogul', 'Own 3 safehouses', s => s.homes >= 3],
+  ['boss', '👥 Boss Up', 'Hire your first crew member', s => s.hired >= 1],
+  ['beatcase', '⚖️ Beat the Case', 'Get a case dismissed by your lawyer', s => s.dismissed >= 1],
+  ['bb', '⚗️ Breaking Bad', 'Cook a batch at 90%+ purity', s => s.prime >= 1],
+  ['boom', '💥 Bad Batch', 'Blow up a drug lab', s => s.labBoom >= 1],
+  ['lucky', '🎰 Lucky', 'Win at the casino', s => s.casinoWin >= 1],
+  ['jackpot', '7️⃣ Jackpot!', 'Hit 7️⃣7️⃣7️⃣ on the slots', s => s.jackpot >= 1],
+  ['koi', '⭐ Golden Touch', 'Catch a Golden Koi', s => s.koi >= 1],
+  ['grind', '📅 Daily Grind', 'Finish 5 daily challenges', s => s.dailies >= 5],
+  ['rich', '💰 Big Money', 'Hold 10,000 (💰 + 💵) at once', () => cashTotal() >= 10000],
+];
+function checkAch() {
+  const v = V13();
+  for (const [id, n, , f] of ACH) if (!v.ach[id] && f(v.stats)) { v.ach[id] = Math.max(1, Math.round(state.gameTime)); kpToast(`🏆 Achievement unlocked: ${n}`); }
+}
+function kpStat(k, n = 1) { const v = V13(); v.stats[k] = (v.stats[k] || 0) + n; dailyEvent(k, n); checkAch(); }
+// hooks into earlier systems
+{ const ss0 = streetSale; streetSale = function (m, id, fiend) { const n0 = count(id); ss0(m, id, fiend); if (count(id) < n0) kpStat('sell'); }; }
+{ const rc0 = rollCatch; rollCatch = function () { const id = rc0(); if (FISH.has(id)) kpStat('fish'); if (id === 'golden_koi') kpStat('koi'); return id; }; }
+{ const ad0 = addDirty; addDirty = function (n, why) { ad0(n, why); n = Math.round(n); if (n > 0) dailyEvent('dirty', n); }; }
+{ const hm3 = hurtMob; hurtMob = function (m, dmg, from, noDrop) {
+  const was = m && mobs.includes(m), type = m && m.type, cid = m && m.crewId;
+  const r = hm3(m, dmg, from, noDrop);
+  if (was && !mobs.includes(m) && m.hp <= 0) { if (type === 'gangster' && from === player.pos) kpStat('gang'); if (cid) crewDown(cid); }
+  return r; }; }
+
+// ---- shared panel for the counters / lab / casino / court
+const v13css = document.createElement('style');
+v13css.textContent = `#kpBox{width:min(560px,94vw)}#kpBox .kbal{display:flex;gap:12px;justify-content:center;font-weight:700;background:rgba(0,0,0,.3);border-radius:10px;padding:7px;margin:6px 0}
+#kpBox .krow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.08)}#kpBox .krow .nm{flex:1}#kpBox .ksub{opacity:.75;font-size:13px;margin:4px 0}
+#kpBox .kbig{display:block;width:100%;margin:6px 0;text-align:left;padding:10px 12px}#kpBox .ktabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+#kpBox .kres{text-align:center;font-size:20px;min-height:30px;margin:8px 0}#kpBox .reels{font-size:48px;text-align:center;letter-spacing:10px;margin:6px 0}
+#kpBox .cards{font-size:22px;margin:4px 0}#kpBox .gauge{position:relative;height:26px;border-radius:8px;background:linear-gradient(90deg,#2a6ad2 0 45%,#2fbf4a 45% 65%,#d2a02a 65% 88%,#d2302a 88%);margin:10px 0}
+#kpBox .needle{position:absolute;top:-4px;width:4px;height:34px;background:#fff;box-shadow:0 0 4px #000;border-radius:2px}#kpBox .prog{height:10px;border-radius:5px;background:#333;overflow:hidden}#kpBox .prog i{display:block;height:100%;background:#ffd84a}
+#kpBox .sw{display:inline-block;width:30px;height:30px;border-radius:6px;border:2px solid #fff;margin:3px;cursor:pointer}
+.pplug .pbar{height:8px;border-radius:4px;background:#333;overflow:hidden;margin-top:4px}.pplug .pbar i{display:block;height:100%;background:#3bff7a}
+.pplug .prow{display:flex;gap:6px}.pplug .prow .pst{flex:1}
+#bNitro{display:none;right:24px;bottom:240px;font-size:24px}body.kpnitro #bNitro{display:flex}body:not(.touch) #bNitro{display:none!important}`;
+document.head.appendChild(v13css);
+const kpEl = document.createElement('div'); kpEl.className = 'panel'; kpEl.id = 'kp'; kpEl.innerHTML = '<div class="box" id="kpBox"></div>'; document.body.appendChild(kpEl);
+let kpMode = null, kpVenue = null, kpLab = null;
+function openKp(mode, vn) { kpMode = mode; kpVenue = vn || null; renderKp(); openPanel('kp'); beep(520, 0.05, 'triangle', 0.05); }
+const kpShown = () => kpEl.classList.contains('show');
+const balHTML = () => `<div class="kbal"><span>💰 ${state.coins} clean</span><span style="color:#9aff8a">💵 ${dirtyCash()} dirty</span></div>`;
+
+// ======================= VENUES: kiosks with a clerk in towns and cities =======================
+const VENUE = {
+  gas: { n: '⛽ Gas Station', col: 0xd23a2a, shirt: 0xd23a2a, heist: { t: 8, stars: 1, cd: 600, cash: [40, 110], what: 'register' } },
+  jewelry: { n: '💎 Jewelry Store', col: 0x2ab8c8, shirt: 0x1a1a1a, heist: { t: 14, stars: 2, cd: 1200, cash: [60, 140], what: 'display case' } },
+  bank: { n: '🏦 Bank', col: 0xc9a227, shirt: 0x24335a, heist: { t: 24, stars: 3, cd: 2400, cash: [450, 900], what: 'vault' } },
+  pawn: { n: '🏪 Pawn Shop', col: 0x8a5a2a, shirt: 0x5a3a1a },
+  garage: { n: '🔧 Garage & Mods', col: 0x3a3a46, shirt: 0x2a4a8a },
+  casino: { n: '🎰 Casino', col: 0x9a1ad0, shirt: 0x111111 },
+};
+const venueMemo = new Map(), liveVenues = [];
+function venuesOf(t) {
+  if (venueMemo.has(t.id)) return venueMemo.get(t.id);
+  const nb = t.nb || 3, city = t.type === 'city', lots = [];
+  for (let i = 0; i < nb; i++) for (let j = 0; j < nb; j++) lots.push([i, j]);
+  const r = mulberry(Math.floor(hash2(t.x0, t.z0, state.seed + 1300) * 1e9));
+  for (let k = lots.length - 1; k > 0; k--) { const q = Math.floor(r() * (k + 1)); [lots[k], lots[q]] = [lots[q], lots[k]]; }
+  const want = t.metro ? ['bank', 'casino', 'pawn', 'jewelry', 'gas', 'garage', 'jewelry', 'gas'] : city ? ['bank', 'casino', 'pawn', 'jewelry', 'gas', 'garage'] : ['gas', 'garage'];
+  const isG = l => !!t.ghetto && districtOf(t, l[0], l[1]) === 'ghetto', used = new Set(), out = [];
+  for (const kind of want) {
+    const free = l => !used.has(l[0] + ',' + l[1]) && !(t.type !== 'city' && l[0] === 1 && l[1] === 1);   // keep the village square
+    let lot = kind === 'pawn' && t.ghetto ? lots.find(l => free(l) && isG(l)) : null;
+    if (!lot) lot = lots.find(l => free(l) && (kind === 'pawn' || !isG(l)));
+    if (!lot) break; used.add(lot[0] + ',' + lot[1]);
+    const x = t.x0 + lot[0] * 16 + 6, z = t.z0 + lot[1] * 16 + 4;
+    out.push({ kind, x, z, j: lot[1], key: kind + '@' + x + ',' + z, t, mesh: null, y: t.base + 1 });
+  }
+  venueMemo.set(t.id, out); return out;
+}
+function venueMesh(vn) {
+  const d = VENUE[vn.kind], g = new THREE.Group();
+  box(1.6, 1.0, 0.7, d.col, 0, 0.5, 0, g); box(1.7, 0.08, 0.8, 0xe8e8e8, 0, 1.04, 0, g);
+  for (const px of [-0.78, 0.78]) box(0.08, 2.2, 0.08, 0x333333, px, 1.1, 0.35, g);
+  const awn = box(1.9, 0.12, 1.2, d.col, 0, 2.25, 0.1, g); awn.material.emissive.setHex(0x181818);
+  if (vn.kind === 'gas') { box(0.5, 1.4, 0.4, 0xe8e8e8, -1.3, 0.7, 0, g); box(0.42, 0.3, 0.05, 0x111111, -1.3, 1.1, -0.22, g); }
+  if (vn.kind === 'jewelry') { const gl = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.5), glassMat); gl.position.set(0, 1.22, 0); g.add(gl); box(0.12, 0.12, 0.12, 0xffe14a, -0.3, 1.14, 0, g); box(0.12, 0.12, 0.12, 0x9ff4ff, 0.2, 1.14, 0, g); }
+  if (vn.kind === 'bank') { box(1.0, 1.6, 0.25, 0x6a6e76, 0, 0.8, 0.85, g); const w = box(0.4, 0.4, 0.06, 0xc9a227, 0, 0.9, 0.7, g); w.material.emissive.setHex(0x302000); }
+  if (vn.kind === 'pawn') for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), lam(0xffd23a)); b.position.set(-0.2 + k * 0.2, 2.6 - (k === 1 ? 0.25 : 0), -0.5); g.add(b); }
+  if (vn.kind === 'garage') { box(0.5, 0.5, 0.5, 0x222222, 1.3, 0.25, 0, g); box(0.1, 0.6, 0.1, 0xbababa, 1.3, 0.8, 0, g); }
+  if (vn.kind === 'casino') for (let k = 0; k < 6; k++) { const b = box(0.16, 0.16, 0.06, [0xff3b3b, 0xffd23b, 0x3bff7a, 0x3ba0ff][k % 4], -0.75 + k * 0.3, 2.42, -0.5, g); b.material.emissive.setHex([0x801010, 0x806010, 0x108030, 0x103080][k % 4]); }
+  const clerk = humanoid({ shirt: d.shirt, skin: [0xf1c27d, 0xc58c63, 0x8d5524][Math.floor(hash2(vn.x, vn.z, 5) * 3)], pants: 0x222222 });
+  clerk.g.position.set(0, 0, 0.75); clerk.g.rotation.y = Math.PI; clerk.g.scale.setScalar(0.92); g.add(clerk.g);   // behind the counter, facing the street (-z)
+  const tag = nameSprite(d.n); tag.position.y = 3.0; g.add(tag);
+  g.position.set(vn.x + 0.5, vn.y, vn.z + 0.5); scene.add(g); return g;
+}
+let venueT = 0;
+function updateVenues(dt) {
+  venueT -= dt; if (venueT > 0) return; venueT = 1;
+  const pp = player.pos;
+  for (let i = liveVenues.length - 1; i >= 0; i--) { const vn = liveVenues[i]; if (Math.hypot(vn.x - pp.x, vn.z - pp.z) > 110) { scene.remove(vn.mesh); vn.mesh = null; liveVenues.splice(i, 1); } }
+  for (const t of townsNear(80)) for (const vn of venuesOf(t)) {
+    if (vn.mesh || Math.hypot(vn.x - pp.x, vn.z - pp.z) > 80 || !data.has(ckey(fdiv(vn.x, CH), fdiv(vn.z, CH)))) continue;
+    let y = t.base + 1; while (y < t.base + 6 && (solid(get(vn.x, y, vn.z)) || solid(get(vn.x, y + 1, vn.z)))) y++;
+    while (y > 1 && !solid(get(vn.x, y - 1, vn.z))) y--;
+    vn.y = y; vn.mesh = venueMesh(vn); liveVenues.push(vn);
+  }
+}
+function venueNear(r = 2.8) {
+  let best = null, bd = r;
+  for (const vn of liveVenues) { const d = Math.hypot(vn.x + 0.5 - player.pos.x, vn.z + 0.5 - player.pos.z); if (d < bd && Math.abs(player.pos.y - vn.y) < 3) { bd = d; best = vn; } }
+  return best;
+}
+function useVenue(vn) {
+  if (vn.kind === 'gas' || vn.kind === 'jewelry' || vn.kind === 'bank') {
+    if (isWeapon(held())) { startHeist(vn); return; }
+    if (vn.kind === 'gas') { if (payAny(10, false)) { give('scratch_ticket', 1); toast('⛽ "One scratch-off, coming up." -💰10 · 🔫 (hold a weapon to rob the register)'); } else toast('⛽ Scratch-offs are 💰10 · hold a weapon to rob the register'); return; }
+    toast(`${VENUE[vn.kind].n} · 🔫 hold a gun or weapon and ✋ to rob the ${VENUE[vn.kind].heist.what}`); return;
+  }
+  openKp(vn.kind, vn);
+}
+// label when you're standing at a counter
+{ const ut0 = updateTarget; updateTarget = function () {
+  ut0(); const el = document.getElementById('target'); if (el.style.display === 'block' || !playing) return;
+  let txt = '';
+  const vn = venueNear(player.car ? 7 : 2.8);
+  if (vn) {
+    const n = VENUE[vn.kind].n, cd = V13().cd[vn.key] || 0;
+    if (VENUE[vn.kind].heist) txt = `${n} · ${isWeapon(held()) ? (state.gameTime < cd ? '🚫 robbed recently' : `✋ rob the ${VENUE[vn.kind].heist.what}`) : vn.kind === 'gas' ? '✋ buy a scratch-off (💰10)' : '🔫 hold a weapon to rob it'}`;
+    else txt = `${n} · ✋ ${vn.kind === 'pawn' ? 'sell stolen goods' : vn.kind === 'garage' ? 'mod your ride' : 'play'}`;
+  } else { const hm = homeNear(); if (hm) txt = `${HOMES[hm.kind].n} (your safehouse) · ✋ stash / set spawn`; }
+  if (txt) { el.style.display = 'block'; el.textContent = txt; }
+}; }
+
+// ======================= 1. HEISTS + PAWN SHOP =======================
+let heist = null;
+const isWeapon = id => !!(id && ITEMS[id] && (GUNS[id] || (ITEMS[id].tool && (ITEMS[id].tool.kind === 'sword' || ITEMS[id].tool.kind === 'axe'))));
+function startHeist(vn) {
+  const hd = VENUE[vn.kind].heist, v = V13();
+  if (heist) { toast('🔫 You\'re already robbing a place!'); return; }
+  const cd = v.cd[vn.key] || 0;
+  if (state.gameTime < cd) { toast(`🚫 ${VENUE[vn.kind].n} got robbed recently. Come back in ${Math.ceil((cd - state.gameTime) / 60)} min`); return; }
+  if (!isWeapon(held())) { toast(`🔫 Hold a gun or a weapon to rob the ${hd.what}`); return; }
+  heist = { vn, t: 0, total: hd.t, alarm: false, alarmAt: vn.kind === 'gas' ? (Math.random() < 0.55 ? 2.5 + Math.random() * 3 : 1e9) : 0.6 };
+  swing(); beep(300, 0.15, 'sawtooth', 0.05);
+  toast(`🔫 "Everybody down! Empty the ${hd.what}!" · stay close for ${hd.t}s`);
+}
+function heistAlarm() {
+  const vn = heist.vn, hd = VENUE[vn.kind].heist; heist.alarm = true;
+  toast(`🚨 ALARM! ${'★'.repeat(hd.stars)} The cops are on the way`); beep(760, 0.5, 'sawtooth', 0.05); setTimeout(() => beep(980, 0.5, 'sawtooth', 0.05), 550);
+  if (!canHurtPlayer() || jail) return;
+  setWanted(); wantedLvl = Math.max(wantedLvl, hd.stars); wanted = Math.max(wanted, 30 + wantedLvl * 15);
+  for (let i = 0, n = 0; i < 16 && n < hd.stars; i++) {
+    const a = Math.random() * 6.28, r = 10 + Math.random() * 6, x = Math.floor(vn.x + Math.cos(a) * r), z = Math.floor(vn.z + Math.sin(a) * r);
+    if (!data.has(ckey(fdiv(x, CH), fdiv(z, CH)))) continue; const y = groundNear(x + 0.5, vn.y + 2, z + 0.5);
+    if (solid(get(x, y, z)) || solid(get(x, y + 1, z)) || isWater(get(x, y - 1, z))) continue;
+    const m = spawnMob('cop', x + 0.5, y, z + 0.5); if (m) { m.townId = vn.t.id; m.home = new THREE.Vector2(vn.x, vn.z); n++; }
+  }
+  const t = vn.t, lx = vn.x + 16, lz = laneCoord(t, 2, vn.j);
+  if (data.has(ckey(fdiv(lx, CH), fdiv(lz, CH))) && !cars.some(o => Math.hypot(o.x - lx, o.z - lz) < 5)) spawnCar(t, { kind: 'police', people: 2, dir: 2, strip: vn.j, x: lx, z: lz, ai: true });
+}
+function heistLoot() {
+  const vn = heist.vn, hd = VENUE[vn.kind].heist, v = V13(); heist = null;
+  v.cd[vn.key] = state.gameTime + hd.cd;
+  const cash = rint(hd.cash[0], hd.cash[1]), got = [];
+  const add = (id, n) => { if (n > 0) { give(id, n); got.push(`${n > 1 ? n + '× ' : ''}${ITEMS[id].emoji || ''}`); } };
+  if (vn.kind === 'gas') add('scratch_ticket', rint(0, 2));
+  if (vn.kind === 'jewelry') { for (let k = rint(2, 4); k > 0; k--) add(['stolen_watch', 'stolen_necklace', 'stolen_necklace', 'diamond_ring'][rint(0, 3)], 1); }
+  if (vn.kind === 'bank') { add('vault_gold', rint(1, 2)); if (Math.random() < 0.35) add('diamond_ring', 1); }
+  addDirty(cash, `💰 Got away with it! +💵${cash} dirty${got.length ? ' + ' + got.join(' ') : ''}${KP_STOLEN.some(id => count(id)) ? ' · fence the goods at a 🏪 Pawn Shop' : ''}`);
+  kpStat('heist'); if (vn.kind === 'bank') kpStat('bank');
+}
+function updateHeist(dt) {
+  if (!heist) return;
+  const vn = heist.vn, d = Math.hypot(vn.x + 0.5 - player.pos.x, vn.z + 0.5 - player.pos.z);
+  if (!player.alive || jail || court || d > 6.5 || !vn.mesh) {
+    V13().cd[vn.key] = state.gameTime + VENUE[vn.kind].heist.cd / 3;
+    toast(player.alive && !jail && !court ? '🏃 You left the store. Heist failed!' : '🔫 Heist failed'); if (!heist.alarm && canHurtPlayer() && player.alive && !court) heistAlarm(); heist = null; return;
+  }
+  heist.t += dt;
+  if (!heist.alarm && heist.t >= heist.alarmAt) heistAlarm();
+  if (heist.t >= heist.total) heistLoot();
+}
+// pawn shop: buys stolen goods and jewelry for dirty cash
+const PAWN = { stolen_watch: 70, stolen_necklace: 95, diamond_ring: 180, vault_gold: 320, iron_jewelry: 6, silver_jewelry: 18, gold_jewelry: 30, platinum_jewelry: 48, diamond_jewelry: 220, gold_ingot: 15, silver_ingot: 10, platinum_ingot: 25 };
+const pawnPrice = id => Math.max(1, Math.round(PAWN[id] * priceMult(id)));
+function pawnSell(id, all) {
+  const have = count(id); if (!have || !PAWN[id]) return; const n = all ? have : 1, p = pawnPrice(id) * n;
+  take(id, n); addDirty(p, `🏪 Pawned ${n}× ${ITEMS[id].name} for 💵${p} dirty`);
+  if (KP_STOLEN.includes(id)) kpStat('pawn', n);
+}
+function pawnHTML() {
+  const ids = Object.keys(PAWN).filter(id => count(id) > 0);
+  return `<h2>🏪 Pawn Shop</h2><div class="ksub">"No questions asked." Stolen goods and jewelry, paid in 💵 dirty cash. Prices change daily.</div>${balHTML()}` +
+    (ids.length ? ids.map(id => `<div class="krow"><span class="ic">${iconHTML(id)}</span><span class="nm">${ITEMS[id].name} <span style="opacity:.6">(have ${count(id)})</span></span><b>💵 ${pawnPrice(id)}</b><button class="btn" data-kp="pawn1:${id}">Sell 1</button><button class="btn gold" data-kp="pawnA:${id}">All</button></div>`).join('')
+      : '<div class="ksub" style="padding:14px;text-align:center">Nothing to pawn. Rob a 💎 jewelry store or 🏦 bank, or dig up jewelry.</div>');
+}
+
+// ======================= 2. CAR GARAGE: paint, nitro, armor, hidden compartment =======================
+const MODS = { nitro: { n: '🔥 Nitro', p: 450, d: 'Boost: N key / 🔥 button while driving' }, armor: { n: '🛡️ Armor plating', p: 700, d: 'Take 60% less damage inside, ram cars out of the way' }, hidden: { n: '🕳️ Hidden compartment', p: 900, d: 'Cops can\'t detect a Plug package while you drive this car' } };
+const PAINT = [0xd2302a, 0x2a6ad2, 0xf2f2f2, 0x111214, 0x3fa34d, 0xf2c21a, 0xff5ad0, 0x7a2ad2, 0xff7a1a, 0x30e0e0], PAINT_PRICE = 60;
+let kpLastCar = null, nitroT = 0, nitroCharge = 1, rideCd = 0;
+{ const ec0 = enterCar; enterCar = function (c) {
+  ec0(c); kpLastCar = c;
+  if (c.mods && Object.keys(c.mods).some(k => c.mods[k] && k !== 'col')) setTimeout(() => toast(`🔑 Your ride: ${['nitro', 'armor', 'hidden'].filter(k => c.mods[k]).map(k => MODS[k].n).join(' · ')}${c.mods.nitro ? (isTouch ? ' · tap 🔥 to boost' : ' · press N to boost') : ''}`), 1200);
+}; }
+function garageCar() {
+  const c = player.car; if (c && !c.vessel && !c.air && cars.includes(c)) return c;
+  const l = kpLastCar; if (l && cars.includes(l) && !l.ai && Math.hypot(l.x - player.pos.x, l.z - player.pos.z) < 12) return l;
+  return null;
+}
+function paintCar(c, col) {
+  const old = c.col != null ? c.col : c.g.children[0].material.color.getHex();
+  for (const o of c.g.children) if (o.isMesh && o.material !== glassMat && o.material.color && o.material.color.getHex() === old) o.material.color.setHex(col);
+  c.col = col;
+}
+function applyMods(c, mods) { c.mods = { ...mods }; if (mods.col != null) paintCar(c, mods.col); }
+function makeMine(c) {   // the car you mod becomes "your ride": its mods are saved and the phone can call it back
+  const v = V13();
+  if (!c.mine) { for (const o of cars) if (o !== c) o.mine = false; c.mine = true; c.mods = c.mods || {}; }
+  v.car = { ...c.mods }; return c.mods;
+}
+function buyMod(what, arg) {
+  const c = garageCar(); if (!c) { toast('🔧 Drive a car up to the garage first'); return false; }
+  if (c.kind === 'police') { toast('🚓 "I ain\'t touching a cop car, man."'); return false; }
+  const m = c.mods || {};
+  if (what === 'paint') {
+    const col = PAINT[arg]; if (col == null) return false;
+    if (!payAny(PAINT_PRICE, false)) { toast(`💸 A paint job is 💰${PAINT_PRICE}`); return false; }
+    paintCar(c, col); makeMine(c).col = col;
+  } else {
+    const md = MODS[what]; if (!md) return false; if (m[what]) { toast(`${md.n} is already fitted`); return false; }
+    if (!payAny(md.p, false)) { toast(`💸 ${md.n} costs 💰${md.p}`); return false; }
+    makeMine(c)[what] = true;
+  }
+  V13().car = { ...c.mods }; coinSnd(); kpStat('mod');
+  if (c.mods.nitro && c.mods.armor && c.mods.hidden) { const v = V13(); if (!v.stats.fullMod) kpStat('fullMod'); }
+  toast(what === 'paint' ? '🎨 Fresh paint! This is your ride now (📱 🏠 Property app can call it back)' : `🔧 ${MODS[what].n} fitted! ${MODS[what].d}`);
+  return true;
+}
+function garageHTML() {
+  const c = garageCar(), m = (c && c.mods) || {};
+  let h = `<h2>🔧 Garage & Mods</h2><div class="ksub">Pays with 💰 clean first, then 💵 dirty. The car you mod becomes your ride (call it back from the phone).</div>${balHTML()}`;
+  if (!c) return h + '<div class="ksub" style="padding:14px;text-align:center">🚗 Drive a car up to the counter (or park it right next to it) to mod it.</div>';
+  if (c.kind === 'police') return h + '<div class="ksub" style="padding:14px;text-align:center">🚓 "I ain\'t touching a cop car, man."</div>';
+  h += `<h3>🎨 Paint · 💰${PAINT_PRICE}</h3><div>${PAINT.map((col, i) => `<span class="sw" data-kp="paint:${i}" style="background:#${col.toString(16).padStart(6, '0')}"></span>`).join('')}</div><h3>Upgrades</h3>`;
+  h += Object.entries(MODS).map(([k, md]) => `<div class="krow"><span class="nm"><b>${md.n}</b><br><span style="opacity:.7;font-size:12px">${md.d}</span></span>${m[k] ? '<b>✅ fitted</b>' : `<button class="btn gold" data-kp="mod:${k}" ${cashTotal() >= md.p ? '' : 'disabled'}>💰 ${md.p}</button>`}</div>`).join('');
+  return h;
+}
+function spawnMyRide() {
+  const v = V13();
+  if (!v.car) { toast('🔧 Mod a car at a garage first, then you can call it'); return null; }
+  if (player.car) { toast('🚗 You\'re already driving'); return null; }
+  const old = cars.find(c => c.mine);
+  if (old && Math.hypot(old.x - player.pos.x, old.z - player.pos.z) < 25) { toast('🚗 Your ride is right here'); return old; }
+  if (rideCd > 0) { toast(`🔑 Your driver is on the way... (${Math.ceil(rideCd)}s)`); return null; }
+  if (old) removeCar(old);
+  const t = townsNear(60)[0] || { base: Math.floor(player.pos.y) - 1, x0: 0, z0: 0, x1: 0, z1: 0, nb: 3, id: 'wild' };
+  const a = player.yaw, x = player.pos.x - Math.sin(a) * 4, z = player.pos.z - Math.cos(a) * 4;
+  const c = spawnCar(t, { kind: 'car', people: 0, x, z, head: a + Math.PI });
+  c.y = Math.floor(player.pos.y) + 1; snapCarGround(c); applyMods(c, v.car); c.mine = true; kpLastCar = c; rideCd = 30;
+  toast('🔑 Your ride pulled up! ✋ it to get in'); beep(440, 0.1, 'square', 0.05); setTimeout(() => beep(440, 0.1, 'square', 0.05), 160);
+  return c;
+}
+function fireNitro() {
+  const c = player.car; if (!c || !c.mods || !c.mods.nitro) return;
+  if (nitroT > 0) return; if (nitroCharge < 1) { toast(`🔥 Nitro recharging... ${Math.round(nitroCharge * 100)}%`); return; }
+  nitroT = 3.5; nitroCharge = 0; toast('🔥 NITRO!'); noiseBurst(0.6, 0.12, 900); beep(180, 0.5, 'sawtooth', 0.05);
+}
+addEventListener('keydown', e => { if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; if (e.code === 'KeyN' && playing && !uiOpen) fireNitro(); });
+{ const nb = document.createElement('div'); nb.className = 'tb'; nb.id = 'bNitro'; nb.textContent = '🔥'; const ref = document.getElementById('bUp'); (ref ? ref.parentNode : document.body).appendChild(nb); holdBtn('bNitro', () => fireNitro()); nb.addEventListener('click', () => fireNitro()); }
+{ const dc0 = driveCar; driveCar = function (c, dt) {
+  const m = c.mods || {};
+  if (m.armor && Math.abs(c.speed) > 3) {   // armored: shove cars out of the way instead of bouncing off
+    const o = blockedAhead(c, 2.6);
+    if (o && o !== 'player' && o.kind && cars.includes(o)) {
+      const fx = Math.sin(c.head), fz = Math.cos(c.head), side = Math.sign((o.x - c.x) * fz - (o.z - c.z) * fx) || 1;
+      o.x += fz * side * 2.6 + fx * 0.8; o.z += -fx * side * 2.6 + fz * 0.8; o.speed = 0; o.g.position.set(o.x, o.y, o.z); noiseBurst(0.2, 0.14, 260); shake(0.2, 0.05);
+    }
+  }
+  dc0(c, dt);
+  if (player.car !== c) return;
+  if (nitroT > 0 && c.speed >= 0) {
+    c.speed = Math.min(26, c.speed + 30 * dt);
+    if (Math.random() < dt * 20) particles(c.x - Math.sin(c.head) * 2, c.y + 0.4, c.z - Math.cos(c.head) * 2, new THREE.Color(0.3, 0.6, 1), 2);
+  }
+}; }
+{ const dm1 = damage; damage = function (n, cause, from) {
+  if (court) return;
+  const c = player.car; if (c && c.mods && c.mods.armor && cause !== 'fall' && cause !== 'starve' && cause !== 'drown' && cause !== 'fire') n = Math.max(1, Math.round(n * 0.4));
+  return dm1(n, cause, from);
+}; }
+
+// ======================= 3. REAL ESTATE: safehouses =======================
+const HOMES = { deed_apartment: { n: '🏢 Apartment', price: 1500, rent: 60 }, deed_house: { n: '🏠 House', price: 4000, rent: 170 }, deed_penthouse: { n: '🌆 Penthouse', price: 12000, rent: 550 } };
+for (const k in HOMES) RAW_VALUE[k] = HOMES[k].price / 1.5;   // DealerNet buy price = the deed price
+WEB_CATS.property = '🏠 Property';
+{ const wc2 = webCat; webCat = function (id) { if (HOMES[id]) return 'property'; if (KP_STOLEN.includes(id)) return 'other'; return wc2(id); }; }
+// DealerNet doesn't sell stolen goods, lab-grade drugs or Plug packages (you can still sell them there)
+const WEB_HIDE = new Set([...KP_STOLEN, ...KP_LABDRUGS, 'plug_package']);
+{ const rw0 = renderWeb; renderWeb = function (keepList) {
+  const r = rw0(keepList); if (webTab !== 'buy') return r;
+  const bx = (webFromPhone && document.getElementById('pWebBox')) || document.getElementById('webBox');
+  if (bx) for (const b of bx.querySelectorAll('[data-wb]')) if (WEB_HIDE.has(b.dataset.wb)) { const row = b.closest('.row'); if (row) row.remove(); }
+  return r;
+}; }
+const homeMeshes = new Map();
+function homeMesh(hm) {
+  const g = new THREE.Group();
+  box(0.12, 1.3, 0.12, 0x5a3a1a, 0, 0.65, 0, g); box(0.5, 0.35, 0.35, 0x2a5a2a, 0, 1.35, 0, g);
+  const tag = nameSprite(`${HOMES[hm.kind].n} · Safehouse`); tag.position.y = 2.1; g.add(tag);
+  g.position.set(hm.x + 0.5, hm.y, hm.z + 0.5); scene.add(g); return g;
+}
+function homeNear(r = 2.6) { let best = null, bd = r; for (const hm of V13().homes) { const d = Math.hypot(hm.x + 0.5 - player.pos.x, hm.z + 0.5 - player.pos.z); if (d < bd && Math.abs(hm.y - player.pos.y) < 3) { bd = d; best = hm; } } return best; }
+function moveIn(id) {
+  const v = V13(), hd = HOMES[id]; if (!hd) return false;
+  if (player.car || player.horse) { toast('🏠 Get out first, then ✋ the deed where you want to live'); return false; }
+  if (v.homes.length >= 6) { toast('🏠 You own enough safehouses (6 max)'); return false; }
+  if (v.homes.some(h => Math.hypot(h.x - player.pos.x, h.z - player.pos.z) < 12)) { toast('🏠 You already have a safehouse right here'); return false; }
+  useHeld(1);
+  const hm = { id: v.nextId++, kind: id, x: Math.floor(player.pos.x), y: Math.floor(player.pos.y), z: Math.floor(player.pos.z) };
+  v.homes.push(hm); if (v.spawnHome == null) v.spawnHome = hm.id; v.stats.homes = v.homes.length; checkAch();
+  swing(); coinSnd(); toast(`${hd.n} is yours! 🛏️ respawn point · 📦 raid-proof stash · +💰${hd.rent}/day rent`);
+  return hm;
+}
+const homeById = id => V13().homes.find(h => h.id === id);
+const homeSpawn = () => { const v = V13(); return v.spawnHome != null ? homeById(v.spawnHome) : null; };
+function openSafe(hm) {
+  const k = 'safe:' + hm.id; if (!state.chests[k]) state.chests[k] = Array(27).fill(null);
+  if (uiOpen) closePanels();
+  chestKeys = [k]; furnaceKey = null; invOpen = false; renderChest(); openPanel('trade'); beep(180, 0.1, 'triangle', 0.06);
+}
+{ const rc1 = renderChest; renderChest = function () { rc1(); if (chestKeys && String(chestKeys[0]).startsWith('safe:')) { const h2 = document.querySelector('#tradeBox h2'); if (h2) h2.textContent = '🏠 Safehouse Stash (raid-proof)'; } }; }
+function homeHTML(hm) {
+  const hd = HOMES[hm.kind], v = V13();
+  return `<h2>${hd.n} · your safehouse</h2><div class="ksub">Rent pays 💰${hd.rent} clean every day. Cops never raid a safehouse stash.</div>${balHTML()}
+    <button class="btn kbig" data-kp="stash:${hm.id}">📦 Open the stash</button>
+    <button class="btn kbig ${v.spawnHome === hm.id ? 'gold' : ''}" data-kp="spawn:${hm.id}">${v.spawnHome === hm.id ? '🛏️ You respawn here ✅' : '🛏️ Respawn here'}</button>`;
+}
+function settleAt(x, y, z) {   // teleport and hold still until the land under you has loaded
+  player.pos.set(x, y, z); player.vel.set(0, 0, 0); player.fallStart = null; streamChunks(30, 30);
+  const prev = window.__freeze; window.__freeze = true;
+  const chk = n => {
+    if (!data.has(ckey(fdiv(Math.floor(x), CH), fdiv(Math.floor(z), CH))) && n < 40) { streamChunks(8, 8); player.pos.set(x, y, z); setTimeout(() => chk(n + 1), 250); return; }
+    if (collides(player.pos)) player.pos.y = groundAt(x, z); window.__freeze = prev;
+  };
+  chk(0);
+}
+{ const rs0 = respawn; respawn = function () {
+  rs0(); const hm = homeSpawn();
+  if (hm) { settleAt(hm.x + 0.5, hm.y, hm.z + 1.5); toast(`🏠 You woke up at your ${HOMES[hm.kind].n}`); }
+}; }
+{ const ws0 = wakeSpot; wakeSpot = function () { const hm = homeSpawn(); if (hm && Math.hypot(hm.x - player.pos.x, hm.z - player.pos.z) < 400) return { x: hm.x + 0.5, y: hm.y, z: hm.z + 1.5, name: 'your safehouse' }; return ws0(); }; }
+function rentDaily(days) {
+  const v = V13(); if (!v.homes.length) return;
+  const r = v.homes.reduce((s, h) => s + HOMES[h.kind].rent, 0) * Math.min(3, days);
+  addClean(r, `🏠 Rent from ${v.homes.length} propert${v.homes.length > 1 ? 'ies' : 'y'}: +💰${r} clean`);
+}
+function updateHomes() {
+  const v = V13(), pp = player.pos;
+  for (const hm of v.homes) { const d = Math.hypot(hm.x - pp.x, hm.z - pp.z), g = homeMeshes.get(hm.id); if (!g && d < 80) homeMeshes.set(hm.id, homeMesh(hm)); else if (g && d > 110) { scene.remove(g); homeMeshes.delete(hm.id); } }
+  for (const [id, g] of homeMeshes) if (!homeById(id)) { scene.remove(g); homeMeshes.delete(id); }
+}
+
+// ======================= 4. HIRE A CREW: runners + bodyguards =======================
+const CREW = { runner: { n: '🧍 Runner', hire: 150, wage: 60, max: 3 }, guard: { n: '💪 Bodyguard', hire: 300, wage: 120, max: 2 } };
+const CREW_NAMES = ['Lil Tay', 'Smokey', 'Dice', 'Junior', 'Ace', 'Pookie', 'Bones', 'Rico', 'Slim', 'T-Bone', 'Spider', 'Cash'];
+const PAYDAY = 3;   // wages every 3 in-game days
+Object.assign(MOBDEF, {
+  runner: { hp: 14, w: 0.3, h: 1.9, speed: 1.2, hostile: false, drops: () => [] },
+  guard: { hp: 30, w: 0.3, h: 1.9, speed: 1.4, hostile: false, ai: true, npc: true, drops: () => [] },
+});
+Object.assign(MOB_NAMES, { runner: '🧍 Your runner', guard: '💪 Your bodyguard' });
+{ const bm1 = buildMob; buildMob = function (type, v = 0) {
+  if (type !== 'runner' && type !== 'guard') return bm1(type, v);
+  const skin = [0xf1c27d, 0xc58c63, 0x8d5524, 0x5c3a21][v % 4];
+  const p = type === 'runner' ? humanoid({ shirt: [0x2a2a2a, 0x8a1a1a, 0x1a3a8a][v % 3], skin, pants: 0x3a3a5a }) : humanoid({ shirt: 0x111111, sleeve: 0x111111, skin, pants: 0x111111, bw: 0.58 });
+  if (type === 'runner') box(0.5, 0.18, 0.5, 0x222222, 0, 0.24, -0.02, p.head);   // hood
+  else { box(0.4, 0.08, 0.04, 0x050505, 0, 0.05, 0.25, p.head); box(0.1, 0.3, 0.05, 0xd8d8d8, 0, 1.3, 0.15, p.g); gunMesh(p.arms[1], false); }
+  return p;
+}; }
+const crewById = id => V13().crew.find(c => c.id === id);
+const crewMob = id => mobs.find(m => m.crewId === id);
+const stockN = r => Object.values(r.stock || {}).reduce((s, n) => s + n, 0);
+function hire(kind) {
+  const v = V13(), cd = CREW[kind]; if (!cd) return null;
+  if (v.crew.filter(c => c.kind === kind).length >= cd.max) { toast(`👥 You can only run ${cd.max} ${kind}s`); return null; }
+  if (!payAny(cd.hire, true)) { toast(`💸 Hiring a ${kind} costs 💵/💰${cd.hire} up front`); return null; }
+  const used = new Set(v.crew.map(c => c.name)), name = CREW_NAMES.find(n => !used.has(n) && hash2(v.nextId, n.length, 3) < 0.9) || 'Shorty';
+  const r = { id: v.nextId++, kind, name, post: null, stock: {}, cash: 0, sold: 0, unpaid: 0 };
+  v.crew.push(r); kpStat('hired');
+  toast(kind === 'runner' ? `🧍 ${name} is on your crew. Open 👥 Crew on your phone and post them on a corner` : `💪 ${name} has your back now`); coinSnd();
+  return r;
+}
+function postRunner(id) {
+  const r = crewById(id); if (!r || r.kind !== 'runner') return false;
+  const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z), t = townAt(x, z);
+  if (!t || x < t.x0 || x >= t.x1 || z < t.z0 || z >= t.z1) { toast('📍 Runners only work corners in a town or city'); return false; }
+  r.post = { x, y: Math.floor(player.pos.y), z }; const m = crewMob(id); if (m) removeMob(m, true);
+  toast(`📍 ${r.name} will work this corner. Hold drugs and ✋ ${r.name} to hand them over`); return true;
+}
+function fireCrew(id, quiet) {
+  const v = V13(), r = crewById(id); if (!r) return; v.crew = v.crew.filter(c => c !== r); const m = crewMob(id); if (m) removeMob(m, true);
+  if (!quiet) toast(`👋 ${r.name} is off your crew${stockN(r) ? ` (kept ${stockN(r)} drugs)` : ''}`);
+}
+function crewDown(id) { const r = crewById(id); if (!r) return; fireCrew(id, true); kpToast(`💀 ${r.name} got taken out. They're off your crew`); }
+function payCrew(debtOnly) {
+  const v = V13(); let paid = 0;
+  for (const r of [...v.crew]) {
+    const owe = CREW[r.kind].wage * (debtOnly ? r.unpaid : r.unpaid + 1); if (!owe) continue;
+    if (payAny(owe, true)) { r.unpaid = 0; paid += owe; continue; }
+    if (debtOnly) continue;
+    r.unpaid++;
+    if (r.unpaid >= 2) {
+      fireCrew(r.id, true);
+      if (Math.random() < 0.5 && canHurtPlayer() && !jail) { setWanted(); kpToast(`🐀 ${r.name} quit over unpaid wages... and snitched to the cops!`); }
+      else kpToast(`😤 ${r.name} quit over unpaid wages`);
+    } else kpToast(`💸 Couldn't pay ${r.name} (💵${CREW[r.kind].wage}). Pay up or they walk`);
+  }
+  if (paid) kpToast(`👥 Paid your crew 💵${paid}`);
+  return paid;
+}
+function interactCrew(m, id) {
+  const r = crewById(m.crewId); if (!r) { removeMob(m, true); return; }
+  if (r.kind === 'guard') { toast(`💪 ${r.name}: "${['I got your back, boss.', 'Nobody touches you.', 'Say the word.'][rint(0, 2)]}"`); return; }
+  if (id && ILLEGAL.has(id)) {
+    const s = state.slots[state.sel], n = s.n; r.stock[id] = (r.stock[id] || 0) + n; state.slots[state.sel] = null; renderHotbar(); swing();
+    toast(`🧍 ${r.name}: "Bet. ${n}× ${ITEMS[id].name}, I'll move it." (stock ${stockN(r)})`); return;
+  }
+  if (r.cash >= 1) { const c = Math.floor(r.cash); r.cash -= c; addDirty(c, `🧍 ${r.name} hands you 💵${c} dirty · sold ${r.sold} so far`); return; }
+  toast(`🧍 ${r.name}: ${stockN(r) ? `"Still got ${stockN(r)} to move."` : '"I\'m dry, boss. Hold some product and ✋ me."'}`);
+}
+{ const im3 = interactMob; interactMob = function (m, id, it) { if (m.crewId) { interactCrew(m, id); return true; } return im3(m, id, it); }; }
+{ const ml3 = mobLabel; mobLabel = function (m) {
+  if (m.crewId) { const r = crewById(m.crewId); if (!r) return '👤'; return r.kind === 'runner' ? `🧍 ${r.name} (runner) · stock ${stockN(r)} · 💵${Math.floor(r.cash)} · ✋ ${held() && ILLEGAL.has(held()) ? 'hand over drugs' : r.cash >= 1 ? 'collect' : 'talk'}` : `💪 ${r.name} (bodyguard)`; }
+  return ml3(m); }; }
+function guardFoe(o) {
+  if (o.crewId || o.tamed || o.petId) return false;
+  if (o.type === 'cop') return wanted > 0 && canHurtPlayer();
+  if (o.type === 'gangster') return gangHostile(o);
+  if (o.type === 'crackhead') return !(o.calm > 0) && canHurtPlayer();
+  const d = MOBDEF[o.type]; if (!d) return false;
+  if (d.hostile) return o.type !== 'trick' && o.type !== 'spirit';
+  return !!(d.predator && o.angry > 0);
+}
+function guardAI(m, d, dt, dist) {
+  const p = m.g.position, pp = player.pos; m.shootCd = Math.max(0, (m.shootCd || 0) - dt);
+  const foe = nearestFoe(m, guardFoe, 16);
+  if (foe) {
+    const tp = foe.g.position.clone().setY(foe.g.position.y + 1.1), dx = tp.x - p.x, dz = tp.z - p.z, dd = Math.hypot(dx, dz) || 1;
+    m.g.rotation.y = Math.atan2(dx, dz); m.aim = 0.3;
+    if (m.shootCd <= 0 && lineOfSight(p.clone().setY(p.y + 1.45), tp)) { m.shootCd = 0.9 + Math.random() * 0.5; npcShoot(m, tp, foe, 'gangster'); if (foe.type === 'cop') wantedBump(1); }
+    const go = dd > 9 ? 1 : 0; return [dx / dd * go, dz / dd * go, 3.2];
+  }
+  if (dist > 28) { const a = player.yaw, x = pp.x + Math.sin(a) * 2.5, z = pp.z + Math.cos(a) * 2.5; p.set(x, groundNear(x, pp.y + 2, z), z); m.vel.set(0, 0, 0); return [0, 0, 0]; }
+  const dx = pp.x - p.x, dz = pp.z - p.z, dd = Math.hypot(dx, dz) || 1;
+  if (dd > 3.5) { m.g.rotation.y = Math.atan2(dx, dz); return [dx / dd, dz / dd, dd > 8 ? 5.5 : 3.4]; }
+  return [0, 0, 0];
+}
+{ const w1 = wildAI; wildAI = function (m, d, dt, dist, t) { if (m.type === 'guard') return guardAI(m, d, dt, dist); return w1(m, d, dt, dist, t); }; }
+let crewT = 0;
+function updateCrew(dt) {
+  const v = V13(), pp = player.pos;
+  // runners: sell from their stock over time (even while you're away), small chance of getting busted
+  for (const r of [...v.crew]) {
+    if (r.kind !== 'runner' || !r.post) continue;
+    r.t = (r.t ?? 20 + Math.random() * 20) - dt;
+    if (r.t <= 0) {
+      r.t = 25 + Math.random() * 20;
+      const id = Object.keys(r.stock).find(k => r.stock[k] > 0);
+      if (id) {
+        const p = Math.max(3, Math.round(itemValue(id) * (0.75 + Math.random() * 0.3))); r.stock[id]--; if (!r.stock[id]) delete r.stock[id];
+        r.cash += p; r.sold++; kpStat('crewSale');
+        if (canHurtPlayer() && Math.random() < 0.03 + (wantedLvl >= 3 ? 0.04 : 0)) { fireCrew(r.id, true); kpToast(`🚔 Your runner ${r.name} got busted on the corner! Lost ${stockN(r)} drugs and 💵${Math.floor(r.cash)}`); continue; }
+        if (!stockN(r)) kpToast(`🧍 ${r.name} sold out. 💵${Math.floor(r.cash)} waiting for you on the corner`);
+      }
+    }
+  }
+  crewT -= dt; if (crewT > 0) return; crewT = 0.5;
+  for (const r of v.crew) {
+    let m = crewMob(r.id);
+    if (r.kind === 'runner') {
+      if (!r.post) { if (m) removeMob(m, false); continue; }
+      const d = Math.hypot(r.post.x - pp.x, r.post.z - pp.z);
+      if (!m && d < 70 && data.has(ckey(fdiv(r.post.x, CH), fdiv(r.post.z, CH)))) { m = spawnMob('runner', r.post.x + 0.5, groundNear(r.post.x + 0.5, r.post.y + 2, r.post.z + 0.5), r.post.z + 0.5, r.id); if (m) { m.crewId = r.id; m.home = new THREE.Vector2(r.post.x + 0.5, r.post.z + 0.5); } }
+      if (m) { m.wait = 5; m.target = null; if (Math.hypot(m.g.position.x - r.post.x - 0.5, m.g.position.z - r.post.z - 0.5) > 4) m.target = new THREE.Vector2(r.post.x + 0.5, r.post.z + 0.5), m.wait = 0; }
+    } else {
+      const away = player.car || player.horse || jail || court || !player.alive;
+      if (away) { if (m) removeMob(m, false); continue; }
+      if (!m) { const a = player.yaw, x = pp.x + Math.sin(a) * 2.5, z = pp.z + Math.cos(a) * 2.5; if (data.has(ckey(fdiv(Math.floor(x), CH), fdiv(Math.floor(z), CH)))) { m = spawnMob('guard', x, groundNear(x, pp.y + 2, z), z, r.id); if (m) m.crewId = r.id; } }
+    }
+  }
+}
+
+// ======================= 5. COURT & LAWYERS =======================
+let court = null;
+const LAWYER = [0, 80, 220, 450, 800, 1300, 1900];
+function courtCase() {
+  const c = court, sev = Math.min(6, c.lvl + (c.drugs > 0 ? 1 : 0));
+  return { sev, sentence: Math.min(210, 30 + 30 * sev), lawyer: LAWYER[sev], bail: 40 + sev * 70, dismiss: sev <= 2 ? 0.8 : sev <= 4 ? 0.5 : 0.3 };
+}
+{ const ar2 = arrest; arrest = function () {
+  if (jail || court) return;
+  if (!canHurtPlayer() || odBusy) return ar2();
+  if (uiOpen) closePanels();
+  if (player.car) exitCar(); if (player.horse) dismountHorse();
+  const lvl = Math.max(1, Math.min(5, wantedLvl || 1)), drugs = state.slots.reduce((s, x) => s + (x && ILLEGAL.has(x.id) ? x.n : 0), 0);
+  wanted = 0; wantedLvl = 0; player.stunned = 0; player.vel.set(0, 0, 0); heist = null;
+  court = { lvl, drugs, prev: window.__freeze, ar: ar2 }; window.__freeze = true;
+  openKp('court'); beep(200, 0.5, 'square', 0.06); toast('⚖️ Busted! You\'re going in front of the judge...');
+}; }
+{ const cp0 = closePanels; closePanels = function () { try { cp0(); } finally { if (court && !court.busy) courtVerdict('sentence'); } }; }   // closing the court screen = take the sentence
+const safeClose = () => { try { closePanels(); } catch (e) { uiOpen = false; } };
+function courtEnd() { const c = court; court = null; window.__freeze = c.prev; return c; }
+function courtVerdict(kind) {
+  if (!court || court.busy) return false;
+  const cs = courtCase();
+  if (kind === 'lawyer') {
+    if (!payAny(cs.lawyer, false)) { toast(`💸 The lawyer wants 💰${cs.lawyer} up front`); return false; }
+    court.busy = true; safeClose(); const c = courtEnd();
+    if (Math.random() < cs.dismiss) {
+      if (V12().job && count('plug_package')) failJob('🚔 The cops kept the package. Job failed');
+      kpStat('dismissed'); setTimeout(() => toast('⚖️ CASE DISMISSED! Your lawyer tore the cops apart. You walk free'), 300); coinSnd(); return 'dismissed';
+    }
+    const sec = Math.round(cs.sentence * 0.4); c.ar(); if (jail) jail.until = state.gameTime + sec;
+    setTimeout(() => toast(`⚖️ Plea deal: your lawyer got it down to ${sec}s in prison`), 300); return 'reduced';
+  }
+  if (kind === 'bail') {
+    if (!payAny(cs.bail, false)) { toast(`💸 Bail is 💰${cs.bail}`); return false; }
+    court.busy = true; safeClose(); courtEnd();
+    confiscate(); let n = 0; for (let i = 0; i < 36; i++) { const s = state.slots[i]; if (s && ILLEGAL.has(s.id)) { n += s.n; state.slots[i] = null; } } renderHotbar();
+    if (V12().job && count('plug_package')) failJob('🚔 The cops kept the package. Job failed');
+    setTimeout(() => toast(`💵 Bail posted (💰${cs.bail}). Guns${n ? ` and ${n} drugs` : ''} stay in evidence. You're free`), 300); return 'bail';
+  }
+  court.busy = true; safeClose(); const c = courtEnd(); c.ar();
+  if (jail) { jail.until = state.gameTime + cs.sentence; setTimeout(() => toast(`🔒 Sentenced to ${cs.sentence}s in prison... or break the bars and escape`), 300); }
+  return 'sentence';
+}
+function courtHTML() {
+  const cs = courtCase(), c = court;
+  return `<h2>⚖️ Court · The People vs. You</h2><div class="ksub">Charges: ${'★'.repeat(c.lvl)} wanted${c.drugs ? ` · 💊 possession (${c.drugs} drugs on you)` : ''}</div>${balHTML()}
+    <button class="btn kbig gold" data-kp="court:lawyer" ${cashTotal() >= cs.lawyer ? '' : 'disabled'}>🧑‍💼 Hire a lawyer · 💰${cs.lawyer}<br><span style="font-size:12px;opacity:.85">${Math.round(cs.dismiss * 100)}% case dismissed, otherwise ${Math.round(cs.sentence * 0.4)}s instead of ${cs.sentence}s. Keep your stuff.</span></button>
+    <button class="btn kbig" data-kp="court:bail" ${cashTotal() >= cs.bail ? '' : 'disabled'}>💵 Post bail · 💰${cs.bail}<br><span style="font-size:12px;opacity:.85">Walk out now. Guns and drugs stay in evidence.</span></button>
+    <button class="btn kbig" data-kp="court:sentence">🔒 Take the sentence · ${cs.sentence}s in prison<br><span style="font-size:12px;opacity:.85">Your stuff comes back when you're out (or break out).</span></button>`;
+}
+
+// ======================= 6. DRUG LAB =======================
+const COOK = {
+  meth: { n: '🧊 Meth', need: { fertilizer: 1, gunpowder: 1, coal: 1, glass: 1 }, out: 3 },
+  cocaine: { n: '❄️ Cocaine', need: { leaves: 4, gunpowder: 1 }, out: 2 },
+  crack: { n: '🪨 Crack', need: { cocaine: 1, coal: 1 }, out: 3 },
+};
+const COOK_T = 12;
+let cook = null;
+const canCook = id => Object.entries(COOK[id].need).every(([k, n]) => count(k) >= n);
+function openLab(x, y, z) { kpLab = { x, y, z }; openKp('lab'); }
+function startCook(id) {
+  if (cook || !COOK[id] || !kpLab) return false;
+  if (!canCook(id)) { toast(`⚗️ Missing ingredients for ${COOK[id].n}`); return false; }
+  for (const [k, n] of Object.entries(COOK[id].need)) take(k, n);
+  cook = { id, t: 0, heat: 30, vel: 0, zone: 0, over: 0, lab: { ...kpLab } }; renderKp(); beep(300, 0.1, 'sine', 0.05);
+  return true;
+}
+function cookTap(dir) { if (!cook) return; cook.heat = Math.max(0, Math.min(100, cook.heat + dir * 11)); cook.vel *= 0.3; beep(dir > 0 ? 500 : 300, 0.04, 'sine', 0.04); }
+function finishCook() {
+  const c = cook; cook = null;
+  const purity = Math.max(20, Math.min(99, Math.round(30 + 69 * c.zone / COOK_T)));
+  const boom = Math.min(0.6, 0.03 + c.over * 0.12);
+  if (Math.random() < boom) {
+    if (kpShown()) closePanels();
+    const { x, y, z } = c.lab, hurt = canHurtPlayer();
+    blast(x + 0.5, y + 0.5, z + 0.5, { r: 2, dmg: hurt ? 10 : 0, fire: hurt ? 2 : 0, blocks: hurt });
+    kpStat('labBoom'); setTimeout(() => toast(`💥 The lab EXPLODED! ${hurt ? 'The batch is gone (and so is the lab)' : 'The batch is gone (Peaceful: nobody got hurt)'}`), 200);
+    return { boom: true, purity };
+  }
+  const grade = purity >= 90 ? '_prime' : purity >= 70 ? '_pure' : '', out = c.id + grade, n = COOK[c.id].out;
+  give(out, n); kpStat('cook'); if (grade === '_prime') kpStat('prime');
+  const v = V13(); v.lastPurity = purity;
+  toast(`⚗️ Cooked ${n}× ${ITEMS[out].name} · purity ${purity}%${grade ? ` (sells ×${PURITY_MULT[grade.slice(1)]})` : ' (street grade)'}`); coinSnd();
+  if (kpShown() && kpMode === 'lab') renderKp();
+  return { boom: false, purity, out };
+}
+function updateCook(dt) {
+  if (!cook) return;
+  if (!(kpShown() && kpMode === 'lab')) { cook = null; toast('🔥 You walked away from the stove... the batch burned'); return; }
+  const c = cook; c.t += dt;
+  c.vel += (Math.random() - 0.42) * 70 * dt; c.vel = Math.max(-10, Math.min(18, c.vel)); c.heat = Math.max(0, Math.min(100, c.heat + (c.vel + 4) * dt));
+  if (c.heat >= 45 && c.heat <= 65) c.zone += dt;
+  if (c.heat > 88) c.over += dt;
+  const nd = document.getElementById('labNeedle'), pr = document.getElementById('labProg'), st = document.getElementById('labState');
+  if (nd) nd.style.left = `calc(${c.heat}% - 2px)`; if (pr) pr.style.width = Math.min(100, c.t / COOK_T * 100) + '%';
+  if (st) st.textContent = `${c.heat > 88 ? '🔥 TOO HOT! It could blow!' : c.heat >= 45 && c.heat <= 65 ? '✅ Perfect temperature' : c.heat < 45 ? '❄️ Too cold' : '🌡️ Getting hot'} · purity so far ${Math.round(30 + 69 * c.zone / COOK_T)}%`;
+  if (c.t >= COOK_T) finishCook();
+}
+function labHTML() {
+  if (cook) return `<h2>⚗️ Cooking ${COOK[cook.id].n}</h2><div class="ksub">Keep the needle in the 🟩 green zone. Too hot (🟥) and it might blow up.</div>
+    <div class="gauge"><div class="needle" id="labNeedle" style="left:calc(${cook.heat}% - 2px)"></div></div><div class="prog"><i id="labProg" style="width:0"></i></div>
+    <div class="kres" id="labState" style="font-size:15px"></div><div style="display:flex;gap:10px"><button class="btn kbig" style="text-align:center" data-kp="cool">❄️ Cool</button><button class="btn kbig gold" style="text-align:center" data-kp="heat">🔥 Heat</button></div>`;
+  const v = V13();
+  return `<h2>⚗️ Drug Lab</h2><div class="ksub">Pick a recipe, then work the stove for ${COOK_T}s. Purity 70%+ = Pure (×1.6 price), 90%+ = top shelf (×2.5). Small chance it explodes.${v.lastPurity ? ` Last batch: ${v.lastPurity}%` : ''}</div>` +
+    Object.entries(COOK).map(([id, r]) => `<div class="krow"><span class="nm"><b>${r.n} ×${r.out}</b><br><span style="font-size:12px;opacity:.75">${Object.entries(r.need).map(([k, n]) => `${n}× ${ITEMS[k].name} (${count(k)})`).join(' · ')}</span></span><button class="btn gold" data-kp="cook:${id}" ${canCook(id) ? '' : 'disabled'}>Cook</button></div>`).join('');
+}
+
+// ======================= 7. CASINO: slots, blackjack, roulette =======================
+const HOUSE_CUT = 0.1, BETS = [10, 50, 100, 250, 500];
+const cas = { game: 'slots', bet: 50, bj: null, last: '', reels: ['🍒', '🔔', '7️⃣'] };
+const SLOT_SYM = ['🍒', '🍒', '🍒', '🍋', '🍋', '🍋', '🔔', '🔔', '💵', '💵', '💎', '7️⃣'];
+const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+function casBet() { if (!payAny(cas.bet, true)) { cas.last = '💸 Not enough cash for that bet'; return false; } return true; }
+function casPay(gross, msg) {   // winnings are paid out CLEAN, minus the house cut
+  const net = Math.floor(gross * (1 - HOUSE_CUT));
+  if (net > 0) { state.coins += net; if (net > cas.bet) state.earned += net - cas.bet; coinSnd(); }
+  if (gross > cas.bet) kpStat('casinoWin');
+  cas.last = msg + (net > 0 ? ` · +💰${net} clean` : ''); renderStats(); return net;
+}
+function playSlots() {
+  if (!casBet()) return null;
+  const r = [0, 1, 2].map(() => SLOT_SYM[Math.floor(Math.random() * SLOT_SYM.length)]); cas.reels = r;
+  const same = r[0] === r[1] && r[1] === r[2], cher = r.filter(s => s === '🍒').length;
+  let mult = 0;
+  if (same) mult = { '7️⃣': 25, '💎': 12, '💵': 8, '🔔': 6, '🍋': 4, '🍒': 5 }[r[0]];
+  else if (cher === 2) mult = 2; else if (cher === 1) mult = 0.5;
+  if (same && r[0] === '7️⃣') kpStat('jackpot');
+  for (let i = 0; i < 3; i++) setTimeout(() => beep(600 + i * 200, 0.05, 'square', 0.04), i * 90);
+  casPay(cas.bet * mult, mult >= 25 ? '7️⃣7️⃣7️⃣ JACKPOT!!!' : mult > 1 ? `🎉 Winner ×${mult}` : mult > 0 ? '🍒 Cherry: half back' : '😬 No luck');
+  return mult;
+}
+const card = () => 1 + Math.floor(Math.random() * 13), cardTxt = c => ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][c - 1];
+function bjVal(h) { let s = 0, a = 0; for (const c of h) { s += c === 1 ? 11 : Math.min(10, c); if (c === 1) a++; } while (s > 21 && a) { s -= 10; a--; } return s; }
+function bjDeal() {
+  if (cas.bj && !cas.bj.done) return false; if (!casBet()) return false;
+  cas.bj = { p: [card(), card()], d: [card(), card()], done: false }; cas.last = '';
+  if (bjVal(cas.bj.p) === 21) bjEnd();
+  return true;
+}
+function bjHit() { const b = cas.bj; if (!b || b.done) return; b.p.push(card()); if (bjVal(b.p) > 21) { b.done = true; casPay(0, `💥 Bust (${bjVal(b.p)})`); } else if (bjVal(b.p) === 21) bjEnd(); }
+function bjEnd() {
+  const b = cas.bj; if (!b || b.done) return; b.done = true;
+  while (bjVal(b.d) < 17) b.d.push(card());
+  const p = bjVal(b.p), d = bjVal(b.d), natural = p === 21 && b.p.length === 2;
+  if (natural && !(d === 21 && b.d.length === 2)) casPay(cas.bet * 2.5, '🂡 BLACKJACK!');
+  else if (d > 21 || p > d) casPay(cas.bet * 2, `🎉 You win ${p} vs ${d}`);
+  else if (p === d) casPay(cas.bet, `🤝 Push ${p} vs ${d}`);
+  else casPay(0, `😬 Dealer wins ${d} vs ${p}`);
+}
+function playRoulette(pick) {
+  if (!casBet()) return null;
+  const n = Math.floor(Math.random() * 37), col = n === 0 ? 'green' : RED.has(n) ? 'red' : 'black', e = { red: '🔴', black: '⚫', green: '🟢' }[col];
+  const win = pick === col, mult = win ? (col === 'green' ? 18 : 2) : 0;
+  casPay(cas.bet * mult, `${e} ${n} ${col.toUpperCase()}${win ? ' · you win!' : ''}`);
+  return { n, col, win };
+}
+function casinoHTML() {
+  let h = `<h2>🎰 Casino</h2><div class="ksub">Bets come out of 💵 dirty cash first. Wins pay out 💰 clean, minus a ${HOUSE_CUT * 100}% house cut. (Laundering with extra steps.)</div>${balHTML()}
+    <div class="ktabs">${[['slots', '🎰 Slots'], ['bj', '🂡 Blackjack'], ['roul', '🎡 Roulette']].map(([k, n]) => `<button class="btn ${cas.game === k ? 'gold' : ''}" data-kp="game:${k}">${n}</button>`).join('')}</div>
+    <div class="ktabs">Bet: ${BETS.map(b => `<button class="btn ${cas.bet === b ? 'gold' : ''}" data-kp="bet:${b}" ${cas.bj && !cas.bj.done && cas.game === 'bj' ? 'disabled' : ''}>${b}</button>`).join('')}</div>`;
+  if (cas.game === 'slots') h += `<div class="reels">${cas.reels.join('')}</div><button class="btn kbig gold" style="text-align:center" data-kp="spin">🎰 Spin (${cas.bet})</button><div class="ksub">7️⃣7️⃣7️⃣ ×25 · 💎💎💎 ×12 · 💵💵💵 ×8 · 🔔🔔🔔 ×6 · 🍒🍒🍒 ×5 · 🍋🍋🍋 ×4 · 🍒🍒 ×2</div>`;
+  if (cas.game === 'bj') {
+    const b = cas.bj;
+    if (b) h += `<div class="cards">Dealer: ${b.done ? b.d.map(cardTxt).join(' ') + ` (${bjVal(b.d)})` : cardTxt(b.d[0]) + ' 🂠'}</div><div class="cards">You: ${b.p.map(cardTxt).join(' ')} (${bjVal(b.p)})</div>`;
+    h += b && !b.done ? '<div style="display:flex;gap:10px"><button class="btn kbig gold" style="text-align:center" data-kp="hit">➕ Hit</button><button class="btn kbig" style="text-align:center" data-kp="stand">✋ Stand</button></div>'
+      : `<button class="btn kbig gold" style="text-align:center" data-kp="deal">🂡 Deal (${cas.bet})</button><div class="ksub">Win ×2 · Blackjack ×2.5 · Push = bet back. Dealer stands on 17.</div>`;
+  }
+  if (cas.game === 'roul') h += `<div style="display:flex;gap:8px"><button class="btn kbig" style="text-align:center;background:#b02020" data-kp="roul:red">🔴 Red ×2</button><button class="btn kbig" style="text-align:center;background:#222" data-kp="roul:black">⚫ Black ×2</button><button class="btn kbig" style="text-align:center;background:#1a8a3a" data-kp="roul:green">🟢 Zero ×18</button></div>`;
+  return h + `<div class="kres">${cas.last}</div>`;
+}
+
+// ---- panel rendering + clicks
+function renderKp() {
+  const b = document.getElementById('kpBox'); let h = '';
+  if (kpMode === 'pawn') h = pawnHTML(); else if (kpMode === 'garage') h = garageHTML(); else if (kpMode === 'casino') h = casinoHTML();
+  else if (kpMode === 'lab') h = labHTML(); else if (kpMode === 'court' && court) h = courtHTML(); else if (kpMode === 'home') { const hm = homeById(kpVenue); h = hm ? homeHTML(hm) : ''; }
+  b.innerHTML = (kpMode === 'court' ? '' : '<button class="btn close" data-kpx="1" style="float:right">✕</button>') + h;
+}
+kpEl.addEventListener('pointerdown', e => { if (e.target === kpEl && kpMode !== 'court') closePanels(); });
+kpEl.addEventListener('click', e => {
+  if (e.target.closest('[data-kpx]')) { closePanels(); return; }
+  const b = e.target.closest('[data-kp]'); if (!b || b.disabled) return;
+  const [a, arg] = b.dataset.kp.split(':');
+  if (a === 'pawn1' || a === 'pawnA') pawnSell(arg, a === 'pawnA');
+  else if (a === 'paint') buyMod('paint', +arg); else if (a === 'mod') buyMod(arg);
+  else if (a === 'stash') { const hm = homeById(+arg); if (hm) { openSafe(hm); return; } }
+  else if (a === 'spawn') { const v = V13(); v.spawnHome = v.spawnHome === +arg ? null : +arg; toast(v.spawnHome ? '🛏️ You\'ll respawn at this safehouse' : '🛏️ Respawn point back to your bed / the village'); }
+  else if (a === 'court') { courtVerdict(arg); if (court) renderKp(); return; }
+  else if (a === 'cook') startCook(arg); else if (a === 'heat') { cookTap(1); return; } else if (a === 'cool') { cookTap(-1); return; }
+  else if (a === 'game') { if (!(cas.bj && !cas.bj.done)) cas.game = arg; } else if (a === 'bet') cas.bet = +arg;
+  else if (a === 'spin') playSlots(); else if (a === 'deal') bjDeal(); else if (a === 'hit') bjHit(); else if (a === 'stand') bjEnd(); else if (a === 'roul') playRoulette(arg);
+  if (kpShown()) renderKp();
+});
+
+// ======================= interactions: venues, safehouses, lab, deeds, scratch tickets =======================
+{ const use13 = useAction; useAction = function () {
+  if (!player.alive || odBusy || court) return;
+  const id = held();
+  if (!uiOpen) {
+    const vn = venueNear(player.car ? 7 : 2.8);
+    if (vn && (!player.car || vn.kind === 'garage')) { useVenue(vn); return; }
+    if (!player.car && !player.horse) {
+      const hm = homeNear(); if (hm) { openKp('home', hm.id); return; }
+      if (id && HOMES[id]) { moveIn(id); return; }
+      if (id === 'scratch_ticket') { useHeld(1); swing(); const r = Math.random(), w = r < 0.6 ? 0 : r < 0.9 ? rint(5, 20) : r < 0.99 ? rint(30, 80) : 500; if (w) addClean(w, `🎟️ Winner! +💰${w}`); else toast('🎟️ Not a winner. Better luck next time'); return; }
+      const h = raycast(); if (h && h.kind === 'block' && h.id === LAB) { openLab(h.x, h.y, h.z); return; }
+    }
+  }
+  return use13(); }; }
+
+// ======================= phone apps: 🏆 Goals, 👥 Crew, 🏠 Property =======================
+function goalsApp() {
+  const v = V13(), dl = dailyToday(), done = ACH.filter(a => v.ach[a[0]]).length;
+  return `<div class="pappbar">🏆 Goals <span style="margin-left:auto;font-size:12px;opacity:.8">Day ${dl.day}</span></div><div class="pplug"><h4>📅 Daily challenges</h4>` +
+    dl.ids.map(k => { const c = DAILY[k], p = dl.prog[k] || 0; return `<div class="pst">${dl.done[k] ? '✅' : '⬜'} ${c.t}<br><span style="opacity:.8">${Math.min(p, c.n)}/${c.n} · reward 💰${c.cash}${c.item ? ' + ' + ITEMS[c.item[0]].name : ''}</span><div class="pbar"><i style="width:${Math.round(Math.min(1, p / c.n) * 100)}%"></i></div></div>`; }).join('') +
+    `<div class="phint" style="margin-top:0">New challenges every in-game day.</div><h4>🏆 Achievements ${done}/${ACH.length}</h4>` +
+    ACH.map(([id, n, d]) => `<div class="pst" style="${v.ach[id] ? '' : 'opacity:.55'}">${v.ach[id] ? '✅' : '🔒'} <b>${n}</b><br><span style="font-size:12px">${d}</span></div>`).join('') + '</div>';
+}
+function crewApp() {
+  const v = V13(), nextPay = PAYDAY - ((day() - 1) % PAYDAY);
+  let h = `<div class="pappbar">👥 Crew <span style="margin-left:auto;font-size:12px;opacity:.8">payday in ${nextPay}d</span></div><div class="pplug"><div class="bal"><span>💰 ${state.coins}</span><span style="color:#9aff8a">💵 ${dirtyCash()}</span></div>`;
+  h += v.crew.length ? v.crew.map(r => {
+    const owe = r.unpaid ? ` · <b style="color:#ff8a8a">owed 💵${r.unpaid * CREW[r.kind].wage}</b>` : '';
+    if (r.kind === 'runner') return `<div class="pst">🧍 <b>${r.name}</b> · runner${owe}<br>${r.post ? `📍 ${Math.round(Math.hypot(r.post.x - player.pos.x, r.post.z - player.pos.z))} m away · stock ${stockN(r)} · 💵${Math.floor(r.cash)} to collect · sold ${r.sold}` : '💤 No corner yet'}</div><div class="prow"><button class="pst" data-kp13="post:${r.id}">📍 Post here</button>${r.post ? `<button class="pst" data-kp13="wp:${r.id}">🗺️ GPS</button>` : ''}<button class="pst stop" data-kp13="fire:${r.id}">✕ Fire</button></div>`;
+    return `<div class="pst">💪 <b>${r.name}</b> · bodyguard${owe}<br>Follows you and fights anyone who comes at you</div><div class="prow"><button class="pst stop" data-kp13="fire:${r.id}">✕ Fire</button></div>`;
+  }).join('') : '<div class="pst">Nobody on your crew yet.</div>';
+  if (v.crew.some(r => r.unpaid)) h += '<button class="pst" data-kp13="paydebt">💸 Pay what you owe</button>';
+  h += `<h4>Hire</h4>${Object.entries(CREW).map(([k, c]) => `<button class="pst" data-kp13="hire:${k}">${c.n} · 💵${c.hire} to hire · 💵${c.wage} every ${PAYDAY} days<br><span style="opacity:.75">${k === 'runner' ? 'Works a corner you pick and sells the drugs you hand them (✋ them while holding drugs). Can get busted.' : 'Follows you on foot and shoots hostiles, gangs and cops that come for you.'}</span></button>`).join('')}
+    <div class="phint" style="margin-top:0">Wages come out of 💵 dirty cash first. Skip payday twice and they quit... some snitch.</div></div>`;
+  return h;
+}
+function propertyApp() {
+  const v = V13(), car = v.car;
+  let h = '<div class="pappbar">🏠 Property</div><div class="pplug"><h4>Safehouses</h4>';
+  h += v.homes.length ? v.homes.map(hm => { const d = Math.round(Math.hypot(hm.x - player.pos.x, hm.z - player.pos.z)); return `<div class="pst">${HOMES[hm.kind].n} · ${d} m · 💰${HOMES[hm.kind].rent}/day${v.spawnHome === hm.id ? ' · 🛏️ spawn' : ''}</div><div class="prow"><button class="pst" data-kp13="hspawn:${hm.id}">🛏️ ${v.spawnHome === hm.id ? 'Unset' : 'Spawn'}</button><button class="pst" data-kp13="hwp:${hm.id}">🗺️ GPS</button>${d < 12 ? `<button class="pst" data-kp13="hstash:${hm.id}">📦 Stash</button>` : ''}</div>`; }).join('')
+    : '<div class="pst">No property yet. Buy a deed on DealerNet (🌐 Browser › 🏠 Property), then ✋ it where you want to live.</div>';
+  h += `<div class="phint" style="margin-top:0">🏢 Apartment 💰1500 (💰60/day) · 🏠 House 💰4000 (💰170/day) · 🌆 Penthouse 💰12000 (💰550/day). Each one: respawn point + raid-proof stash.</div>`;
+  h += `<h4>Your ride</h4><div class="pst">${car ? `🚗 ${['nitro', 'armor', 'hidden'].filter(k => car[k]).map(k => MODS[k].n).join(' · ') || '🎨 custom paint'}` : 'No ride yet. Mod a car at a 🔧 Garage in town.'}</div>${car ? '<button class="pst" data-kp13="ride">🔑 Call your ride</button>' : ''}</div>`;
+  return h;
+}
+{ const rp1 = renderPhone; renderPhone = function () {
+  rp1();
+  const el = document.getElementById('pScreen'); if (!el) return;
+  if (phoneApp === 'home') {
+    const a = el.querySelector('.papps');
+    if (a && !a.querySelector('[data-app="goals"]')) a.insertAdjacentHTML('beforeend', '<button class="papp" data-app="goals"><i style="background:linear-gradient(#ffd84a,#c99a12)">🏆</i>Goals</button><button class="papp" data-app="crew"><i style="background:linear-gradient(#5a5a6a,#22222a)">👥</i>Crew</button><button class="papp" data-app="property"><i style="background:linear-gradient(#4ad0c0,#1a7a8a)">🏠</i>Property</button>');
+    return;
+  }
+  const app = phoneApp === 'goals' ? goalsApp : phoneApp === 'crew' ? crewApp : phoneApp === 'property' ? propertyApp : null;
+  if (app) el.innerHTML = phoneStatus() + app();
+}; }
+phoneEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-kp13]'); if (!b) return; const [a, arg] = b.dataset.kp13.split(':'), v = V13();
+  if (a === 'hire') hire(arg); else if (a === 'post') postRunner(+arg); else if (a === 'fire') fireCrew(+arg); else if (a === 'paydebt') { if (!payCrew(true)) toast('💸 Not enough cash to pay them'); }
+  else if (a === 'wp') { const r = crewById(+arg); if (r && r.post) { state.waypoints.push({ x: r.post.x, z: r.post.z, c: '#ffd23b' }); toast(`🗺️ ${r.name}'s corner is on your GPS`); } }
+  else if (a === 'hwp') { const hm = homeById(+arg); if (hm) { state.waypoints.push({ x: hm.x, z: hm.z, c: '#3bff7a' }); toast('🗺️ Safehouse pinned on your GPS'); } }
+  else if (a === 'hspawn') { v.spawnHome = v.spawnHome === +arg ? null : +arg; toast(v.spawnHome ? '🛏️ You\'ll respawn at this safehouse' : '🛏️ Respawn point back to your bed / the village'); }
+  else if (a === 'hstash') { const hm = homeById(+arg); if (hm) { openSafe(hm); return; } }
+  else if (a === 'ride') { closePanels(); spawnMyRide(); return; }
+  renderPhone(); beep(990, 0.03, 'sine', 0.04);
+});
+
+// ---- HUD line (joins the wanted / prison / Plug line)
+{ const rh1 = renderHud4; renderHud4 = function () {
+  rh1(); const bits = [];
+  if (heist) { const vn = heist.vn; bits.push(`🔫 Robbing ${VENUE[vn.kind].n} · ${Math.min(100, Math.round(heist.t / heist.total * 100))}%${heist.alarm ? ' · 🚨 ALARM' : ''} · stay close`); }
+  if (cook) bits.push(`⚗️ Cooking · ${Math.round(cook.heat)}°`);
+  const c = player.car; if (c && c.mods && c.mods.nitro) bits.push(nitroT > 0 ? '🔥 NITRO' : `🔥 ${nitroCharge >= 1 ? 'Nitro ready' : 'Nitro ' + Math.round(nitroCharge * 100) + '%'}`);
+  if (c && c.mods && c.mods.hidden && count('plug_package')) bits.push('🕳️ Package hidden');
+  if (!bits.length) return;
+  const extra = bits.join(' &nbsp; '), html = hud4.innerHTML ? hud4.innerHTML + ' &nbsp; ' + extra : extra;
+  if (hud4.innerHTML !== html) hud4.innerHTML = html; hud4.style.display = 'block';
+}; }
+
+// ---- the per-frame hook (called from the main loop after updateV112)
+let achT = 2;
+function updateV113(dt, t) {
+  if (!playing) return;
+  const v = V13();
+  const d = day();
+  if (d > v.lastDay) { const n = d - v.lastDay; v.lastDay = d; rentDaily(n); for (let k = d - n + 1; k <= d; k++) if (k % PAYDAY === 0) { payCrew(false); break; } }
+  else if (d < v.lastDay) v.lastDay = d;
+  const rep = V12().rep; if (rep > v.lastRep) kpStat('plug', rep - v.lastRep); v.lastRep = rep;
+  updateVenues(dt); updateHeist(dt); updateHomes(); updateCrew(dt); updateCook(dt);
+  rideCd = Math.max(0, rideCd - dt);
+  if (nitroT > 0) nitroT -= dt; else nitroCharge = Math.min(1, nitroCharge + dt / 12);
+  document.body.classList.toggle('kpnitro', !!(player.car && player.car.mods && player.car.mods.nitro));
+  const c = player.car; if (c && c.mods && c.mods.hidden && count('plug_package')) plugCopT = Math.max(plugCopT, 0.5);   // hidden compartment: cops can't see the package
+  achT -= dt; if (achT <= 0) { achT = 2; checkAch(); }
+  kpQT -= dt; if (kpQ.length && kpQT <= 0 && toastT <= 0.4) { toast(kpQ.shift()); kpQT = 2.6; }
+}
+window.__dc13 = { V13, VENUE, venuesOf, venueMesh, liveVenues, homeById, venueNear, useVenue, startHeist, heistLoot, updateHeist, get heist() { return heist; }, PAWN, pawnSell, pawnPrice,
+  MODS, buyMod, garageCar, paintCar, spawnMyRide, fireNitro, get nitroT() { return nitroT; }, set kpLastCar(c) { kpLastCar = c; },
+  HOMES, moveIn, homeNear, openSafe, rentDaily, homeSpawn, CREW, hire, postRunner, fireCrew, payCrew, interactCrew, updateCrew, guardFoe, crewById, crewMob,
+  courtCase, courtVerdict, get court() { return court; }, COOK, openLab, startCook, cookTap, finishCook, get cook() { return cook; },
+  cas, playSlots, bjDeal, bjHit, bjEnd, playRoulette, DAILY, dailyToday, dailyEvent, ACH, checkAch, kpStat, updateV113, openKp, renderKp, payAny, cashTotal, isWeapon,
+  get jail() { return jail; }, arrest: () => arrest(), closePanels: () => closePanels(), get playing() { return playing; }, get kpQ() { return kpQ; } };
+
 // ================== SOUNDS ==================
 let ambStarted = false;
 function startAmbience() {
@@ -7606,7 +8505,7 @@ function frame(now) {
   updateVillagers(dt); updateSpooks(dt, now / 1000); if (playing) { updateMobs(dt, now / 1000); updateV109(dt, now / 1000); } updateParticles(dt); updateFurnaces(dt);
   if (playing) { updateCars(dt, now / 1000); updateTowns(dt); updateSea(dt); updateServices(dt, now / 1000); } updateSmoke(dt);
   updateSleep(dt); updateNet(dt, now / 1000); updateTVs(dt); updateRadio(dt); if (!player.car) updateMyAvatar(dt, now / 1000); else if (myAv) { myAv.g.visible = false; hand.visible = true; }
-  updateWeather(dt); updateSky(); updateDrugs(dt, now / 1000); updateTarget(); updateHand(dt, moving); updateTorchLights(dt); updateMap(dt); updateOffhand(dt); updateV110s4(dt, now / 1000); updateV112(dt, now / 1000);
+  updateWeather(dt); updateSky(); updateDrugs(dt, now / 1000); updateTarget(); updateHand(dt, moving); updateTorchLights(dt); updateMap(dt); updateOffhand(dt); updateV110s4(dt, now / 1000); updateV112(dt, now / 1000); updateV113(dt, now / 1000);
   cropTick += dt; if (cropTick > 1) { cropTick = 0; if (playing) tickCropsAndPoop(1); let ch = false; for (const k in state.crops) { const c = state.crops[k]; if (cropStage(c) !== c._st || (c.type === 'weed' && Math.round(Math.min(1, (state.gameTime - c.t) / CROPS.weed.grow) * 40) !== c._g)) ch = true; } if (ch) buildCrops(); }
   statTick += dt; if (statTick > 0.5) { statTick = 0; renderStats(); renderVitals(); }
   saveTick += dt; if (saveTick > 10 && playing) { saveTick = 0; save(); }
