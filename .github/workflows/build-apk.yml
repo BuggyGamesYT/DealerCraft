@@ -1,0 +1,76 @@
+name: Build APK
+
+on:
+  push:
+    tags: ['v*']          # push a tag like v1.15 -> build, sign, publish a release
+  workflow_dispatch:      # "Run workflow" button -> build only, APK as a download
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android build tools
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          set -e
+          BT="$ANDROID_HOME/build-tools/36.0.0"; AJ="$ANDROID_HOME/platforms/android-36/android.jar"
+          rm -rf build assets && mkdir -p build/obj build/dex build/gen assets/www
+          cp ../web/* assets/www/
+          "$BT/aapt2" compile --dir res -o build/res.zip
+          "$BT/aapt2" link -o build/unsigned.apk -I "$AJ" --manifest AndroidManifest.xml -A assets --java build/gen build/res.zip
+          javac --release 17 -nowarn -cp "$AJ" -d build/obj $(find src build/gen -name '*.java')
+          "$BT/d8" --min-api 24 --lib "$AJ" --output build/dex $(find build/obj -name '*.class')
+          (cd build/dex && zip -q ../unsigned.apk classes.dex)
+          "$BT/zipalign" -f -p 4 build/unsigned.apk build/aligned.apk
+
+      - name: Sign APK
+        working-directory: android
+        env:
+          KEY_PASS: ${{ secrets.DEALERCRAFT_KEY_PASS }}
+        run: |
+          set -e
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          if [ -n "$KEY_PASS" ]; then
+            printf '%s' "$KEY_PASS" > build/ks.pass
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in signing/release.keystore.enc -out build/release.keystore -pass file:build/ks.pass
+            "$BT/apksigner" sign --ks build/release.keystore --ks-pass file:build/ks.pass --out DealerCraft.apk build/aligned.apk
+            rm -f build/ks.pass build/release.keystore
+          else
+            if [ "${{ github.event_name }}" = "push" ]; then
+              echo "::error::DEALERCRAFT_KEY_PASS secret is missing, so a release can't be signed with the real key."; exit 1
+            fi
+            echo "::warning::No DEALERCRAFT_KEY_PASS secret: signing with a throwaway test key (won't update over an installed copy)."
+            keytool -genkeypair -keystore build/test.keystore -alias test -keyalg RSA -keysize 2048 -validity 3650 -storepass testtest -keypass testtest -dname "CN=Test" > /dev/null 2>&1
+            "$BT/apksigner" sign --ks build/test.keystore --ks-pass pass:testtest --out DealerCraft.apk build/aligned.apk
+          fi
+          "$BT/apksigner" verify DealerCraft.apk
+          VER=$(grep -o 'versionName="[^"]*"' AndroidManifest.xml | cut -d'"' -f2)
+          cp DealerCraft.apk "DealerCraft-v$VER.apk"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DealerCraft-v${{ env.VER }}
+          path: android/DealerCraft-v${{ env.VER }}.apk
+
+      - name: Publish release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/DealerCraft-v${{ env.VER }}.apk
+          generate_release_notes: true
