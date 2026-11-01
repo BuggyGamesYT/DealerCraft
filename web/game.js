@@ -11,6 +11,8 @@ let VIEW = 4;                                   // chunks drawn around the playe
 const SLOTS = 3, SLOT = Math.min(SLOTS, Math.max(1, +(localStorage.getItem('dealercraft_slot') || 1)));   // multiple worlds
 const slotKey = n => n === 1 ? 'dealercraft_save_v1' : 'dealercraft_save_v1_s' + n;
 const SAVE_KEY = slotKey(SLOT);
+// v1.15 Zombies mode: the menu sets dc_zm and reloads; it's read once here (a plain reload goes back to survival)
+const ZM = (() => { try { const v = JSON.parse(localStorage.getItem('dc_zm')); localStorage.removeItem('dc_zm'); return v && v.role ? v : null; } catch (e) { return null; } })();
 const SAFE_R = 24;                              // no monster spawns / explosion damage this close to the plaza
 
 const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, LOG = 6, LEAVES = 7,
@@ -393,7 +395,7 @@ Object.assign(ITEMS, {
   table: { name: 'Table', emoji: '🟫', block: TABLE }, counter: { name: 'Kitchen Counter', emoji: '🗄️', block: COUNTER0, facing: true },
   graffiti_wall: { name: 'Graffiti Wall', block: GRAFF1 }, blue_glass: { name: 'Blue Office Glass', block: GL_BLUE }, green_glass: { name: 'Green Office Glass', block: GL_GREEN },
   gold_glass: { name: 'Gold Office Glass', block: GL_GOLD }, dark_glass: { name: 'Dark Office Glass', block: GL_DARK }, teal_glass: { name: 'Teal Office Glass', block: GL_TEAL },
-  boat: { name: 'Wooden Boat', emoji: '🛶', stack: 1 }, paddle: { name: 'Paddle', emoji: '🏏', stack: 1 },
+  boat: { name: 'Wooden Boat', emoji: '🛶', stack: 1 }, paddle: { name: 'Paddle', emoji: '🏏', px: 'paddle', mat: 'wood', stack: 1 },
 });
 shaped('couch', 1, ['W..', 'WWW', 'PPP'], { W: 'wool', P: 'planks' });
 shaped('chair', 2, ['P..', 'PPP', 'P.P'], { P: 'planks' });
@@ -606,6 +608,85 @@ Object.assign(SMELT, { gold_ore: 'gold_ingot', platinum_ore: 'platinum_ingot', m
   return di5(kind, mat, P);
 }; }
 
+// ================== v1.15 round 1 (data): full-size beds, wall torches, giant flatscreen TV, price changes ==================
+// blocks 144-163 (tile 143 in p_d_tiles_v115.js). Gameplay lives in p_z5_v115.js near the game loop.
+// 2-block beds: a head half and a foot half (4 facings each). Old 1-block beds (65-68) keep working as they are.
+const BEDH0 = 144, BEDF0 = 148, WTORCH0 = 152, GTVW0 = 156, GTVS0 = 160;
+const isBed2 = id => id >= BEDH0 && id < BEDF0 + 4, bed2Head = id => id >= BEDH0 && id < BEDH0 + 4, bed2F = id => (id - BEDH0) & 3;
+const isWTorch = id => id >= WTORCH0 && id < WTORCH0 + 4;
+const isGTV = id => id >= GTVW0 && id < GTVS0 + 4, gtvWall = id => id >= GTVW0 && id < GTVW0 + 4, gtvF = id => (id - GTVW0) & 3;
+for (let f = 0; f < 4; f++) {
+  for (const b of [BEDH0, BEDF0]) { BT[b + f] = [9, 9, 9]; HARD[b + f] = [0.35, null]; BLOCK_DROP[b + f] = 'bed'; PLANT.add(b + f); MODEL.add(b + f); FLAMMABLE.add(b + f); }
+  BT[WTORCH0 + f] = [57, 57, 57]; HARD[WTORCH0 + f] = HARD[TORCH] || [0, null]; BLOCK_DROP[WTORCH0 + f] = 'torch'; PLANT.add(WTORCH0 + f); MODEL.add(WTORCH0 + f);
+  for (const b of [GTVW0, GTVS0]) { BT[b + f] = [82, 82, 82]; HARD[b + f] = [0.5, null]; BLOCK_DROP[b + f] = 'giant_tv'; PLANT.add(b + f); MODEL.add(b + f); }
+}
+// models made facing +z (front = +z). Bed: headboard at z=0 (head half), footboard at z=1 (foot half)
+const BED2_HEAD = [[[0, 0, 0, 1, 0.2, 1], 9], [[0.03, 0.2, 0.06, 0.97, 0.5, 1], 78], [[0.1, 0.5, 0.1, 0.9, 0.62, 0.42], 79], [[0, 0, 0, 1, 0.9, 0.08], 9]];
+const BED2_FOOT = [[[0, 0, 0, 1, 0.2, 1], 9], [[0.03, 0.2, 0, 0.97, 0.5, 0.94], 78], [[0, 0, 0.92, 1, 0.42, 1], 9]];
+// wall torch: wall at z=0, the stick leans out from it (stepped boxes so it reads as tilted)
+const WTORCH_M = [[[0.44, 0.16, 0.04, 0.56, 0.3, 0.16], 57], [[0.44, 0.28, 0.13, 0.56, 0.44, 0.26], 57], [[0.44, 0.42, 0.22, 0.56, 0.62, 0.36], 57]];
+// giant flatscreen: 3 wide x 2 tall. On a wall: a thin panel flat against it, no legs. On a block: panel on a stand with two feet
+const GTV_WALL = [[[-1, -0.45, 0, 2, 1.55, 0.1], 82], [[-0.94, -0.39, 0.1, 1.94, 1.49, 0.11], 83]];
+const GTV_STAND = [[[-1, 0.42, 0.44, 2, 2.42, 0.56], 82], [[-0.94, 0.48, 0.56, 1.94, 2.36, 0.57], 83], [[0.4, 0, 0.3, 0.6, 0.42, 0.52], 82], [[-0.7, 0, 0.25, -0.5, 0.06, 0.75], 82], [[-0.7, 0.06, 0.45, -0.6, 0.5, 0.55], 82], [[1.5, 0, 0.25, 1.7, 0.06, 0.75], 82], [[1.6, 0.06, 0.45, 1.7, 0.5, 0.55], 82]];
+// rotBox only maps 0..1 boxes; the giant TV pokes out of its block, so rotate around the block centre for any box
+function rotBoxAny(b, f) {
+  const r = (x, z) => f === 0 ? [x, z] : f === 1 ? [z, 1 - x] : f === 2 ? [1 - x, 1 - z] : [1 - z, x];
+  const [ax, az] = r(b[0], b[2]), [bx, bz] = r(b[3], b[5]);
+  return [Math.min(ax, bx), b[1], Math.min(az, bz), Math.max(ax, bx), b[4], Math.max(az, bz)];
+}
+{ const mb3 = modelBoxes3; modelBoxes3 = function (id) {
+  if (isBed2(id)) return (bed2Head(id) ? BED2_HEAD : BED2_FOOT).map(([b, t]) => [rotBox(b, bed2F(id)), t]);
+  if (isWTorch(id)) return WTORCH_M.map(([b, t]) => [rotBox(b, id - WTORCH0), t]);
+  if (isGTV(id)) return (gtvWall(id) ? GTV_WALL : GTV_STAND).map(([b, t]) => [rotBoxAny(b, gtvF(id)), t]);
+  return mb3(id);
+}; }
+Object.assign(ITEMS, { giant_tv: { name: 'Giant Flatscreen TV', emoji: '📺', gtv: true, stack: 1 } });
+shaped('giant_tv', 1, ['GGG', 'TCT', 'III'], { G: 'glass', T: 'tv', C: 'coal', I: 'iron_ingot' });
+// v1.15 prices (DealerNet and the furniture trader): laptop 3500, TV 2500, giant TV 5000
+const PRICE_SET = { laptop: 3500, tv: 2500, giant_tv: 5000 };
+Object.assign(VILLAGERS[3].sells, PRICE_SET);
+// double chests: two chests side by side are drawn as one wide chest (one lid, the latch in the middle). Only mutual pairs merge,
+// so a row of three still opens/draws sensibly. Single chests stay the classic cube.
+function chestMate(x, y, z) { for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (get(x + dx, y, z + dz) === CHEST) return [dx, dz]; return null; }
+function chestBoxes(x, y, z) {
+  const m = chestMate(x, y, z); if (!m) return null;
+  const b = chestMate(x + m[0], y, z + m[1]); if (!b || b[0] !== -m[0] || b[1] !== -m[1]) return null;
+  const boxes = [[[0.0625, 0, 0.0625, 1, 0.86, 0.9375], 143], [[0.0625, 0.86, 0.0625, 1, 0.875, 0.9375], 49], [[0.92, 0.34, 0, 1, 0.6, 0.0625], 66], [[0.92, 0.34, 0.9375, 1, 0.6, 1], 66]];
+  const tf = q => { let [x0, y0, z0, x1, y1, z1] = q;   // built with the mate at +x; flip / swap for the other sides
+    if (m[0] < 0) [x0, x1] = [1 - x1, 1 - x0];
+    else if (m[1] !== 0) { [x0, z0, x1, z1] = [z0, x0, z1, x1]; if (m[1] < 0) [z0, z1] = [1 - z1, 1 - z0]; }
+    return [x0, y0, z0, x1, y1, z1]; };
+  return boxes.map(([q, t]) => [tf(q), t]);
+}
+
+// ================== v1.15 round 2a (data): highways, rooftops, elevators, big airports ==================
+// blocks 164-168 (tiles 144-148 in p_d_tiles_v115r2.js). World gen lives in p_z6_v115r2.js; rooftops in p_c2_cities.js (stampLot3).
+const LINE_W = 164, LINE_Y = 165, ELEV = 166, ELEV_TOP = 167, HWY_SIGN = 168;
+BT[LINE_W] = [144, 64, 64]; BT[LINE_Y] = [145, 64, 64]; BT[ELEV] = [66, 66, 146]; BT[ELEV_TOP] = [66, 66, 147]; BT[HWY_SIGN] = [148, 148, 148];
+HARD[LINE_W] = [1.5, 'pick', 1]; HARD[LINE_Y] = [1.5, 'pick', 1]; HARD[ELEV] = [2.5, 'pick', 1]; HARD[ELEV_TOP] = [2.5, 'pick', 1]; HARD[HWY_SIGN] = [1.5, 'pick', 1];
+BLOCK_DROP[LINE_W] = 'asphalt'; BLOCK_DROP[LINE_Y] = 'asphalt'; BLOCK_DROP[ELEV] = 'concrete'; BLOCK_DROP[ELEV_TOP] = 'concrete'; BLOCK_DROP[HWY_SIGN] = 'concrete';
+const isElev = id => id === ELEV || id === ELEV_TOP;
+// ---- world-gen version for v1.15 round 2 (highways, roofs, big airports). Old saves: every chunk you built in or explored
+// (plus the older protected lists) keeps generating exactly like v1.15 round 1. state.wgV / state.wgOld, same idea as caveV/caveOld.
+let wgOldSet = null, wgOldReg = null;
+function wgInit() {
+  if (state.wgV) return;
+  if (MP_GUEST) { state.wgV = 1; state.wgOld = ['*']; return; }   // a host without v1.15 roads: match it
+  const ks = new Set([...(state.oldCh || []), ...(state.townOld || []), ...(state.siteOld || []), ...(state.gyOld || []), ...(state.caveOld || [])]);
+  ks.delete('*');
+  for (const k in state.edits || {}) { const p = k.split(','); ks.add(Math.floor(+p[0] / 16) + ',' + Math.floor(+p[2] / 16)); }
+  try { const o = JSON.parse(localStorage.getItem('dealercraft_map_' + SLOT)); if (o && o.seed === state.seed && o.c) for (const k in o.c) ks.add(k); } catch (e) {}
+  state.wgOld = [...ks]; state.wgV = 1;
+}
+function wgSets() {
+  if (wgOldSet) return; wgInit(); wgOldSet = new Set(state.wgOld || []); wgOldReg = new Set();
+  for (const k of wgOldSet) { if (k === '*') continue; const [a, b] = k.split(',').map(Number); wgOldReg.add(Math.floor(a / 5) + ',' + Math.floor(b / 5)); }
+}
+const wgAll = () => { wgSets(); return wgOldSet.has('*') || !(state.genV >= 2) || !(state.townV >= 3) || !(state.siteV >= 4); };
+function wgChOld(cx, cz) { wgSets(); return wgAll() || wgOldSet.has(cx + ',' + cz); }
+function wgRegNew(rx, rz) { wgSets(); return !wgAll() && !wgOldReg.has(rx + ',' + rz); }
+const helipads = new Map();   // chunk key -> rooftop helipad {x, y, z, heli, key}
+
 // ================== RANDOM / NOISE ==================
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hash2(x, z, s) { let h = x * 374761393 + z * 668265263 + s * 982451653; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -623,7 +704,7 @@ const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 let state = null;
 // online: a guest plays in the host's world (sent before the reload) but keeps their own bag
 const MP = (() => { try { return JSON.parse(localStorage.getItem('dc_mp')); } catch (e) { return null; } })();
-const MP_GUEST = !!(MP && MP.role === 'guest');
+const MP_GUEST = !!(MP && MP.role === 'guest') && !ZM;   // Zombies mode never plays inside a survival world
 const INV_KEYS = ['slots', 'armor', 'off', 'sel', 'coins', 'earned', 'hp', 'food', 'sat'];
 const emptySlots = n => Array.from({ length: n }, () => null);
 function newState() {
@@ -653,6 +734,7 @@ function migrate(s) {
   s.v = 2; return s;
 }
 function load() {
+  if (ZM) return null;   // Zombies mode: a throwaway state, survival saves are never read or written
   if (MP_GUEST) try { const w = JSON.parse(localStorage.getItem('dc_mp_world')), inv = JSON.parse(localStorage.getItem('dc_mp_inv')) || {};
     if (w && w.seed != null) { const s = migrate(Object.assign(newState(), w, inv)); if (!w.genV) keepOldTerrain(s, w, null); if (!w.townV) s.townV = 0; if (!w.siteV) s.siteV = 0; s._welcomed = true; return s; } } catch (e) {}
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.seed != null) { const old = !s.v109, st = migrate(Object.assign(newState(), s));
@@ -1226,13 +1308,14 @@ function stampLot3(o) {
     const top = B + floors * 4, inner = Math.min(floors, opt.interior ?? floors), kinds = opt.kinds || ['home'];
     const sx = ax + 1, sz0 = az + d - 3;                       // stair column: x = sx, landing at sz0+1, ascending toward -z, 4 cells long
     const stairCell = new Set(); for (let k = -1; k < 5; k++) stairCell.add(sx + ',' + (sz0 - k)); for (let k = -1; k < 5; k++) stairCell.add((sx + 1) + ',' + (sz0 - k));
+    const all = !!opt.stairsAll && floors > 1, inShaft = (x, z) => (x === sx || x === sx + 1) && z >= sz0 - 4 && z <= sz0 + 1;   // v1.15: stairwell through every storey up to the roof
     fill(ax, B, az, ax + w - 1, B, az + d - 1, opt.floor || PLANKS);
     for (let x = ax; x < ax + w; x++) for (let z = az; z < az + d; z++) {
       const edge = x === ax || z === az || x === ax + w - 1 || z === az + d - 1, corner = (x === ax || x === ax + w - 1) && (z === az || z === az + d - 1);
       for (let y = B + 1; y <= top; y++) {
         const st = Math.floor((y - B - 1) / 4), fy = (y - B) % 4;
-        if (st >= inner && !edge) { L(x, y, z, CONCRETE); continue; }               // solid core above the furnished storeys
-        if (fy === 0) { L(x, y, z, edge ? (opt.band || wall) : (st < inner - 1 && x === sx && z >= sz0 - 2 && z <= sz0 ? AIR : (opt.floor || PLANKS))); continue; }
+        if (st >= inner && !edge && !(all && inShaft(x, z))) { L(x, y, z, CONCRETE); continue; }               // solid core above the furnished storeys
+        if (fy === 0) { L(x, y, z, edge ? (opt.band || wall) : ((all ? st < floors : st < inner - 1) && x === sx && z >= sz0 - 2 && z <= sz0 ? AIR : (opt.floor || PLANKS))); continue; }
         if (!edge) { L(x, y, z, AIR); continue; }
         if (corner) { L(x, y, z, opt.corner || wall); continue; }
         if (opt.lobby && y <= B + 3 && z === az) { L(x, y, z, fy === 3 ? (opt.band || wall) : SHOPGLASS); continue; }
@@ -1241,11 +1324,20 @@ function stampLot3(o) {
       }
     }
     // stairs + furniture for each furnished storey
-    for (let s = 0; s < inner; s++) {
+    for (let s = 0; s < (all ? floors : inner); s++) {
       const fyb = B + s * 4 + 1;   // walking level (block cells start here)
-      if (s < inner - 1) for (let k = 0; k < 4; k++) L(sx, fyb + k, sz0 - k, (opt.stone ? SSTAIR0 : WSTAIR0) + 0);
+      if (s < inner - 1 || all) for (let k = 0; k < 4; k++) L(sx, fyb + k, sz0 - k, (opt.stone ? SSTAIR0 : WSTAIR0) + 0);
+      if (all) { L(ax, fyb, sz0 + 1, ELEV); L(ax, fyb + 1, sz0 + 1, ELEV_TOP); }   // an elevator stop on every floor (by the stair landing)
+      if (s >= inner) { if (s % 2 === 1) torch(sx + 1, fyb + 2, sz0 - 4); continue; }
       furnish(ax, az, w, d, fyb, kinds[s % kinds.length], new Set(stairCell));
       if (s === 0 || (opt.lights !== false && s % 2 === 0)) torch(ax + w - 2, fyb, az + 1);
+    }
+    if (all) {   // roof access: the stair comes up through a railed hatch, the elevator has a roof stop, parapet all round
+      const ry = top + 1;
+      for (let x = ax; x < ax + w; x++) for (let z = az; z < az + d; z++) if ((x === ax || z === az || x === ax + w - 1 || z === az + d - 1) && Lget(x, top, z) !== AIR) L(x, ry, z, opt.band || wall);
+      for (let z = sz0 - 2; z <= sz0; z++) L(sx + 1, ry, z, FENCE);
+      L(sx, ry, sz0 + 1, ELEV); L(sx, ry + 1, sz0 + 1, ELEV_TOP); L(sx, ry + 2, sz0 + 1, CONCRETE);
+      torch(sx + 1, ry, sz0 + 2);
     }
     door(ax + (w >> 1), B + 1, az);
     for (let z = Z - 1; z < az; z++) L(ax + (w >> 1), B, z, SIDEWALK);
@@ -1287,15 +1379,25 @@ function stampLot3(o) {
   const kind = pick(lotKinds);
   if (kind === 'sky' || kind === 'tower') {
     const tall = kind === 'sky' ? (dist === 'downtown' ? R(30, 46) : R(20, 34)) : R(12, 20), floors = Math.max(3, Math.floor(Math.min(H - 4 - B, tall) / 4));
-    const skin = pick(SKY_SKINS), band = pick([CONCRETE, CONCRETE, WHITEWALL, GL_DARK]), shape = pick(['box', 'setback', 'setback', 'cut', 'twin', 'spire']);
-    const w = shape === 'twin' ? 10 : R(8, 10), d = R(8, 9), ax = X + ((10 - w) >> 1), az = Z + 1;
+    const skin = pick(SKY_SKINS), band = pick([CONCRETE, CONCRETE, WHITEWALL, GL_DARK]); let shape = pick(['box', 'setback', 'setback', 'cut', 'twin', 'spire']);
+    const roofs = !wgChOld(x0 / CH, z0 / CH), pad = roofs && kind === 'sky' && r() < (dist === 'downtown' ? 0.45 : 0.3);   // v1.15: walkable roofs, some with a helipad
+    if (roofs && (shape === 'twin' || shape === 'setback')) shape = r() < 0.5 ? 'box' : 'cut'; if (pad && shape === 'spire') shape = 'box';
+    const w = pad ? 10 : shape === 'twin' ? 10 : R(8, 10), d = pad ? 9 : R(8, 9), ax = X + ((10 - w) >> 1), az = Z + 1;
     if (shape === 'twin') {   // two slim towers sharing a lobby podium
       building(X, az, 10, d, 1, band, SHOPGLASS, { lobby: true, kinds: ['office'], stone: true, floor: CONCRETE });
       for (const tx of [X, X + 6]) { const top = B + floors * 4; for (let x = tx; x < tx + 4; x++) for (let z = az + 1; z < az + d - 1; z++) for (let y = B + 5; y <= top; y++) { const e = x === tx || x === tx + 3 || z === az + 1 || z === az + d - 2; L(x, y, z, e ? ((y - B) % 4 === 0 ? band : skin) : CONCRETE); } L(tx + 1, top + 1, az + 2, LAMP); }
       return;
     }
-    const top = building(ax, az, w, d, floors, skin, skin, { curtain: true, band, corner: band, lobby: true, interior: 3, kinds: ['shop', 'office', 'office'], stone: true, floor: CONCRETE, lights: true });
-    if (shape === 'cut') for (let y = B + 5; y <= top; y++) for (const [cx2, cz2] of [[ax, az], [ax + w - 1, az], [ax, az + d - 1], [ax + w - 1, az + d - 1]]) L(cx2, y, cz2, AIR);
+    const top = building(ax, az, w, d, floors, skin, skin, { curtain: true, band, corner: band, lobby: true, interior: 3, kinds: ['shop', 'office', 'office'], stone: true, floor: CONCRETE, lights: true, stairsAll: roofs });
+    if (shape === 'cut') for (let y = B + 5; y <= top + 1; y++) for (const [cx2, cz2] of [[ax, az], [ax + w - 1, az], [ax, az + d - 1], [ax + w - 1, az + d - 1]]) L(cx2, y, cz2, AIR);
+    if (pad) {   // helipad: yellow ring, white H, a landing light in each corner, sometimes a parked helicopter
+      for (let x = ax + 3; x <= ax + 8; x++) for (let z = az + 1; z <= az + 7; z++) L(x, top, z, x === ax + 3 || x === ax + 8 || z === az + 1 || z === az + 7 ? LINE_Y : ASPHALT);
+      for (let z = az + 2; z <= az + 6; z++) { L(ax + 4, top, z, LINE_W); L(ax + 7, top, z, LINE_W); } L(ax + 5, top, az + 4, LINE_W); L(ax + 6, top, az + 4, LINE_W);
+      for (const [lx, lz] of [[ax + w - 2, az + 1], [ax + w - 2, az + d - 2]]) { L(lx, top + 1, lz, LAMP); torches.add((x0 + lx) + ',' + (top + 1) + ',' + (z0 + lz)); }
+      helipads.set(ckey(x0 / CH, z0 / CH), { x: x0 + ax + 6, y: top + 1, z: z0 + az + 4.5, heli: r() < 0.6, key: 'H' + (x0 + ax) + ',' + (z0 + az) });
+      if (dist === 'downtown') lamp(X + 9, Z, 4);
+      return;
+    }
     let rt = top;
     if (shape === 'setback') {   // stacked, narrower tiers on top
       let bx = ax + 1, bz = az + 1, bw = w - 2, bd = d - 2, tiers = R(1, 2);
@@ -1533,6 +1635,7 @@ paintTile(48, doorTile(true));
 const chestBase = (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const k = (r() - .5) * 16, edge = x === 0 || x === 15 || y === 0 || y === 15; px(x, y, edge ? rgb(80, 50, 22) : rgb(160 + k, 108 + k, 50 + k)); } };
 paintTile(49, chestBase);
 paintTile(50, (px, r) => { chestBase(px, r); for (let x = 0; x < TS; x++) px(x, 6, rgb(70, 44, 20)); for (let y = 5; y < 10; y++) for (let x = 7; x < 9; x++) px(x, y, y === 5 || y === 9 ? '#555' : '#c8c8c8'); });
+paintTile(143, (px, r) => { chestBase(px, r); for (let x = 0; x < TS; x++) px(x, 6, rgb(70, 44, 20)); });   // v1.15: double-chest side (lid line, no latch: the latch sits in the middle of the pair)
 
 // ---- marijuana crop (4 stages, 51..54), mushrooms (55 red, 56 brown), torch (57), cow poop (58)
 function weedLeaf(px, cx, cy, sz, col) {   // a 5-7 finger fan leaf
@@ -1668,9 +1771,33 @@ const deadCol = (u, v, r) => cshade(cmix([86, 78, 56], [124, 114, 82], grassN(u,
 paintHD(38, (x, y, u, v, r) => deadCol(u, v, r));
 paintHD(40, (x, y, u, v, r) => { const edge = 0.14 + fringe(u, 0.5) * 0.12; return v < edge ? deadCol(u, v, r) : dirtCol(u, v, r); });
 function hdBlit(c, t) { const s = HD_ON ? HS : TS; c.width = c.height = s; c.getContext('2d').drawImage(HD_ON ? hdAtlas : atlas, (t % AT) * s, Math.floor(t / AT) * s, s, s, 0, 0, s, s); return c; }
+
+// v1.15 round 2a tiles: 144 white road paint, 145 yellow road paint, 146 elevator doors (lower), 147 elevator doors (upper, with floor display), 148 green highway sign
+paintTile(144, (px, r) => { asphalt(px, r); for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) if (r() > 0.06) px(x, y, rgb(232 + (r() - .5) * 16, 232 + (r() - .5) * 16, 226)); });
+paintTile(145, (px, r) => { asphalt(px, r); for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) if (r() > 0.06) px(x, y, rgb(242, 196 + (r() - .5) * 20, 30)); });
+paintTile(146, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const fr = x < 2 || x > 13, seam = x === 7 || x === 8, k = (r() - .5) * 10; px(x, y, fr ? rgb(120, 120, 124) : seam ? rgb(70, 72, 78) : rgb(190 + k + (x < 7 ? x : 15 - x) * 2, 194 + k, 200 + k)); }
+  px(14, 6, '#ffd84a'); px(15, 6, '#ffd84a'); px(14, 9, '#ffd84a'); px(15, 9, '#ffd84a'); });
+paintTile(147, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const fr = x < 2 || x > 13 || y < 4, seam = x === 7 || x === 8, k = (r() - .5) * 10; px(x, y, fr ? rgb(120, 120, 124) : seam ? rgb(70, 72, 78) : rgb(190 + k, 194 + k, 200 + k)); }
+  for (let x = 5; x < 11; x++) { px(x, 1, '#111'); px(x, 2, '#111'); } px(6, 1, '#ff5a3a'); px(7, 2, '#ff5a3a'); px(8, 1, '#ff5a3a'); px(9, 2, '#ff5a3a'); });
+paintTile(148, (px, r) => { for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) { const e = x === 0 || y === 0 || x === 15 || y === 15; px(x, y, e ? '#f4f4f4' : rgb(22, 112 + (r() - .5) * 10, 60)); }
+  for (let x = 3; x < 13; x++) if (x % 3) { px(x, 5, '#f4f4f4'); px(x, 9, '#f4f4f4'); } for (let x = 3; x < 9; x++) px(x, 12, '#f4f4f4'); });
 // v1.14 round 2: HD versions of the new ores (the rest use the generic upscale)
 oreHD(128, [255, 214, 60], 1281); oreHD(129, [200, 244, 248], 1291); oreHD(130, [120, 240, 255], 1301); oreHD(131, [90, 240, 130], 1311);
 
+// v1.15 round 2b: tiles painted after the HD upscale ran (144+) got no HD version (blank in every HD pack): upscale them now
+(function hdFillLate() {
+  const k = HS / TS, r = mulberry(4243);
+  for (let t = 0; t < AT * AR; t++) {
+    const ox = (t % AT) * TS, oy = Math.floor(t / AT) * TS, lo = actx.getImageData(ox, oy, TS, TS).data;
+    let any = false; for (let i = 3; i < lo.length; i += 4) if (lo[i]) { any = true; break; } if (!any) continue;
+    const hx = (t % AT) * HS, hy = Math.floor(t / AT) * HS, hi = hctx.getImageData(hx, hy, HS, HS); let hd = false; for (let i = 3; i < hi.data.length; i += 4) if (hi.data[i]) { hd = true; break; } if (hd) continue;
+    const d = hi.data;
+    for (let y = 0; y < HS; y++) for (let x = 0; x < HS; x++) { const j = ((y / k | 0) * TS + (x / k | 0)) * 4, i = (y * HS + x) * 4; if (!lo[j + 3]) continue;
+      const lx = x % k, ly = y % k, bev = (lx === 0 || ly === 0 ? 10 : 0) - (lx === k - 1 || ly === k - 1 ? 12 : 0), n = (r() - 0.5) * 14 + bev;
+      d[i] = clamp255(lo[j] + n); d[i + 1] = clamp255(lo[j + 1] + n); d[i + 2] = clamp255(lo[j + 2] + n); d[i + 3] = lo[j + 3]; }
+    hctx.putImageData(hi, hx, hy);
+  }
+})();
 const tex = new THREE.CanvasTexture(HD_ON ? hdAtlas : atlas);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false;
 function tileURL(t) { return hdBlit(document.createElement('canvas'), t).toDataURL(); }
@@ -1686,7 +1813,8 @@ function drawIcon(kind, mat) {
   const shape = (cx, cy, test) => { for (let py = 0; py < 16; py++) for (let px = 0; px < 16; px++) { const dx = px + .5 - cx, dy = py + .5 - cy; const u = (dx - dy) * 0.7071, v = (dx + dy) * 0.7071; const t = test(u, v); if (t) P(px, py, t === 2 ? md : ml); } };
   switch (kind) {
     case 'pick': handle(2, 13, 9, 6); shape(10.5, 5.5, (u, v) => { const a = Math.abs(v); return a < 6.2 && u > 1.2 - a * a * 0.1 - 0.9 && u < 3 - a * a * 0.1 ? (u > 2.2 - a * a * 0.1 ? 2 : 1) : 0; }); break;
-    case 'axe': handle(2, 13, 10, 5); shape(10.5, 5.5, (u, v) => v > -0.5 && v < 4.5 && Math.abs(u) < 1.2 + v * 0.45 ? (v > 3.4 ? 1 : 2) : 0); break;
+    case 'axe': handle(2, 13, 10, 5); shape(10.5, 5.5, (u, v) => v < 0.5 && v > -4.5 && Math.abs(u) < 1.2 - v * 0.45 ? (v < -3.4 ? 1 : 2) : 0); break;   // v1.15: head on the upper-left like Minecraft, so the blade faces forward in your hand
+    case 'paddle': handle(3, 12, 8, 7); shape(10.6, 5.4, (u, v) => Math.abs(v) < 1.7 - Math.max(0, u - 2.6) * 0.6 && u > -2.2 && u < 3.6 ? (Math.abs(v) > 1 || u > 2.8 ? 2 : 1) : 0); break;
     case 'hoe': handle(2, 13, 10, 5); shape(10.5, 5.5, (u, v) => v > -4.5 && v < 0.8 && u > -0.2 && u < 1.6 ? (v < -3.4 ? 1 : 2) : 0); break;
     case 'sword': handle(2, 13, 4, 11); shape(5.5, 10.5, (u, v) => (Math.abs(v) < 2.6 && Math.abs(u) < 0.8) ? 3 : 0); shape(9.5, 6.5, (u, v) => (u > -4.5 && u < 6 && Math.abs(v) < 1.1 - Math.max(0, u - 4.5) * 0.7) ? (v > 0.2 ? 2 : 1) : 0);
       for (let i = -2; i <= 2; i++) { P(5 + i, 10 + i, '#4a3018'); P(6 + i, 10 + i, '#4a3018'); } break;
@@ -1807,7 +1935,7 @@ function doorBox(id) { const s = doorOpen(id) ? (doorF(id) + 1) % 4 : doorF(id),
 // ---- lighting: sky shadows (caves, roofs, tree shade) + light baked from torches
 const mapMem = new Map();   // map item / GPS: remembered top colours per chunk (saved per world, see p_r_v109)
 const mapDirty = new Set();
-const glows = id => id === TORCH || id === LAMP || id === FIRE;
+const glows = id => id === TORCH || id === LAMP || id === FIRE || isWTorch(id);
 const torches = new Set(Object.keys(state.edits).filter(k => glows(state.edits[k])));
 const blocksSky = id => id !== AIR && !isWater(id) && !PLANT.has(id) && id !== GLASS && id !== LEAVES;
 function lightKit(x0, z0) {
@@ -1877,6 +2005,7 @@ function buildChunk(cx, cz) {
       }
       continue;
     }
+    if (id === CHEST) { const cb = chestBoxes(x, y, z); if (cb) { const [lv, wt] = lit(x, y + 1, z); for (const [b, t] of cb) pushBox(A, x, y, z, b, t, lv, wt); continue; } }   // v1.15 double chest
     const T = BT[id], wat = isWater(id);
     const top = wat ? waterTop(id, nbAt(lx, y, lz, 0, 1, 0)) : 1;
     for (const f of FACES) {
@@ -2255,7 +2384,7 @@ const SETTINGS_KEY = 'dealercraft_settings';
 const settings = Object.assign({ hdTex: true, jumpscares: true, sound: true, peaceful: false, difficulty: null, sens: 1 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
 if (localStorage.getItem('dealercraft_mute') === '1' && settings._muteMigrated == null) { settings.sound = false; }
 settings._muteMigrated = true;
-VIEW = [2, 3, 4, 6, 8].includes(settings.view) ? settings.view : 4;
+VIEW = [2, 3, 4, 6, 8, 12, 16].includes(settings.view) ? settings.view : 4;
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
 
 // ================== PLAYER ==================
@@ -3795,7 +3924,7 @@ function renderSettings() {
     ${tog('jumpscares', '😱 Jumpscares', 'Five Nights at Freddy\'s style scares at night and when you die')}
     ${tog('sound', '🔊 Sound', 'Music, ambience and sound effects')}
     <div class="row"><span class="nm">🖼️ Texture pack<br><span style="font-size:12px;opacity:.7">HD 64x textures or the Original 16x look. Switches instantly.</span></span><button class="btn ${settings.hdTex !== false ? 'gold' : ''}" data-tex="1">HD</button><button class="btn ${settings.hdTex === false ? 'gold' : ''}" data-tex="0">Original</button></div>
-    <div class="row" style="flex-wrap:wrap"><span class="nm">🔭 Render distance<br><span style="font-size:12px;opacity:.7">How far you can see. Lower is faster on older phones.</span></span>${[[2, 'Tiny'], [3, 'Short'], [4, 'Normal'], [6, 'Far'], [8, 'Extreme']].map(([v, n]) => `<button class="btn ${VIEW === v ? 'gold' : ''}" data-view="${v}">${n}</button>`).join('')}</div>
+    <div class="row" style="flex-wrap:wrap"><span class="nm">🔭 Render distance<br><span style="font-size:12px;opacity:.7">How far you can see. Lower is faster on older phones.</span></span>${[[2, 'Tiny'], [3, 'Short'], [4, 'Normal'], [6, 'Far'], [8, 'Extreme'], [12, 'Ultra'], [16, 'Max']].map(([v, n]) => `<button class="btn ${VIEW === v ? 'gold' : ''}" data-view="${v}">${n}</button>`).join('')}</div>
     ${tog('view3', '👁 Third-person view', 'See your own character from behind (V key or 👁 button)')}
     <div class="row"><span class="nm">☁️ Cloud save<br><span style="font-size:12px;opacity:.7">${auth ? 'Logged in as ' + esc(auth.name) + '. ' + esc(cloudStatus) : 'Log in to back up your worlds'}</span></span><button class="btn gold" data-a="cloud">${auth ? '☁️ Upload now' : '👤 Log in'}</button></div>
     <div class="row" style="flex-wrap:wrap"><span class="nm">⚔️ Difficulty<br><span style="font-size:12px;opacity:.7">${diff().sub}</span></span>${Object.entries(DIFFS).map(([k, v]) => `<button class="btn ${settings.difficulty === k ? 'gold' : ''}" data-diff="${k}">${v.label}</button>`).join('')}</div>
@@ -3923,7 +4052,7 @@ function itemValue(id, depth = 0) {
   if (depth === 0) valCache[id] = v;
   return v;
 }
-const webBuy = id => Math.max(2, Math.ceil(itemValue(id) * 1.5));
+const webBuy = id => PRICE_SET[id] || Math.max(2, Math.ceil(itemValue(id) * 1.5));
 const webSell = id => Math.max(1, Math.floor(itemValue(id) * 0.8));
 const WEB_CATS = { all: '🌐 All', blocks: '🧱 Blocks', tools: '⛏️ Tools & Armor', food: '🍔 Food', farm: '🌱 Farming', tech: '💻 Electronics', other: '📦 Other' };
 function webCat(id) { const it = ITEMS[id]; if (it.furn != null) return 'tech'; if (it.tool || it.armor) return 'tools'; if (it.block != null) return 'blocks'; if (it.food) return 'food'; if (it.crop || CROP_ITEM[id] || id === 'fertilizer' || id === 'cow_poop' || id === 'weed') return 'farm'; return 'other'; }
@@ -4827,14 +4956,46 @@ const cropVal = c => c ? JSON.stringify({ type: c.type, t: Math.round(c.t * 10) 
 const cleanCrops = () => { const o = {}; for (const k in state.crops) o[k] = JSON.parse(cropVal(state.crops[k])); return o; };
 const meData = () => ({ n: auth.name, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yw: +player.yaw.toFixed(2), p: +player.pitch.toFixed(2), sl: !!player.sleeping, sk: mySkin(), t: Date.now(), ...meExtra() });
 const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += A[Math.floor(Math.random() * A.length)]; return s; };
+// v1.15: Firebase refuses any single write that touches more than ~100k values ("Server error 400": "Data to write exceeds the maximum
+// size that can be modified with a single request"). Big lived-in worlds (nuke craters, flooded holes, the cartel compound...) have
+// more block edits than that, so a big world is sent in pieces: the room shell first (closed), then the edits in batches, then it opens.
+// Keys Firebase can't store (. # $ [ ] / or empty) are skipped instead of failing the whole upload.
+const FB_BAD_KEY = /[.#$\[\]\/\x00-\x1f\x7f]/;
+const fbKeyOk = k => !!k && k.length < 700 && !FB_BAD_KEY.test(k);
+const NET_BATCH = 15000;
+function cleanMap(o) { const out = {}; let bad = 0; for (const k in (o || {})) { if (fbKeyOk(k)) out[k] = o[k]; else bad++; } return [out, bad]; }
+async function patchBatched(base, entries, onProg, done0 = 0, total = entries.length) {
+  for (let i = 0; i < entries.length; i += NET_BATCH) {
+    const p = {}; for (const [k, v] of entries.slice(i, i + NET_BATCH)) p[k] = v;
+    await db('PATCH', base, p); if (onProg) onProg(`Uploading your world... ${Math.round((done0 + Math.min(entries.length, i + NET_BATCH)) / total * 100)}%`);
+  }
+}
+async function putRoom(code, room, onProg) {
+  const big = ['edits', 'crops', 'dev', 'chests', 'shops'], entries = []; let skipped = 0;
+  for (const top of big) { const [m, bad] = cleanMap(room[top]); skipped += bad; room[top] = m; for (const k in m) entries.push([top + '/' + k, m[k]]); }
+  if (skipped) console.warn('DealerCraft: skipped ' + skipped + ' keys Firebase cannot store');
+  let nodes = 0; for (const [k, v] of entries) nodes += v && typeof v === 'object' ? Object.keys(v).length : 1;
+  if (nodes < NET_BATCH) { await db('PUT', 'rooms/' + code, room); return; }
+  const shell = { meta: Object.assign({}, room.meta, { open: false }), clock: room.clock, players: room.players };
+  await db('PUT', 'rooms/' + code, shell);
+  await patchBatched('rooms/' + code, entries, onProg);
+  await db('PATCH', 'rooms/' + code + '/meta', { open: true });
+}
+// a big room is also too big to delete in one go: clear its edits in batches first, then remove the rest
+async function deleteRoom(code) {
+  try { await db('DELETE', 'rooms/' + code); return; } catch (e) {}
+  const ks = await db('GET', 'rooms/' + code + '/edits', undefined).catch(() => null);
+  if (ks) await patchBatched('rooms/' + code, Object.keys(ks).map(k => ['edits/' + k, null]));
+  await db('DELETE', 'rooms/' + code);
+}
 async function hostOnline() {
   if (!auth) { openAccount(); toast('👤 Log in first to play online'); return; }
   if (MP_GUEST) return;
   setOnlineMsg('Opening your world...');
   try {
     const code = newCode(), chests = {}; for (const k in state.chests) chests[k] = JSON.stringify(state.chests[k]);
-    await db('PUT', 'rooms/' + code, { meta: { host: auth.uid, hostName: auth.name, open: true, seed: state.seed, created: Date.now(), genV: state.genV || 1, oldCh: (state.oldCh || []).join(';'), townV: state.townV || 0, townOld: (state.townOld || []).join(';'), siteV: state.siteV || 0, siteOld: (state.siteOld || []).join(';'), caveV: (caveInit(), state.caveV || 0), caveOld: (state.caveOld || []).join(';') }, clock: { time: state.time, gt: state.gameTime, hb: Date.now() },
-      edits: state.edits, crops: cleanCrops(), dev: state.dev, chests, shops: shopsNet(), players: { [auth.uid]: meData() } });
+    await putRoom(code, { meta: { host: auth.uid, hostName: auth.name, open: true, seed: state.seed, created: Date.now(), genV: state.genV || 1, oldCh: (state.oldCh || []).join(';'), townV: state.townV || 0, townOld: (state.townOld || []).join(';'), siteV: state.siteV || 0, siteOld: (state.siteOld || []).join(';'), caveV: (caveInit(), state.caveV || 0), caveOld: (state.caveOld || []).join(';'), wgV: (wgInit(), state.wgV || 0), wgOld: (state.wgOld || []).join(';') }, clock: { time: state.time, gt: state.gameTime, hb: Date.now() },
+      edits: state.edits, crops: cleanCrops(), dev: state.dev, chests, shops: shopsNet(), players: { [auth.uid]: meData() } }, setOnlineMsg);
     net.on = true; net.role = 'host'; net.code = code; lastCrop = {}; lastDev = {}; for (const k in state.crops) lastCrop[k] = cropVal(state.crops[k]); Object.assign(lastDev, state.dev);
     await openStream(); setOnlineMsg(''); renderOnline(); toast(`🌐 Your world is online! Code: ${code}`);
   } catch (e) { setOnlineMsg('⚠️ ' + e.message); }
@@ -4852,7 +5013,7 @@ async function joinOnline(code) {
     const seats = new Set(others.map(([u]) => u)); if (r.meta.host) seats.add(r.meta.host);
     if (seats.size + 1 > MAX_PLAYERS) throw new Error(`That world is full (${MAX_PLAYERS}/${MAX_PLAYERS})`);
     const host = (r.players || {})[r.meta.host], chests = {}; for (const k in (r.chests || {})) { try { const v = JSON.parse(r.chests[k]); if (v) chests[k] = v; } catch (e) {} }
-    const world = { seed: r.meta.seed, ...(r.meta.genV >= 2 ? { genV: r.meta.genV, oldCh: r.meta.oldCh ? String(r.meta.oldCh).split(';') : [] } : {}), ...(r.meta.townV >= 3 ? { townV: r.meta.townV, townOld: r.meta.townOld ? String(r.meta.townOld).split(';') : [] } : {}), ...(r.meta.siteV >= 4 ? { siteV: r.meta.siteV, siteOld: r.meta.siteOld ? String(r.meta.siteOld).split(';') : [] } : {}), ...(r.meta.caveV ? { caveV: r.meta.caveV, caveOld: r.meta.caveOld ? String(r.meta.caveOld).split(';') : [] } : {}), shops: (() => { const o = {}; for (const k in (r.shops || {})) { try { const v = JSON.parse(r.shops[k]); if (v) o[k] = v; } catch (e) {} } return o; })(), edits: r.edits || {}, crops: r.crops || {}, dev: r.dev || {}, chests, time: r.clock.time, gameTime: r.clock.gt,
+    const world = { seed: r.meta.seed, ...(r.meta.genV >= 2 ? { genV: r.meta.genV, oldCh: r.meta.oldCh ? String(r.meta.oldCh).split(';') : [] } : {}), ...(r.meta.townV >= 3 ? { townV: r.meta.townV, townOld: r.meta.townOld ? String(r.meta.townOld).split(';') : [] } : {}), ...(r.meta.siteV >= 4 ? { siteV: r.meta.siteV, siteOld: r.meta.siteOld ? String(r.meta.siteOld).split(';') : [] } : {}), ...(r.meta.caveV ? { caveV: r.meta.caveV, caveOld: r.meta.caveOld ? String(r.meta.caveOld).split(';') : [] } : {}), ...(r.meta.wgV ? { wgV: r.meta.wgV, wgOld: r.meta.wgOld ? String(r.meta.wgOld).split(';') : [] } : {}), shops: (() => { const o = {}; for (const k in (r.shops || {})) { try { const v = JSON.parse(r.shops[k]); if (v) o[k] = v; } catch (e) {} } return o; })(), edits: r.edits || {}, crops: r.crops || {}, dev: r.dev || {}, chests, time: r.clock.time, gameTime: r.clock.gt,
       pos: host ? [host.x + 1, host.y + 0.5, host.z + 1] : state.pos, _welcomed: true };
     save();
     { const inv = {}; for (const k of INV_KEYS) inv[k] = state[k]; localStorage.setItem('dc_mp_inv', JSON.stringify(inv)); }
@@ -4866,7 +5027,7 @@ async function leaveOnline(msg) {
   const was = net.role, code = net.code; net.on = false;
   for (const u in net.remotes) removeRemote(u);
   try {
-    if (was === 'host') { await db('PATCH', 'rooms/' + code + '/meta', { open: false }); setTimeout(() => db('DELETE', 'rooms/' + code).catch(() => {}), 4000); }
+    if (was === 'host') { await db('PATCH', 'rooms/' + code + '/meta', { open: false }); setTimeout(() => deleteRoom(code).catch(() => {}), 4000); }
     else if (code && auth) await db('DELETE', `rooms/${code}/players/${auth.uid}`);
   } catch (e) {}
   net.role = null; net.code = null;
@@ -4938,7 +5099,9 @@ function updateNet(dt, t) {
     for (const k in lastCrop) if (lastCrop[k] != null && !state.crops[k]) { p['crops/' + k] = null; lastCrop[k] = null; }
     for (const k in state.dev) if (lastDev[k] !== state.dev[k]) { p['dev/' + k] = state.dev[k]; lastDev[k] = state.dev[k]; }
     for (const k in lastDev) if (lastDev[k] != null && state.dev[k] == null) { p['dev/' + k] = null; lastDev[k] = null; }
-    if (Object.keys(p).length) db('PATCH', 'rooms/' + net.code, p).catch(() => {});
+    for (const k in p) if (!fbKeyOk(k.slice(k.indexOf('/') + 1))) delete p[k];
+    const ks = Object.keys(p); if (ks.length > NET_BATCH) patchBatched('rooms/' + net.code, ks.map(k => [k, p[k]])).catch(() => {});
+    else if (ks.length) db('PATCH', 'rooms/' + net.code, p).catch(() => {});
   }
   if (posT > 0.2 && !posBusy) { posT = 0; posBusy = true; db('PUT', `rooms/${net.code}/players/${auth.uid}`, meData()).catch(() => {}).finally(() => { posBusy = false; }); }
   if (net.role === 'host') {
@@ -5486,12 +5649,26 @@ function driveVessel(v, dt) {
   if (v.kind === 'yacht') { engineT -= dt; if (engineT <= 0) { engineT = 0.2; beep(45 + Math.abs(v.speed) * 6, 0.19, 'sawtooth', 0.015); } }
   else if (Math.abs(thr) > 0.2 && count('paddle')) { v.splashT = (v.splashT || 0) - dt; if (v.splashT <= 0) { v.splashT = 0.9; noiseBurst(0.12, 0.05, 900); } }
 }
+// v1.15: 1 = water or ice at the boat's level (glides), 2 = flat dry ground at that level (drags slowly), 0 = blocked
+function boatPt(x, z, wl) {
+  const fx = Math.floor(x), fz = Math.floor(z), id = get(fx, wl, fz), up = get(fx, wl + 1, fz);
+  if (solid(up) && up !== SNOW_LAYER) return 0;
+  if (isWater(id) || id === ICE) return 1;
+  if (solid(id)) return 2;
+  const dn = get(fx, wl - 1, fz); if (id === AIR || PLANT.has(id)) return solid(dn) || isWater(dn) || dn === ICE ? 2 : 0;
+  return 0;
+}
 // move along the heading; stop at the shore (a little bump back), bob on the waves
 function moveVessel(v, dt) {
   const nx = v.x + Math.sin(v.head) * v.speed * dt, nz = v.z + Math.cos(v.head) * v.speed * dt;
   if (Math.abs(v.speed) > 0.01) {
     const sgn = Math.sign(v.speed), dep = VDEF[v.kind].depth, hd = v.head + (sgn < 0 ? Math.PI : 0), nf = (x, z) => hullPts(v.kind, x, z, hd, 0.15).filter(([px, pz]) => floatsAt(px, pz, v.wl, dep)).length;
-    const np = nf(nx, nz), ok = np === 7 || (np >= nf(v.x, v.z) && np > 0 && v !== player.car);   // a ship stuck in the shallows may still work its way out
+    let np = nf(nx, nz), ok = np === 7 || (np >= nf(v.x, v.z) && np > 0 && v !== player.car);   // a ship stuck in the shallows may still work its way out
+    if (!ok && v === player.car && v.kind === 'boat') {   // v1.15: your rowing boat slides over ice and can be shoved across flat land (slowly) instead of getting stuck
+      const pts = hullPts('boat', nx, nz, hd, 0.15); let land = 0, good = 0;
+      for (const [px, pz] of pts) { const st = boatPt(px, pz, v.wl); if (st) { good++; if (st === 2) land++; } }
+      if (good === 7) { ok = true; if (land) v.speed = Math.max(-1.2, Math.min(1.6, v.speed)); }
+    }
     if (ok) { v.x = nx; v.z = nz; } else { if (Math.abs(v.speed) > 2 && v === player.car) noiseBurst(0.1, 0.08, 250); v.speed = -v.speed * 0.15; v.blocked = (v.blocked || 0) + 1; }
   }
   v.phase += dt;
@@ -6799,6 +6976,9 @@ function updateDrugs(dt, t) {
     } else if (k === 'rolling') {   // everything glows
       filt.push(`saturate(${1 + 1.5 * f})`, `brightness(${1 + 0.15 * Math.sin(t * 4) * f})`);
       tint = '#ff4fd8'; tintA = Math.max(tintA, (0.1 + 0.08 * Math.sin(t * 4)) * f);
+    } else if (k === 'stoned') {   // v1.15: mellow green haze, slow sway
+      filt.push(`saturate(${1 + 0.35 * f})`, `blur(${0.5 * f}px)`); tint = '#3cff6a'; tintA = Math.max(tintA, (0.1 + 0.03 * Math.sin(t * 1.3)) * f);
+      roll += Math.sin(t * 0.45) * 0.035 * f; yaw += Math.sin(t * 0.33) * 0.02 * f;
     } else if (k === 'wired') {   // shaky and sharp
       const j = 0.004 + h.lvl * 0.003; pitch += (Math.random() - 0.5) * j * f; yaw += (Math.random() - 0.5) * j * f;
       filt.push(`contrast(${1 + 0.25 * f})`, `saturate(${1 + 0.5 * f})`);
@@ -8465,7 +8645,9 @@ const JOBS = {
 };
 const CARGO = ['🥬 fresh produce', '📦 DealerNet parcels', '🪵 lumber', '🛢️ fuel drums', '🍕 frozen pizzas', '🐄 cattle feed', '🧱 bricks', '📺 TVs'];
 const jobsDone = () => { const j = V14().jobs; return j.taxi + j.pizza + j.trucker; };
-let job = null, jobT = 0;
+let job = null, jobT = 0, storyLine = "";
+// v1.15: the story mission text, computed in ONE place (p_z5 updateStoryPill) and shown in its own pill under the top-right buttons
+function storyText() { const v = V14(), m = curMission(), jf = cmpLive && cmpLive.jefe; return (m && v.st.hud && !job && !ship && !(jf && mobs.includes(jf)) && v.st.base) ? `📖 ${m.t} · ${m.goal} ${stProg(m)}/${m.need}` : ''; }
 // vehicles: yellow taxi, pizza scooter, semi truck (meshes only; they drive like any car)
 { const bc0 = buildCar; buildCar = function (kind, nPeople) {
   if (kind === 'taxi') {
@@ -9098,7 +9280,6 @@ DAILY.job = { t: '💼 Finish 3 legit job runs', n: 3, cash: 120 };
   }
   if (ship) bits.push(ship.dying ? '🛸 Going down!' : ship.phase === 1 ? `🛸 Mothership · weak points ${ship.wps.filter(w => w.alive).length}/${WP_N}` : `🛸 CORE ${Math.max(0, Math.round(ship.coreHp / CORE_HP * 100))}%`);
   const jf = cmpLive && cmpLive.jefe; if (jf && mobs.includes(jf)) { const f = Math.max(0, jf.hp / jf.maxHp); bits.push(`💀 Don Calavera <span style="letter-spacing:-1px;color:#ff5a5a">${'▮'.repeat(Math.ceil(f * 10))}<i style="opacity:.3;font-style:normal">${'▮'.repeat(10 - Math.ceil(f * 10))}</i></span>`); }
-  const m = curMission(); if (m && v.st.hud && !job && !ship && !(jf && mobs.includes(jf)) && v.st.base) bits.push(`📖 ${m.t} · ${m.goal} ${stProg(m)}/${m.need}`);
   if (!bits.length) return;
   const extra = bits.join(' &nbsp; '), html = hud4.innerHTML ? hud4.innerHTML + ' &nbsp; ' + extra : extra;
   if (hud4.innerHTML !== html) hud4.innerHTML = html; hud4.style.display = 'block';
@@ -9810,6 +9991,1955 @@ window.__dc15 = { R2, realm, realmAt, onMoon, gravMul, moonH, genMoon, genBack, 
   ENG, HAND, RIMS, NEON, buyMod2, applyLooks, honk, meExtra, remoteExtra, shopHTML, shopAct, updateShops, shopMine, ownerHere, netExtra, shopsNet,
   GLITCHES, glitchFound, glitchN, spawnGlitchMob, unglitch, enterBackrooms, leaveBackrooms, startVoid, get voidT() { return voidT; }, get pushT() { return pushT; }, reset15, extrasApp };
 
+// ================== v1.15 round 1: fixes, HUD & menu, full-size beds, wall torches, double chests, Transfer All, giant TV ==================
+const V115 = 'v1.15';
+{ const st = document.createElement('style'); st.textContent = `
+#compass{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:min(180px,20vw);height:30px;pointer-events:none;border-radius:8px;background:rgba(0,0,0,.42);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+#storyPill{position:fixed;right:10px;top:58px;max-width:min(46vw,420px);background:rgba(0,0,0,.5);padding:4px 10px;border-radius:10px;font-size:13px;line-height:1.3;text-shadow:0 1px 2px #000;pointer-events:none;display:none;text-align:right;z-index:4}
+.sgrid.hb{border-top:2px solid rgba(255,216,74,.6);padding-top:8px;margin-top:10px}
+.xrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}.xrow label{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}.xrow input{width:20px;height:20px;padding:0;accent-color:#ffd84a}
+#verTag{position:fixed;left:10px;top:8px;z-index:11;font-size:13px;color:#d8ccff;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;pointer-events:none}
+#mSet{position:fixed;right:10px;top:8px;z-index:11;font-size:15px;padding:7px 12px;touch-action:none}
+body:not(.menu) #verTag,body:not(.menu) #mSet{display:none}
+#start .by{line-height:2.2;white-space:normal;position:static;margin-top:10px}
+@media (orientation:portrait){#start{padding-top:50px}}
+#start .donate{white-space:nowrap;display:inline-block;padding:4px 14px;font-size:14px;line-height:1.35;border-radius:14px;vertical-align:middle;overflow:visible;max-width:none}
+#start{padding-bottom:40px}
+@media (max-height:520px) and (orientation:landscape){#start .by{position:fixed;left:10px;top:40px;bottom:auto;z-index:11;line-height:1;font-size:11px;color:#bbb;background:rgba(0,0,0,.45);border-radius:8px;padding:3px 4px 3px 8px;white-space:nowrap;text-align:left}#start .by .donate{margin:0 0 0 2px;padding:3px 10px;font-size:13px;line-height:1.3}}
+body.menu #hud4,body.menu #storyPill{display:none!important}
+body:not(.menu) #start .by{display:none}
+.pnotes{margin-top:14px;width:min(640px,92vw);background:rgba(0,0,0,.5);border:2px solid rgba(255,138,26,.6);border-radius:12px;text-align:left;padding:8px 6px 8px 12px}
+.pnotes>b{display:block;font-size:15px;color:#ffb347;margin-bottom:4px}
+.pnlist{max-height:min(34vh,240px);overflow-y:auto;font-size:13px;line-height:1.45;color:#ddd;padding-right:8px;touch-action:pan-y!important}
+.pnlist *{touch-action:pan-y!important}.pnlist h4{margin:8px 0 2px;color:#39ff7a;font-size:13px}.pnlist ul{margin:0;padding-left:18px}
+.ctrls{font-size:13px;line-height:1.6;opacity:.9;padding:4px 8px}
+.phomescr{overflow-y:auto;touch-action:pan-y}.phomescr *{touch-action:pan-y}
+.papps{row-gap:16px}
+@media (max-height:520px){.phomescr{flex-direction:row;flex-wrap:wrap;align-items:flex-start;justify-content:center;padding:8px 10px;gap:4px 18px}
+ .phomescr .pclock{font-size:28px;margin-top:0}.phomescr .pdate{margin:8px 0 6px;font-size:13px}
+ .papps{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));max-width:none;width:100%;gap:10px 8px}.papp{font-size:11px;gap:3px}.papp i{width:44px;height:44px;font-size:24px;border-radius:12px}
+ .phomescr .phint{width:100%;padding:4px}.pappbar{padding:5px 10px;font-size:14px}.pradio{padding:6px 10px;gap:5px}.pst{padding:7px 9px;font-size:14px}}
+@media (max-width:520px){.papps{grid-template-columns:repeat(4,1fr);max-width:none;gap:14px 6px}.papp i{width:54px;height:54px;font-size:28px}.papp{font-size:12px}}
+`; document.head.appendChild(st); }
+
+// ---------------- 1. explosions leave no floating flames or hovering cars ----------------
+let fireChkT = 0, carDropT = 0;
+const fireSupported = (x, y, z) => { const dn = get(x, y - 1, z); if (solid(dn) || dn === FIRE) return true; for (const [dx, dy, dz] of NB6) { const id = get(x + dx, y + dy, z + dz); if (FLAMMABLE.has(id) || (dy === 0 && solid(id))) return true; } return false; };
+function checkFires() {
+  // flames that lost what they stood on drop to the ground (or burn out), and stray fire blocks get a short life so they go out
+  for (const k of torches) { if (fires.has(k)) continue; const [x, y, z] = k.split(',').map(Number); if (get(x, y, z) === FIRE && data.has(ckey(fdiv(x, CH), fdiv(z, CH)))) fires.set(k, { x, y, z, life: 2 + Math.random() * 4, age: 0 }); }
+  let ch = false;
+  for (const [k, f] of [...fires]) {
+    if (!data.has(ckey(fdiv(f.x, CH), fdiv(f.z, CH))) || get(f.x, f.y, f.z) !== FIRE || fireSupported(f.x, f.y, f.z)) continue;
+    const left = Math.max(1.5, f.life - f.age); putOutFire(k, true); ch = true;
+    let y = f.y - 1; while (y > 1 && f.y - y < 28 && !solid(get(f.x, y - 1, f.z))) y--;
+    if (y > 1 && solid(get(f.x, y - 1, f.z))) fireAt(f.x, y, f.z, left); else smokePuff(f.x + 0.5, f.y + 0.4, f.z + 0.5, 1, 0x777777);
+  }
+  if (ch) flushDirty();
+}
+const carPts = c => { const fx = Math.sin(c.head), fz = Math.cos(c.head); return [[0, 0], [1.2, 0.6], [1.2, -0.6], [-1.2, 0.6], [-1.2, -0.6]].map(([a, s]) => [c.x + fx * a + fz * s, c.z + fz * a - fx * s]); };
+const carSupported = c => carPts(c).some(([x, z]) => solid(get(Math.floor(x), Math.floor(c.y - 0.1), Math.floor(z))));
+function dropCars(dt) {
+  carDropT -= dt; const scan = carDropT <= 0; if (scan) carDropT = 0.4;
+  for (const c of [...cars]) {
+    if (c === player.car || c.air || c.vessel || c.floatT > 0) continue;
+    if (scan && !c.drop15 && Math.hypot(c.x - player.pos.x, c.z - player.pos.z) < 90 && loaded(c.x, c.z) && !carSupported(c)) { c.drop15 = true; c.vy = 0; }
+    if (!c.drop15) continue;
+    c.vy = (c.vy || 0) - 24 * dt; c.y += c.vy * dt;
+    if (carSupported(c)) { c.y = Math.floor(c.y - 0.1) + 1; c.vy = 0; c.drop15 = false; if (c.snapped !== undefined) c.snapped = true; }
+    if (c.y < -4) { removeCar(c); continue; }
+    c.g.position.y = c.y;
+  }
+}
+
+// ---------------- 6. story mission pill: under the top-right buttons ----------------
+const storyPill = document.createElement('div'); storyPill.id = 'storyPill'; document.getElementById('hud').appendChild(storyPill);
+let pillT = 0;
+function updateStoryPill(dt) {
+  const now = performance.now(); if (now - pillT < 250) return; pillT = now;   // real-time throttle (dt is clamped, so a slow phone would update it rarely)
+  storyLine = playing ? storyText() : ''; const txt = storyLine;
+  if (!txt) { storyPill.style.display = 'none'; return; }
+  const tb = document.getElementById('topbtns').getBoundingClientRect(), np = document.getElementById('netPill');
+  let top = tb.bottom + 6; if (np && np.style.display !== 'none' && np.offsetParent && document.body.classList.contains('touch')) top = Math.max(top, np.getBoundingClientRect().bottom + 6);
+  storyPill.style.top = Math.round(top) + 'px'; storyPill.style.right = Math.max(4, Math.round(innerWidth - tb.right)) + 'px'; if (storyPill.innerHTML !== txt) storyPill.innerHTML = txt; storyPill.style.display = 'block';
+}
+
+// ---------------- 7. look around while holding jump (same finger) ----------------
+{ const el = document.getElementById('bJump'); let id = null, lx = 0, ly = 0;
+  el.addEventListener('touchstart', e => { const t = e.changedTouches[0]; if (id === null && t) { id = t.identifier; lx = t.clientX; ly = t.clientY; } }, { passive: false });
+  el.addEventListener('touchmove', e => { e.preventDefault(); e.stopPropagation();
+    for (const t of e.changedTouches) { if (t.identifier !== id) continue;
+      if (playing && !uiOpen && player.alive) { player.yaw -= (t.clientX - lx) * 0.006 * settings.sens; player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch - (t.clientY - ly) * 0.006 * settings.sens)); }
+      lx = t.clientX; ly = t.clientY; } }, { passive: false });
+  const up = e => { for (const t of e.changedTouches) if (t.identifier === id) id = null; };
+  el.addEventListener('touchend', up); el.addEventListener('touchcancel', up); }
+
+// ---------------- 8. compass strip with waypoints ----------------
+const compCv = document.createElement('canvas'); compCv.id = 'compass'; document.getElementById('hud').appendChild(compCv); const compCtx = compCv.getContext('2d');
+const wrapA = a => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
+let compKey = '';
+function drawCompass() {
+  const r = compCv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(r.width * dpr), Hh = Math.round(r.height * dpr); if (!W) return;
+  const head = wrapA(-player.yaw), wps = state.waypoints || [];
+  const key = W + ',' + Math.round(head * 200) + ',' + wps.map(w => w.x + ':' + w.z).join(';') + ',' + Math.round(player.pos.x / 2) + ',' + Math.round(player.pos.z / 2);
+  if (key === compKey) return; compKey = key;
+  if (compCv.width !== W || compCv.height !== Hh) { compCv.width = W; compCv.height = Hh; }
+  const x = compCtx, SPAN = Math.PI * 0.55, px = a => W / 2 + wrapA(a - head) / SPAN * (W / 2);
+  x.clearRect(0, 0, W, Hh); x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (let d = 0; d < 360; d += 15) { const a = d * Math.PI / 180, rel = wrapA(a - head); if (Math.abs(rel) > SPAN) continue; const sx = px(a), big = d % 45 === 0;
+    x.fillStyle = 'rgba(255,255,255,.55)'; x.fillRect(sx - dpr * 0.5, Hh - (big ? 9 : 5) * dpr, dpr, (big ? 9 : 5) * dpr);
+    if (big) { const L = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][d / 45]; x.font = `bold ${(L.length > 1 ? 10 : 13) * dpr}px sans-serif`; x.fillStyle = L === 'N' ? '#ff5a4a' : '#fff'; x.fillText(L, sx, Hh * 0.4); } }
+  wps.forEach((w, i) => { const a = Math.atan2(w.x + 0.5 - player.pos.x, -(w.z + 0.5 - player.pos.z)), rel = wrapA(a - head), edge = Math.abs(rel) > SPAN * 0.94;
+    const sx = edge ? (rel < 0 ? 7 * dpr : W - 7 * dpr) : px(a); x.fillStyle = w.c || '#ffd84a';
+    x.beginPath(); x.arc(sx, Hh * 0.42, 5.5 * dpr, 0, 7); x.fill(); x.fillStyle = '#000'; x.font = `bold ${8 * dpr}px sans-serif`; x.fillText(edge ? (rel < 0 ? '◀' : '▶') : String(i + 1), sx, Hh * 0.42 + 0.5); });
+  x.fillStyle = '#ffd84a'; x.beginPath(); x.moveTo(W / 2 - 4 * dpr, 0); x.lineTo(W / 2 + 4 * dpr, 0); x.lineTo(W / 2, 5 * dpr); x.fill();
+}
+
+// ---------------- 9/10. main menu: version tag, Settings button, patch notes box; controls move into Settings ----------------
+{ const v = document.createElement('div'); v.id = 'verTag'; v.textContent = 'DealerCraft ' + V115; document.body.appendChild(v);
+  const b = document.createElement('button'); b.className = 'btn'; b.id = 'mSet'; b.textContent = '⚙️ Settings'; document.body.appendChild(b);
+  b.addEventListener('click', e => { e.stopPropagation(); openSettings(); });
+  document.getElementById('settings').classList.add('toppanel'); }
+const PATCH = [
+  ['v1.15', ['NEW 🧟 Zombies mode (main menu): wave survival solo or online co-op up to 4, board up the windows, wall guns, the Mystery Box, Monkey Bombs, downs and revives', '4-lane highways with lane markings, bridges and tunnels link the cities, with traffic', 'Big airports: runway, terminal, jet bridges, control tower, hangars and parked planes', 'Skyscraper roofs you can walk on: stairs and an elevator to every floor, some with helipads and helicopters', 'Hosting big worlds online works again (fixed "Server error 400")', 'Full-size 2-block beds', 'Torches go on walls, with flames and smoke', 'Two chests side by side become one double chest', 'Transfer All button in chests (hotbar stays unless you tick it)', 'Giant wall-mounted flatscreen TV (💰5000), laptops 💰3500, TVs 💰2500', 'Compass at the top of the screen with your waypoints', 'Story mission moved under the top-right buttons', 'Look around while holding jump', 'Ultra and Max render distances', 'Map tilts down when you look ahead', 'Boats slide over ice and get unstuck from land', 'Flames and cars no longer float after explosions', 'Hatchets and paddles held the right way round', 'Phone apps fit the screen better', '3 new texture packs: Realistic HD, Spooky HD and Cartoon HD (Settings)', 'Smoke joints, weed, crack and meth with a smoking animation and smoke clouds other players can see', 'Trade coins and items with other players online (🌐 › 🤝 Trade)', 'Coin leaderboard: 🏆 on the menu and 📱 Ranks app', 'Public servers anyone can join, plus private code worlds', 'NPCs talk out loud with subtitles (toggle in Settings)', '50 levels to climb and 10 harder Chapter 2 story missions', 'Spooky reggae music on the main menu']],
+  ['v1.14 Story & Space', ['Story mode with 14 missions from Uncle Ray', 'Cartel compound and Mothership boss fights', 'Taxi, pizza and trucker jobs', 'Deep caves with diamonds and emeralds, the Moon and the Backrooms', 'Car mods, player shops and 6 hidden glitches']],
+  ['v1.13 Kingpin & v1.12 Hustle', ['Crews, homes, businesses and goals', 'The Plug, drug labs, laundering and heists']],
+  ['v1.11 Drug Update', ['Psychedelic mushrooms, drinks and highs', 'Crackheads in town']],
+  ['v1.10 Big World', ['Seasons, weather, rivers, lakes and mountains', 'Cities with skyscrapers, ghettos, boats and yachts', 'Guns, gangs, cops, prison, Area 51, airports, planes and helicopters']],
+  ['v1.09 and earlier', ['Gold, silver and platinum gear, pets, horses and wild animals', '📱 Phone with radio, GPS and DealerNet', 'Beds, TVs, radios and laptops', 'Online play with up to 4 friends and cloud saves', 'Towns, cars, crops, weed farming and torches', 'Survival: craft tools, mine, farm and survive the night']],
+];
+{ const ht = document.getElementById('helpText');
+  ht.className = 'pnotes'; ht.innerHTML = `<b>📜 Patch notes</b><div class="pnlist">${PATCH.map(([v, l]) => `<h4>${v}</h4><ul>${l.map(x => `<li>${x}</li>`).join('')}</ul>`).join('')}<h4>How to play</h4><div>Punch trees for logs, craft tools, farm crops and sell them to become a Tycoon. Survive the night, explore the endless world, and open ⚙️ Settings for the controls.</div></div>`;
+  ht.addEventListener('wheel', e => e.stopPropagation(), { passive: true }); }
+{ const rs = renderSettings; renderSettings = function () { rs(); const box = document.getElementById('setBox');
+  box.insertAdjacentHTML('beforeend', `<h3>🎮 Controls</h3><div class="ctrls">${isTouch ? helpTouch : helpPC}</div><div class="ctrls" style="opacity:.6">DealerCraft ${V115} · by Buggy Games YT</div>`); }; }
+
+// ---------------- 12. render distance camera reach ----------------
+function updateFar() { const want = Math.max(220, VIEW * CH + 60); if (camera.far !== want) { camera.far = want; camera.updateProjectionMatrix(); } }
+
+// ---------------- 13. the held map dips down when you look ahead, comes up when you look down ----------------
+function updateMapTilt() {
+  if (mapEl.style.display === 'none') return;
+  const k = Math.max(0, Math.min(1, (player.pitch + 0.75) / 0.65));
+  mapEl.style.transform = `translateX(-50%) translateY(${(k * 46).toFixed(1)}%) perspective(700px) rotateX(${(k * 38).toFixed(1)}deg)`;
+  mapEl.style.transformOrigin = '50% 100%';
+}
+
+// ---------------- 17. full-size beds ----------------
+const AWAY = [[0, -1], [-1, 0], [0, 1], [1, 0]];   // facing f: the head end points away from the player who placed it
+function bedOther(x, y, z, id) { const f = bed2F(id), [ax, az] = AWAY[f]; return bed2Head(id) ? [x - ax, y, z - az, BEDF0 + f] : [x + ax, y, z + az, BEDH0 + f]; }
+function placeBed2(h) {
+  const pl = placeBlock(h, BEDF0); if (!pl) return true; const [x, y, z] = pl, f = facingToPlayer(), [ax, az] = AWAY[f], hx = x + ax, hz = z + az;
+  const free = id => id === AIR || id === SNOW_LAYER;
+  if (!solid(get(x, y - 1, z)) || !solid(get(hx, y - 1, hz))) { toast('🛏️ A bed needs 2 blocks of floor'); return true; }
+  if (!free(get(hx, y, hz)) || state.crops[hx + ',' + y + ',' + hz]) { toast('🛏️ Not enough room: a bed is 2 blocks long'); return true; }
+  setBlock(hx, y, hz, BEDH0 + f, false); setBlock(x, y, z, BEDF0 + f); useHeld(1); swing(); beep(240, 0.05, 'square', 0.05); toast('🛏️ Sleep in it at night to skip to morning'); return true;
+}
+
+// ---------------- 18. wall torches + flames & smoke on every torch ----------------
+const WALL_F = n => n[2] === 1 ? 0 : n[0] === 1 ? 1 : n[2] === -1 ? 2 : n[0] === -1 ? 3 : -1;
+const NO_MOUNT = new Set([CHEST, FURNACE, CTABLE, GRAVE, SHOP]);
+function tryWallTorch(h) {
+  if (!h || h.kind !== 'block' || !h.n || h.n[1] !== 0 || !solid(h.id) || isDoor(h.id) || NO_MOUNT.has(h.id) || MODEL.has(h.id)) return false;
+  const f = WALL_F(h.n); if (f < 0) return false; const x = h.x + h.n[0], y = h.y, z = h.z + h.n[2], t = get(x, y, z);
+  if (t !== AIR && t !== SNOW_LAYER) return false; if (state.crops[x + ',' + y + ',' + z]) return false;
+  setBlock(x, y, z, WTORCH0 + f); useHeld(1); swing(); beep(240, 0.05, 'square', 0.05); return true;
+}
+const rotPt = (x, z, f) => f === 0 ? [x, z] : f === 1 ? [z, 1 - x] : f === 2 ? [1 - x, 1 - z] : [1 - z, x];
+function torchTip(x, y, z, id) { if (id === TORCH) return [x + 0.5, y + 0.7, z + 0.5]; const [a, b] = rotPt(0.5, 0.31, id - WTORCH0); return [x + a, y + 0.7, z + b]; }
+// small particle pools: additive flame sparks and soft grey smoke
+function makePool(n, color, size, additive, opacity) {
+  const g = new THREE.BufferGeometry(), pos = new Float32Array(n * 3).fill(-9999); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({ color, size, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, sizeAttenuation: true });
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; scene.add(pts);
+  return { pts, pos, n, life: new Float32Array(n), vel: new Float32Array(n * 3), i: 0 };
+}
+const flamePool = makePool(140, 0xffa030, 0.09, true, 0.95), smokePool = makePool(90, 0x8a8a8a, 0.16, false, 0.38);
+function emit(p, x, y, z, vx, vy, vz, life) { const i = p.i; p.i = (p.i + 1) % p.n; p.pos[i * 3] = x; p.pos[i * 3 + 1] = y; p.pos[i * 3 + 2] = z; p.vel[i * 3] = vx; p.vel[i * 3 + 1] = vy; p.vel[i * 3 + 2] = vz; p.life[i] = life; }
+function stepPool(p, dt, rise) {
+  for (let i = 0; i < p.n; i++) { if (p.life[i] <= 0) continue; p.life[i] -= dt; if (p.life[i] <= 0) { p.pos[i * 3 + 1] = -9999; continue; }
+    p.vel[i * 3 + 1] += rise * dt; p.pos[i * 3] += p.vel[i * 3] * dt; p.pos[i * 3 + 1] += p.vel[i * 3 + 1] * dt; p.pos[i * 3 + 2] += p.vel[i * 3 + 2] * dt; }
+  p.pts.geometry.attributes.position.needsUpdate = true;
+}
+let torchFxT = 0, torchList = [], torchListT = 0, wtChkT = 0;
+function updateTorchFx(dt) {
+  stepPool(flamePool, dt, 0.6); stepPool(smokePool, dt, 0.25);
+  torchListT -= dt; if (torchListT <= 0) { torchListT = 0.6; const px = player.pos.x, py = player.pos.y, pz = player.pos.z, L = [];
+    for (const k of torches) { const [x, y, z] = k.split(',').map(Number); const d = Math.abs(x - px) + Math.abs(z - pz) + Math.abs(y - py); if (d > 26) continue; const id = get(x, y, z); if (id === TORCH || isWTorch(id)) L.push([d, x, y, z, id]); }
+    L.sort((a, b) => a[0] - b[0]); torchList = L.slice(0, 28); }
+  torchFxT -= dt; if (torchFxT > 0) return; torchFxT = 0.09;
+  for (const [, x, y, z, id] of torchList) { const [tx, ty, tz] = torchTip(x, y, z, id);
+    if (Math.random() < 0.8) emit(flamePool, tx + (Math.random() - 0.5) * 0.06, ty, tz + (Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.08, 0.35 + Math.random() * 0.25, (Math.random() - 0.5) * 0.08, 0.28 + Math.random() * 0.2);
+    if (Math.random() < 0.16) emit(smokePool, tx, ty + 0.12, tz, (Math.random() - 0.5) * 0.1, 0.25 + Math.random() * 0.15, (Math.random() - 0.5) * 0.1, 1.4 + Math.random() * 0.8); }
+}
+function checkWallTorches() {   // a wall torch whose wall is gone drops as an item
+  const px = player.pos.x, pz = player.pos.z; let ch = false;
+  for (const k of [...torches]) { const [x, y, z] = k.split(',').map(Number); if (Math.abs(x - px) > 48 || Math.abs(z - pz) > 48) continue; const id = get(x, y, z); if (!isWTorch(id)) continue;
+    const [ax, az] = rotPt(0.5, -0.5, id - WTORCH0), wx = Math.floor(x + ax), wz = Math.floor(z + az);
+    if (!solid(get(wx, y, wz))) { setBlock(x, y, z, AIR, false); ch = true; if (Math.hypot(x - px, z - pz) < 6) give('torch', 1); } }
+  if (ch) flushDirty();
+}
+
+// ---------------- 21. giant flatscreen TV ----------------
+function placeGiantTV(h) {
+  if (h.kind !== 'block' || !h.n) return true;
+  if (h.n[1] === 0 && solid(h.id)) { const f = WALL_F(h.n), x = h.x + h.n[0], y = h.y, z = h.z + h.n[2]; if (get(x, y, z) !== AIR) return true;
+    setBlock(x, y, z, GTVW0 + f); useHeld(1); swing(); toast('📺 Wall-mounted! Tap it to change channels'); return true; }
+  if (h.n[1] === 1) { const pl = placeBlock(h, GTVS0); if (!pl) return true; setBlock(pl[0], pl[1], pl[2], GTVS0 + facingToPlayer()); useHeld(1); swing(); toast('📺 Giant TV on its stand. Put it on a wall to hang it'); return true; }
+  toast('📺 Hang it on a wall or stand it on top of a block'); return true;
+}
+const gtvScreens = new Map(), gtvGeo = new THREE.PlaneGeometry(2.86, 1.86);
+let gtvT = 0;
+function updateGiantTVs(dt) {
+  gtvT += dt; if (gtvT < 0.1) return; gtvT = 0;
+  const want = new Map(), px = player.pos.x, pz = player.pos.z;
+  for (const k in state.dev) { const [x, y, z] = k.split(',').map(Number); if (Math.abs(x - px) > 48 || Math.abs(z - pz) > 48) continue; const id = get(x, y, z); if (isGTV(id)) want.set(k, [x, y, z, id, state.dev[k]]); }
+  for (const [k, m] of gtvScreens) if (!want.has(k) || m.userData.id !== want.get(k)[3]) { scene.remove(m); gtvScreens.delete(k); }
+  const t = performance.now() / 1000, used = new Set();
+  for (const [k, [x, y, z, id, ch]] of want) {
+    let m = gtvScreens.get(k);
+    if (!m) { const f = gtvF(id), wall = gtvWall(id), [a, b] = rotPt(0.5, wall ? 0.118 : 0.578, f); m = new THREE.Mesh(gtvGeo, tvMats[0]); m.userData.id = id;
+      m.position.set(x + a, y + (wall ? 0.55 : 1.42), z + b); m.rotation.y = f * Math.PI / 2; scene.add(m); gtvScreens.set(k, m); }
+    m.material = tvStatic > 0 ? staticMat.m : tvMats[(ch - 1) % tvMats.length]; used.add((ch - 1) % tvMats.length);
+  }
+  for (const i of used) drawTV(i, t);
+}
+function useGiantTV(h) { const k = h.x + ',' + h.y + ',' + h.z, n = ((state.dev[k] || 0) + 1) % (TV_CH.length + 1); if (n) state.dev[k] = n; else delete state.dev[k]; tvStatic = 0.35;
+  toast(n ? `📺 Channel ${n}: ${TV_CH[n - 1]}` : '📺 TV off'); beep(n ? 900 : 300, 0.05, 'square', 0.04); swing(); }
+
+// ---------------- use / break hooks ----------------
+{ const use15 = useAction; useAction = function () {
+  if (playing && player.alive && !player.car && !player.horse) {
+    const id = held(), h = raycast();
+    if (h && h.kind === 'block') {
+      if (isBed2(h.id)) { const [ox, oy, oz] = bed2Head(h.id) ? [h.x, h.y, h.z] : bedOther(h.x, h.y, h.z, h.id); useBed({ x: ox, y: oy, z: oz }); return; }
+      if (isGTV(h.id)) { useGiantTV(h); return; }
+      if (id === 'torch' && tryWallTorch(h)) return;
+      if (id === 'bed' && !isFurn(h.id) && !(h.id === CHEST || h.id === FURNACE || h.id === CTABLE || isDoor(h.id) || h.id === GRAVE || h.id === SHOP) && placeBed2(h)) return;
+      if (id === 'giant_tv' && !(h.id === CHEST || h.id === FURNACE || h.id === CTABLE || isDoor(h.id) || isFurn(h.id)) && placeGiantTV(h)) return;
+    }
+  }
+  return use15();
+}; }
+{ const fb15 = finishBreak; finishBreak = function (h) {
+  const id = h && h.kind === 'block' ? get(h.x, h.y, h.z) : null; const r = fb15(h);
+  if (id != null && get(h.x, h.y, h.z) !== id) {
+    if (isBed2(id)) { const [ox, oy, oz, oid] = bedOther(h.x, h.y, h.z, id); if (get(ox, oy, oz) === oid) setBlock(ox, oy, oz, AIR); }
+    if (isGTV(id) && state.dev) delete state.dev[h.x + ',' + h.y + ',' + h.z];
+    if (solid(id)) for (let f = 0; f < 4; f++) { const [ax, az] = rotPt(0.5, 1.5, f), tx = Math.floor(h.x + ax), tz = Math.floor(h.z + az); if (get(tx, h.y, tz) === WTORCH0 + f) { setBlock(tx, h.y, tz, AIR); give('torch', 1); } }
+  }
+  return r;
+}; }
+// what you're looking at
+{ const ut15 = updateTarget; updateTarget = function () {
+  ut15(); if (!highlight.visible) return; const x = Math.floor(highlight.position.x), y = Math.floor(highlight.position.y), z = Math.floor(highlight.position.z), id = get(x, y, z), el = document.getElementById('target');
+  let txt = ''; if (isBed2(id)) txt = '🛏️ ✋ Sleep'; else if (isGTV(id)) { const dv = state.dev[x + ',' + y + ',' + z]; txt = `📺 ✋ ${dv ? TV_CH[dv - 1] + ' (next channel)' : 'Turn on'}`; } else if (isWTorch(id)) txt = '🔥 Torch';
+  if (txt) { el.style.display = 'block'; el.textContent = txt; }
+}; }
+
+// ---------------- 20. chests: Transfer All (bag → chest, hotbar only if ticked) ----------------
+let xferHb = false;
+function xferAll(incHb) {
+  if (!chestKeys) return 0; const box = chestKeys.map(k => state.chests[k]); let moved = 0;
+  for (let i = incHb ? 0 : 9; i < 36; i++) { const s = state.slots[i]; if (!s) continue; const cap = stackOf(s.id);
+    if (cap > 1 && s.d == null) for (const ch of box) for (const c of ch) { if (!s.n) break; if (c && c.id === s.id && c.d == null && c.n < cap) { const m = Math.min(cap - c.n, s.n); c.n += m; s.n -= m; moved += m; } }
+    if (s.n > 0) { let put = false; for (const ch of box) { const j = ch.indexOf(null); if (j >= 0) { ch[j] = s; moved += s.n; put = true; break; } } if (put) state.slots[i] = null; }
+    else state.slots[i] = null;
+  }
+  return moved;
+}
+{ const rc15 = renderChest; renderChest = function () { rc15();
+  const m = document.querySelector('#tradeBox .sgrid'); if (!m) return;
+  m.insertAdjacentHTML('beforebegin', `<div class="xrow"><button class="btn gold" data-x15="all">⬆️ Transfer All</button><label><input type="checkbox" id="xHb" ${xferHb ? 'checked' : ''}> include hotbar</label></div>`); }; }
+document.getElementById('tradeBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-x15]'); if (!b || !chestKeys) return; e.stopPropagation(); e.preventDefault();
+  const n = xferAll(xferHb); toast(n ? `📦 Moved ${n} item${n === 1 ? '' : 's'} into the chest` : '📦 Nothing moved (chest full or bag empty)'); beep(n ? 420 : 200, 0.06, 'triangle', 0.05);
+  if (typeof netChests === 'function') netChests(chestKeys); renderChest(); renderHotbar();
+}, true);
+document.getElementById('tradeBox').addEventListener('change', e => { if (e.target && e.target.id === 'xHb') xferHb = e.target.checked; });
+document.getElementById('tradeBox').addEventListener('pointerdown', e => { if (e.target && (e.target.id === 'xHb' || e.target.closest('.xrow label'))) e.stopPropagation(); });
+
+// ---------------- prices: buying costs the new prices; selling back keeps the old modest values (no craft-and-flip exploit) ----------------
+Object.assign(valCache, { laptop: 98, tv: 63, giant_tv: 260 });
+{ const wc15 = webCat; webCat = function (id) { if (id === 'giant_tv') return 'tech'; return wc15(id); }; }
+
+// ---------------- per-frame hook ----------------
+{ const u15 = updateV113; updateV113 = function (dt, t) {
+  u15(dt, t); updateFar(); updateStoryPill(dt);
+  if (!playing) { storyPill.style.display = 'none'; return; }
+  drawCompass(); updateMapTilt(); updateTorchFx(dt); updateGiantTVs(dt); dropCars(dt);
+  fireChkT -= dt; if (fireChkT <= 0) { fireChkT = 1; checkFires(); }
+  wtChkT -= dt; if (wtChkT <= 0) { wtChkT = 1.1; checkWallTorches(); }
+}; }
+window.__dc16 = { V115, PATCH, checkFires, fireSupported, dropCars, carSupported, xferAll, placeBed2, bedOther, tryWallTorch, placeGiantTV, useGiantTV, gtvScreens, chestBoxes, chestMate, drawCompass, updateMapTilt, storyPill, flamePool, smokePool, get torchList() { return torchList; },
+  finishBreak: h => finishBreak(h), useAction: () => useAction(), renderChest: () => renderChest(), openChest: (x, y, z) => openChest(x, y, z), get chestKeys() { return chestKeys; }, blast: (...a) => blast(...a), fireAt: (...a) => fireAt(...a), get VIEW() { return VIEW; }, camera, mapEl,
+  moveVessel: (v, dt) => moveVessel(v, dt), flushDirty: () => flushDirty(), boatPt, PRICE_SET, webBuy: id => webBuy(id), webSell: id => webSell(id), putRoom, deleteRoom, fbKeyOk, get xferHb() { return xferHb; }, set xferHb(v) { xferHb = v; }, fires, cars, get storyLine() { return storyLine; } };
+
+// ================== v1.15 round 2a: highways between cities, big airports, rooftop helipads, elevators ==================
+// Everything is a pure function of the seed + world position, so every chunk (and every online player) agrees.
+// Highways: a grid of 4-lane roads on town-region boundaries, one every HW_P regions in each direction (240 blocks apart),
+// running between towns (never through a town's lots: inside a city they hand over to its streets). Towns that touch a
+// highway get paved links from every street; the few towns with no highway next to them get a 2-lane spur road to the nearest one.
+// Big airports sit in the gap between two parallel highways (3 regions long), with a runway, taxiway, apron, terminal,
+// jet bridges, control tower (elevator to the cab), hangars, heliport, parking and an access road to the highway.
+// Old saves: chunks in state.wgOld (built in / explored before this) generate exactly like before; a highway segment that
+// would touch one is left out, and no new airport/site change happens in a region that has one (see p_a12_v115r2.js).
+const HW_P = 3, HW_HALF = 9, HW_GRADE = 12, HW_SEG = HW_P * 80;
+const hwMod = (a, n) => ((a % n) + n) % n;
+// line offsets: the spawn region is never next to a highway (spawn village stays quiet)
+const HW_OX = hwMod(fdiv(fdiv(VX, CH), TREG) - 1, HW_P), HW_OZ = hwMod(fdiv(fdiv(VZ, CH), TREG) - 1, HW_P);
+const isXLineB = b => hwMod(b - HW_OX, HW_P) === 0;   // a road running along z at x = b*80
+const isZLineB = b => hwMod(b - HW_OZ, HW_P) === 0;   // a road running along x at z = b*80
+const lineOn = (ax, b) => ax === 'x' ? isZLineB(b) : isXLineB(b);   // ax = direction the road runs
+const crossOn = (ax, b) => ax === 'x' ? isXLineB(b) : isZLineB(b);  // crossings along a road are lines of the other family
+const hwStats = { chunks: 0, cols: 0, bridges: 0, tunnels: 0, links: 0, spurs: 0 };
+const knotMemo = new Map(), segMemo = new Map();
+function townNear(px, pz, m) {
+  const rx = fdiv(fdiv(Math.floor(px), CH), TREG), rz = fdiv(fdiv(Math.floor(pz), CH), TREG);
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const t = townOf(rx + a, rz + b); if (t && inTown(t, px, pz, m)) return t; }
+  return null;
+}
+// road height at a knot (every 40 blocks): the land averaged over 80x80 blocks, or the street level of a town it meets
+function hwKnot(px, pz) {
+  const k = px + ',' + pz; let v = knotMemo.get(k); if (v !== undefined) return v;
+  let hs = 0; for (const dx of [-40, 0, 40]) for (const dz of [-40, 0, 40]) hs += terrainNat(px + dx, pz + dz).h;
+  const t = townNear(px, pz, 30); v = t ? t.base : hs / 9;
+  v = Math.round(Math.max(SEA + 2, Math.min(36, v))); knotMemo.set(k, v); return v;
+}
+// road surface height along a line (ax = direction it runs, c = its fixed coordinate, s = position along it)
+function hwY(ax, c, s) {
+  const P = q => ax === 'x' ? hwKnot(q, c) : hwKnot(c, q);
+  const k0 = Math.floor(s / 40), t = (s - k0 * 40) / 40, v = P(k0 * 40) + (P(k0 * 40 + 40) - P(k0 * 40)) * t;
+  const b = Math.round(s / 80), d = Math.abs(s - b * 80);
+  if (crossOn(ax, b) && d < 30) { const vc = P(b * 80); return Math.round(d <= 10 ? vc : vc + (v - vc) * (d - 10) / 20); }   // flat junctions
+  return Math.round(v);
+}
+function hwSegOn(ax, c, s) {
+  const o = ax === 'x' ? HW_OX : HW_OZ, k = Math.floor((s - o * 80) / HW_SEG), key = ax + c + ':' + k;
+  let on = segMemo.get(key); if (on !== undefined) return on; on = true;
+  const s0 = o * 80 + k * HW_SEG - HW_GRADE, s1 = s0 + HW_SEG + 2 * HW_GRADE;
+  for (let cs = fdiv(s0, CH); cs <= fdiv(s1, CH) && on; cs++) for (let cc = fdiv(c - HW_GRADE, CH); cc <= fdiv(c + HW_GRADE, CH) && on; cc++) {
+    const [cx, cz] = ax === 'x' ? [cs, cc] : [cc, cs]; if (wgChOld(cx, cz) || realmCh(cx)) on = false; }
+  segMemo.set(key, on); return on;
+}
+// lines whose band reaches the box [xa,xb] x [za,zb]
+function hwLinesIn(xa, xb, za, zb, m = HW_GRADE) {
+  const out = [];
+  for (let b = Math.ceil((za - m) / 80); b <= Math.floor((zb + m) / 80); b++) if (isZLineB(b)) out.push({ ax: 'x', c: b * 80 });
+  for (let b = Math.ceil((xa - m) / 80); b <= Math.floor((xb + m) / 80); b++) if (isXLineB(b)) out.push({ ax: 'z', c: b * 80 });
+  return out;
+}
+// ---- spur roads for towns with no highway beside them: 4 wide, along -x from street 1 to the x-line one region west
+const isolatedReg = (rx, rz) => hwMod(rx - HW_OX, HW_P) === 1 && hwMod(rz - HW_OZ, HW_P) === 1;
+function spurOf(rx, rz) {
+  const t = townOf(rx, rz); if (!t || t.metro || t.rx !== rx || t.rz !== rz || !isolatedReg(rx, rz)) return null;
+  const c = (rx - 1) * 80, z0 = t.z0 + 16, z1 = z0 + 3, o = townOf(rx - 1, rz);
+  let xa = c + HW_HALF + 1, ya = null;
+  if (o && z0 >= o.z0 && z1 < o.z1) { xa = o.x1; ya = o.base; }
+  return { t, xa, xb: t.x0 - 1, z0, z1, c, ya };
+}
+// ---- big airports: one may sit in the middle row of a 3x3-region highway cell
+const bigMemo = new Map();
+function bigAirportOf(rx, rz) {
+  const cxl = fdiv(rx - HW_OX, HW_P), czl = fdiv(rz - HW_OZ, HW_P), rzm = czl * HW_P + HW_OZ + 1;
+  if (rz !== rzm) return null;
+  const k = cxl + ',' + czl; if (bigMemo.has(k)) return bigMemo.get(k);
+  bigMemo.set(k, null); let s = null; const r0 = cxl * HW_P + HW_OX;
+  if (hash2(cxl, czl, state.seed + 7373) < 0.55) {
+    let ok = true; for (let i = 0; i < 3 && ok; i++) if (!wgRegNew(r0 + i, rzm) || townOf(r0 + i, rzm) || realmCh((r0 + i) * TREG)) ok = false;
+    const x0 = r0 * 80 + 14, x1 = (r0 + 3) * 80 - 14, z0 = rzm * 80 + 6, z1 = rzm * 80 + 74;
+    if (ok && Math.hypot((x0 + x1) / 2 - VX, (z0 + z1) / 2 - VZ) < 300) ok = false;
+    let city = false; if (ok) for (let a = -1; a <= 3 && !city; a++) for (let b = -1; b <= 1 && !city; b++) { if (b === 0 && a >= 0 && a <= 2) continue; const t = townOf(r0 + a, rzm + b); if (t && t.type === 'city') city = true; }
+    if (ok && city) {
+      let hs = 0, n = 0; for (let a = 0; a < 5; a++) for (let b = 0; b < 3; b++) { hs += terrainNat(x0 + (x1 - x0) * (a + 0.5) / 5, z0 + (z1 - z0) * (b + 0.5) / 3).h; n++; }
+      const cxm = (x0 + x1) >> 1, czm = (z0 + z1) >> 1;
+      s = { type: 'airport', big: true, rx: r0, rz: rzm, x0, z0, x1, z1, w: x1 - x0, d: z1 - z0, base: Math.round(Math.max(SEA + 2, Math.min(30, hs / n))), bio: biomeOf(cxm, czm), id: 'SB' + k, ramp: 5 };
+    }
+  }
+  bigMemo.set(k, s); return s;
+}
+// does a (new-region) site's footprint run into a highway band or a spur? then that region gets no site
+function siteHitsRoads(s) {
+  const xa = s.x0 - s.ramp, xb = s.x1 + s.ramp - 1, za = s.z0 - s.ramp, zb = s.z1 + s.ramp - 1;
+  if (hwLinesIn(xa, xb, za, zb).length) return true;
+  const sp = spurOf(s.rx + 1, s.rz); if (sp && sp.xa <= xb && sp.xb >= xa && sp.z0 <= zb && sp.z1 >= za) return true;
+  return false;
+}
+{ const so0 = siteOf; siteMemo.clear(); siteOf = function (rx, rz) {
+  const k = rx + ',' + rz; if (siteMemo.has(k)) return siteMemo.get(k);
+  if (state.siteV >= 4 && wgRegNew(rx, rz)) { const ba = bigAirportOf(rx, rz); if (ba) { siteMemo.set(k, ba); return ba; } }
+  let s = so0(rx, rz);
+  if (s && wgRegNew(rx, rz) && (s.type === 'airport' || siteHitsRoads(s))) { s = null; siteMemo.set(k, null); }   // new worlds: big airports replace the small ones
+  return s;
+}; }
+{ const sn0 = sitesNear; sitesNear = function (r) { return [...new Set(sn0(r))]; }; }
+
+// ---------------- stamping (after the chunk's terrain, towns, sites and caves; the player's edits go back on top) ----------------
+const ROAD_SURF = new Set([ASPHALT, LINE_W, LINE_Y, ROADLINE, CROSSWALK, CONCRETE, SIDEWALK]);
+function stampRoads(cx, cz) {
+  if (wgChOld(cx, cz) || realmCh(cx)) return false;
+  const c = data.get(ckey(cx, cz)); if (!c) return false;
+  const x0 = cx * CH, z0 = cz * CH, rx = fdiv(cx, TREG), rz = fdiv(cz, TREG), town = townOf(rx, rz), site = siteOf(rx, rz);
+  const blocked = (x, z) => (town && inTown(town, x, z)) || (site && inSite(site, x, z, site.ramp));
+  const G = (lx, y, lz) => c[lidx(lx, y, lz)], S = (lx, y, lz, v) => { if (y >= 0 && y < H) c[lidx(lx, y, lz)] = v; };
+  const isGround = id => id !== AIR && !isWater(id) && id !== LOG && id !== LEAVES && !PLANT.has(id) && id !== FENCE;
+  const groundY = (lx, lz) => { let g = H - 2; while (g > 0 && !isGround(G(lx, g, lz))) g--; return g; };
+  const light = (lx, y, lz, id = LAMP) => { S(lx, y, lz, id); torches.add((x0 + lx) + ',' + y + ',' + (z0 + lz)); };
+  let did = false;
+  // one road column: cut/fill or bridge, surface on top; returns what it became
+  const pave = (lx, lz, Y, surf, edge, pillar) => {
+    const g = groundY(lx, lz); let wet = false;
+    for (let y = g + 1; y <= Math.min(H - 1, Y); y++) if (isWater(G(lx, y, lz))) wet = true;
+    const bridge = wet || Y - g > 5, tunnel = g > Y + 7;
+    if (tunnel) { for (let y = Y + 1; y <= Y + 6; y++) S(lx, y, lz, AIR); }
+    else for (let y = Y + 1; y < H; y++) if (G(lx, y, lz) !== AIR) S(lx, y, lz, AIR);
+    S(lx, Y, lz, surf);
+    if (!bridge) { for (let y = Y - 1; y > g; y--) S(lx, y, lz, STONE); if (g >= Y) S(lx, Y - 1, lz, STONE); }
+    else { S(lx, Y - 1, lz, CONCRETE); if (pillar) for (let y = Y - 2; y > Math.min(g, Y - 2) - 1 && y > 0; y--) { if (y <= g && isGround(G(lx, y, lz))) break; S(lx, y, lz, CONCRETE); } if (edge) S(lx, Y + 1, lz, FENCE); }
+    did = true; hwStats.cols++; return { bridge, tunnel };
+  };
+  // the land beside the road slopes down / up to it
+  const grade = (lx, lz, Y, dd) => {
+    const g = groundY(lx, lz), top = G(lx, g, lz);
+    const nat = top === SAND || top === SNOW_GRASS || top === DEADGRASS || top === GRASS || top === DIRT || top === STONE || top === SNOW;
+    if (!nat || g > Y + 7) return;
+    const surf = top === STONE ? STONE : top === DIRT ? GRASS : top, ty = Y + dd - 1;
+    if (g > ty) { for (let y = ty + 1; y < H; y++) if (G(lx, y, lz) !== AIR) S(lx, y, lz, AIR); S(lx, ty, lz, surf); did = true; }
+    else if (g < Y - dd && Y - g <= 5) { let wet = false; for (let y = g + 1; y <= Y; y++) if (isWater(G(lx, y, lz))) wet = true; if (wet) return;
+      for (let y = g; y < Y - dd; y++) S(lx, y, lz, DIRT); S(lx, Y - dd, lz, surf); for (let y = Y - dd + 1; y < H; y++) if (G(lx, y, lz) !== AIR) S(lx, y, lz, AIR); did = true; }
+  };
+  const lines = hwLinesIn(x0, x0 + CH - 1, z0, z0 + CH - 1);
+  const cols = [];   // [lx, lz, line, o, s]
+  for (const L of lines) for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const x = x0 + lx, z = z0 + lz, o = L.ax === 'x' ? z - L.c : x - L.c, s = L.ax === 'x' ? x : z;
+    if (Math.abs(o) > HW_GRADE || blocked(x, z) || !hwSegOn(L.ax, L.c, s)) continue;
+    cols.push([lx, lz, L, o, s]);
+  }
+  const roadAt = new Set();
+  for (const q of cols) if (Math.abs(q[3]) <= HW_HALF) roadAt.add(q[0] + ',' + q[1]);
+  for (const [lx, lz, L, o, s] of cols) if (Math.abs(o) > HW_HALF && !roadAt.has(lx + ',' + lz)) grade(lx, lz, hwY(L.ax, L.c, s), Math.abs(o) - HW_HALF);
+  for (const [lx, lz, L, o, s] of cols) {
+    if (Math.abs(o) > HW_HALF) continue;
+    const Y = hwY(L.ax, L.c, s), cross = hwLinesIn(L.ax === 'x' ? s : L.c, L.ax === 'x' ? s : L.c, L.ax === 'x' ? L.c : s, L.ax === 'x' ? L.c : s, HW_HALF).some(M => M.ax !== L.ax);
+    const ao = Math.abs(o), sm = hwMod(s, 240);
+    const surf = cross ? ASPHALT : o === 0 ? LINE_Y : ao === 4 ? (hwMod(s, 8) < 4 ? LINE_W : ASPHALT) : ao === 8 ? LINE_W : ASPHALT;
+    const r = pave(lx, lz, Y, surf, ao === HW_HALF, (ao === 8 || o === 0) && hwMod(s, 12) === 0);
+    if (r.bridge && lx === 8 && lz === 8) hwStats.bridges++;
+    if (r.tunnel) { if (o === 0 && hwMod(s, 10) === 0) light(lx, Y + 6, lz); continue; }
+    if (cross) continue;
+    if (ao === HW_HALF && hwMod(s, 32) === 0) { for (let y = Y + 1; y <= Y + 4; y++) S(lx, y, lz, CONCRETE); light(lx, Y + 5, lz); }   // street lights
+    const gant = hwMod(s - (L.ax === 'x' ? HW_OX : HW_OZ) * 80, HW_SEG);
+    if (gant === 60 || gant === 180) {   // overhead sign gantry
+      if (ao === HW_HALF) for (let y = Y + 1; y <= Y + 6; y++) S(lx, y, lz, STEEL);
+      S(lx, Y + 7, lz, STEEL); if (ao >= 1 && ao <= 7) S(lx, Y + 6, lz, HWY_SIGN);
+    }
+  }
+  // links from town streets to a highway right beside the town, and spur roads
+  const linkCol = (x, z, Y, k) => { if (x < x0 || z < z0 || x >= x0 + CH || z >= z0 + CH) return; const lx = x - x0, lz = z - z0; if (roadAt.has(lx + ',' + lz) || blocked(x, z) && !(site && site.big)) return; pave(lx, lz, Y, k === 1 || k === 2 ? (hwMod(x + z, 3) === 0 ? ROADLINE : ASPHALT) : ASPHALT, false, false); };
+  const towns = new Set(); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const t = townOf(rx + a, rz + b); if (t) towns.add(t); }
+  for (const t of towns) {
+    if (t.x0 > x0 + CH + 16 || t.x1 < x0 - 16 || t.z0 > z0 + CH + 16 || t.z1 < z0 - 16) continue;
+    const strips = (a0, a1) => { const out = []; for (let m = 0; a0 + m * 16 < a1; m++) out.push(a0 + m * 16); return out; };
+    const sides = [];
+    { const b = fdiv(t.x0, 80); if (isXLineB(b)) sides.push(['z', b * 80, b * 80 + HW_HALF + 1, t.x0 - 1]); }
+    { const b = fdiv(t.x1 - 1, 80) + 1; if (isXLineB(b)) sides.push(['z', b * 80, t.x1, b * 80 - HW_HALF - 1]); }
+    { const b = fdiv(t.z0, 80); if (isZLineB(b)) sides.push(['x', b * 80, b * 80 + HW_HALF + 1, t.z0 - 1]); }
+    { const b = fdiv(t.z1 - 1, 80) + 1; if (isZLineB(b)) sides.push(['x', b * 80, t.z1, b * 80 - HW_HALF - 1]); }
+    for (const [lax, lc, a, b2] of sides) {   // lax = the highway's direction; the link runs across it from a..b2
+      const lo = Math.min(a, b2), hi = Math.max(a, b2), nearHw = a < b2 ? lo : hi;
+      for (const p0 of strips(lax === 'z' ? t.z0 : t.x0, lax === 'z' ? t.z1 : t.x1)) {
+        if (!hwSegOn(lax, lc, p0 + 2)) continue;
+        const Yh = hwY(lax, lc, p0 + 2), span = Math.max(1, hi - lo);
+        for (let q = lo; q <= hi; q++) { const f = Math.abs(q - nearHw) / span, Y = Math.round(Yh + (t.base - Yh) * f);
+          for (let k = 0; k < 4; k++) { if (lax === 'z') linkCol(q, p0 + k, Y, k); else linkCol(p0 + k, q, Y, k); } }
+        hwStats.links++;
+      }
+    }
+  }
+  for (const R of [rx, rx + 1]) {
+    const sp = spurOf(R, rz); if (!sp || sp.xb < x0 || sp.xa > x0 + CH - 1 || sp.z1 < z0 || sp.z0 > z0 + CH - 1) continue;
+    if (sp.ya == null && !hwSegOn('z', sp.c, sp.z0)) continue;
+    const Ya = sp.ya ?? hwY('z', sp.c, sp.z0 + 2), Yb = sp.t.base, span = Math.max(1, sp.xb - sp.xa);
+    for (let x = Math.max(sp.xa, x0); x <= Math.min(sp.xb, x0 + CH - 1); x++) {
+      const Y = Math.round(Ya + (Yb - Ya) * (x - sp.xa) / span);
+      for (let z = sp.z0; z <= sp.z1; z++) { if (z < z0 || z >= z0 + CH) continue; const lx = x - x0, lz = z - z0; if (blocked(x, z) || roadAt.has(lx + ',' + lz)) continue;
+        const k = z - sp.z0, r = pave(lx, lz, Y, k === 1 || k === 2 ? (hwMod(x, 3) === 0 ? ROADLINE : ASPHALT) : ASPHALT, k === 0 || k === 3, k === 0 && hwMod(x, 10) === 0);
+        if (k === 3 && !r.bridge && !r.tunnel && hwMod(x, 24) === 0 && z + 1 < z0 + CH) { const g2 = groundY(lx, lz + 1); if (Math.abs(g2 - Y) <= 1) { for (let y = Y + 1; y <= Y + 3; y++) S(lx, y, lz + 1, CONCRETE); light(lx, Y + 4, lz + 1); } } }
+    }
+    hwStats.spurs++;
+  }
+  if (did) hwStats.chunks++;
+  return did;
+}
+{ const gc6 = genChunk; genChunk = function (cx, cz) {
+  gc6(cx, cz);
+  try { if (stampRoads(cx, cz)) { reapplyEdits(cx, cz, data.get(ckey(cx, cz))); mapDirty.add(ckey(cx, cz)); chunkColors(cx, cz); } } catch (e) { console.warn('roads', e); }
+}; }
+
+// ---------------- big airport layout ----------------
+const AIR2_PARKED = [['plane', 12, 12, Math.PI / 2], ['plane', 76, 35, 0], ['plane', 101, 35, 0], ['plane', 126, 35, 0], ['plane', 29, 47, Math.PI], ['helicopter', 195, 36, 0]];
+const DIGITS = { 0: ['111', '101', '101', '101', '111'], 2: ['111', '001', '111', '100', '111'], 7: ['111', '001', '010', '010', '010'], 9: ['111', '101', '111', '001', '111'] };
+const airCarSpots = new Map();   // chunk key -> [{x, z, head, key, base}]
+{ const ss0 = stampSite; stampSite = function (s, cx, cz, hm, L, Lget) {
+  if (!s.big) return ss0(s, cx, cz, hm, L, Lget);
+  ss0({ ...s, type: 'flat' }, cx, cz, hm, L, Lget);   // flatten + ramps only
+  stampBigAirport(s, cx, cz, L);
+}; }
+function stampBigAirport(s, cx, cz, L) {
+  const x0 = cx * CH, z0 = cz * CH, B = s.base, X = s.x0, Z = s.z0, X1 = s.x1 - 1, Z1 = s.z1 - 1;
+  const inCh = (x, z) => x >= x0 && x < x0 + CH && z >= z0 && z < z0 + CH;
+  const W = (x, y, z, id) => { if (inCh(x, z)) L(x - x0, y, z - z0, id); };
+  const F = (ax, ay, az, bx, by, bz, id) => { const xa = Math.max(Math.min(ax, bx), x0), xb = Math.min(Math.max(ax, bx), x0 + CH - 1), za = Math.max(Math.min(az, bz), z0), zb = Math.min(Math.max(az, bz), z0 + CH - 1);
+    for (let x = xa; x <= xb; x++) for (let z = za; z <= zb; z++) for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) L(x - x0, y, z - z0, id); };
+  const lit = (x, y, z, id = LAMP) => { if (!inCh(x, z)) return; W(x, y, z, id); torches.add(x + ',' + y + ',' + z); };
+  if (X > x0 + CH + 6 || X1 < x0 - 6 || Z > z0 + CH + 6 || Z1 < z0 - 6) return;
+  // perimeter fence (gap where the access road leaves)
+  for (let x = X; x <= X1; x++) for (const z of [Z, Z1]) { W(x, B + 1, z, FENCE); W(x, B + 2, z, FENCE); }
+  for (let z = Z; z <= Z1; z++) for (const x of [X, X1]) if (!(x === X1 && z >= Z + 58 && z <= Z + 63)) { W(x, B + 1, z, FENCE); W(x, B + 2, z, FENCE); }
+  // runway 09/27 along x
+  F(X + 6, B, Z + 5, X1 - 6, B, Z + 19, ASPHALT);
+  for (let x = X + 6; x <= X1 - 6; x++) { W(x, B, Z + 5, LINE_W); W(x, B, Z + 19, LINE_W); if (hwMod(x, 12) < 6 && x > X + 40 && x < X1 - 40) W(x, B, Z + 12, LINE_W); }
+  for (const xs of [X + 8, X1 - 13]) for (let x = xs; x < xs + 6; x++) for (let z = Z + 7; z <= Z + 17; z++) if ((z - Z - 7) % 3 < 2 && z !== Z + 12) W(x, B, z, LINE_W);   // threshold piano keys
+  for (const xs of [X + 30, X1 - 37]) for (let x = xs; x < xs + 8; x++) for (const z of [Z + 8, Z + 9, Z + 15, Z + 16]) W(x, B, z, LINE_W);                    // aiming points
+  const glyph = (d, top, dirX, zc0, dirZ) => { const g = DIGITS[d]; for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r][q] === '1') W(top - dirX * r, B, zc0 + dirZ * q, LINE_W); };
+  glyph(0, X + 22, 1, Z + 8, 1); glyph(9, X + 22, 1, Z + 14, 1);          // "09" read by planes heading east
+  glyph(2, X1 - 22, -1, Z + 16, -1); glyph(7, X1 - 22, -1, Z + 10, -1);   // "27" read by planes heading west
+  for (let x = X + 6; x <= X1 - 6; x += 12) { lit(x, B, Z + 4); lit(x, B, Z + 20); }
+  for (let x = X + 1; x <= X + 5; x += 2) lit(x, B, Z + 12); for (let x = X1 - 5; x <= X1 - 1; x += 2) lit(x, B, Z + 12);
+  // taxiway + links to the runway
+  F(X + 14, B, Z + 25, X1 - 14, B, Z + 29, ASPHALT); for (let x = X + 14; x <= X1 - 14; x++) W(x, B, Z + 27, LINE_Y);
+  for (const xs of [X + 14, X + 104, X1 - 18]) { F(xs, B, Z + 20, xs + 4, B, Z + 24, ASPHALT); for (let z = Z + 20; z <= Z + 26; z++) W(xs + 2, B, z, LINE_Y); W(xs, B, Z + 22, LINE_Y); W(xs + 4, B, Z + 22, LINE_Y); }
+  for (let x = X + 14; x <= X1 - 14; x += 16) lit(x, B, Z + 30, LAMP);
+  // apron with stands
+  F(X + 56, B, Z + 30, X + 156, B, Z + 45, CONCRETE);
+  for (const sx of [X + 76, X + 101, X + 126]) { for (let z = Z + 30; z <= Z + 44; z++) W(sx, B, z, LINE_Y); for (let x = sx - 3; x <= sx + 3; x++) W(x, B, Z + 39, LINE_Y); }
+  // terminal: tall glass hall, check-in counters, seating, departure screens, 3 jet bridges
+  const TX0 = X + 64, TX1 = X + 148, TZ0 = Z + 46, TZ1 = Z + 57;
+  F(TX0, B, TZ0, TX1, B, TZ1, SIDEWALK);
+  for (let x = TX0; x <= TX1; x++) for (let z = TZ0; z <= TZ1; z++) {
+    const edge = x === TX0 || x === TX1 || z === TZ0 || z === TZ1, col = (x - TX0) % 8 === 0;
+    for (let y = B + 1; y <= B + 7; y++) W(x, y, z, !edge ? AIR : (x === TX0 || x === TX1 || col || y === B + 7) ? WHITEWALL : SHOPGLASS);
+    W(x, B + 8, z, CONCRETE);
+  }
+  for (const dx of [20, 42, 64]) { F(TX0 + dx, B + 1, TZ1, TX0 + dx + 1, B + 2, TZ1, AIR); W(TX0 + dx, B + 1, TZ1, doorId(2, true, false)); W(TX0 + dx, B + 2, TZ1, doorId(2, true, true)); W(TX0 + dx + 1, B + 1, TZ1, doorId(2, true, false)); W(TX0 + dx + 1, B + 2, TZ1, doorId(2, true, true)); }
+  for (let x = TX0 + 4; x <= TX0 + 26; x++) if (x % 6) W(x, B + 1, TZ1 - 2, COUNTER0 + 0);
+  for (let x = TX0 + 6; x <= TX0 + 26; x += 5) W(x, B + 2, TZ1 - 2, TV0 + 0);
+  for (let x = TX0 + 32; x <= TX1 - 4; x++) if ((x - TX0) % 8 && (x - TX0) % 8 !== 1) { W(x, B + 1, TZ0 + 3, CHAIR0 + 0); W(x, B + 1, TZ0 + 5, CHAIR0 + 2); }
+  for (let x = TX0 + 34; x <= TX1 - 6; x += 16) { W(x, B + 1, TZ1 - 1, TABLE); W(x, B + 2, TZ1 - 1, TV0 + 2); }
+  for (let x = TX0 + 4; x < TX1; x += 8) { lit(x, B + 5, TZ0 + 1, TORCH); lit(x, B + 5, TZ1 - 1, TORCH); lit(x, B + 9, TZ0 + 6); }
+  for (const sx of [X + 76, X + 101, X + 126]) {   // jet bridge: a glass-sided tube from the hall out over the apron
+    for (let z = TZ0 - 6; z < TZ0; z++) for (let x = sx - 1; x <= sx + 1; x++) for (let y = B + 3; y <= B + 5; y++) W(x, y, z, x === sx && y === B + 4 ? AIR : y === B + 4 ? GL_DARK : STEEL);
+    F(sx, B + 1, TZ0 - 5, sx, B + 2, TZ0 - 5, STEEL); W(sx, B + 4, TZ0, AIR); W(sx, B + 4, TZ0 - 6, STEEL);
+  }
+  // control tower with an elevator up to the glass cab
+  const CX0 = X + 160, CZ0 = Z + 48, CT = B + 18;
+  F(CX0, B + 1, CZ0, CX0 + 4, CT, CZ0 + 4, CONCRETE); F(CX0 + 1, B + 1, CZ0 + 1, CX0 + 3, CT - 1, CZ0 + 3, AIR);
+  W(CX0 + 2, B + 1, CZ0, doorId(0, false, false)); W(CX0 + 2, B + 2, CZ0, doorId(0, false, true));
+  F(CX0 - 1, CT, CZ0 - 1, CX0 + 5, CT, CZ0 + 5, CONCRETE);
+  for (let x = CX0 - 1; x <= CX0 + 5; x++) for (let z = CZ0 - 1; z <= CZ0 + 5; z++) { const e = x === CX0 - 1 || x === CX0 + 5 || z === CZ0 - 1 || z === CZ0 + 5; for (let y = CT + 1; y <= CT + 3; y++) W(x, y, z, e ? GL_DARK : AIR); W(x, CT + 4, z, STEEL); }
+  W(CX0 + 3, B + 1, CZ0 + 2, ELEV); W(CX0 + 3, B + 2, CZ0 + 2, ELEV_TOP); W(CX0 + 3, CT + 1, CZ0 + 2, ELEV); W(CX0 + 3, CT + 2, CZ0 + 2, ELEV_TOP);
+  W(CX0 + 1, CT + 1, CZ0 + 4, TABLE); W(CX0 + 1, CT + 2, CZ0 + 4, LAPTOP0 + 2); W(CX0 + 1, CT + 1, CZ0 + 3, CHAIR0 + 0); W(CX0 + 3, CT + 1, CZ0 + 4, RADIO0 + 2);
+  lit(CX0 + 1, CT + 1, CZ0 + 1, TORCH); lit(CX0 + 2, B + 1, CZ0 + 3, TORCH); for (let y = CT + 5; y <= CT + 7; y++) W(CX0 + 2, y, CZ0 + 2, y === CT + 7 ? LAMP : STEEL); lit(CX0 + 2, CT + 7, CZ0 + 2);
+  // hangars (arched steel, open toward the taxiway)
+  const hangar = (hx, hz, w, d, h) => {
+    const c = (w - 1) / 2, r = c + 0.5, A = i => i < 0 || i >= w ? 0 : Math.round(Math.sqrt(Math.max(0, r * r - (i - c) * (i - c))) * h / r);
+    F(hx, B, hz, hx + w - 1, B, hz + d - 1, CONCRETE); F(hx, B, Z + 30, hx + w - 1, B, hz - 1, CONCRETE);
+    for (let i = 0; i < w; i++) { const ah = A(i), lo = Math.min(A(i - 1), A(i + 1), ah - 1);
+      F(hx + i, B + 1 + Math.max(0, lo), hz, hx + i, B + 1 + ah, hz + d - 1, STEEL); F(hx + i, B + 1, hz + d - 1, hx + i, B + ah, hz + d - 1, STEEL);
+      if (Math.abs(i - c) > c - 2) F(hx + i, B + 1, hz, hx + i, B + ah, hz, STEEL); }
+    for (let i = 1; i < w - 1; i++) W(hx + i, B, hz - 1, HAZARD);
+    lit(hx + 1, B + 1, hz + d - 2, TORCH); lit(hx + w - 2, B + 1, hz + d - 2, TORCH);
+  };
+  hangar(X + 20, Z + 36, 19, 20, 10); hangar(X + 170, Z + 44, 15, 16, 8);
+  // heliport
+  F(X + 191, B, Z + 32, X + 199, B, Z + 40, ASPHALT);
+  for (let x = X + 191; x <= X + 199; x++) for (let z = Z + 32; z <= Z + 40; z++) if (x === X + 191 || x === X + 199 || z === Z + 32 || z === Z + 40) W(x, B, z, LINE_Y);
+  for (let x = X + 193; x <= X + 197; x++) { W(x, B, Z + 34, LINE_W); W(x, B, Z + 38, LINE_W); } W(X + 195, B, Z + 35, LINE_W); W(X + 195, B, Z + 36, LINE_W); W(X + 195, B, Z + 37, LINE_W);
+  // landside: road along the terminal to the east gate, parking with spots
+  F(X + 60, B, Z + 58, X1 + s.ramp, B, Z + 61, ASPHALT); for (let x = X + 60; x <= X1 + s.ramp; x++) if (hwMod(x, 3) === 0) W(x, B, Z + 59, ROADLINE);
+  F(TX0, B, Z + 62, TX1, B, Z + 66, ASPHALT);
+  const spots = []; for (let x = TX0 + 1; x <= TX1 - 1; x += 3) { for (let z = Z + 62; z <= Z + 66; z++) W(x, B, z, LINE_W); if (hash2(x, Z, state.seed + 7374) < 0.35) spots.push({ x: x + 1.5, z: Z + 64.5, head: Math.PI, key: 'ac' + (x + 1) + ',' + Z, base: B }); }
+  for (let x = TX0; x <= TX1; x += 12) { F(x, B + 1, Z + 67, x, B + 4, Z + 67, CONCRETE); lit(x, B + 5, Z + 67); }
+  const mine = spots.filter(p => inCh(Math.floor(p.x), Math.floor(p.z))); if (mine.length) airCarSpots.set(ckey(cx, cz), mine);
+  // windsock pole + fuel tanks
+  F(X + 50, B + 1, Z + 22, X + 50, B + 5, Z + 22, FENCE); W(X + 51, B + 5, Z + 22, HAZARD);
+  for (const [fx, fz] of [[X + 44, Z + 58], [X + 50, Z + 58]]) F(fx, B + 1, fz, fx + 3, B + 4, fz + 3, WHITEWALL);
+}
+{ const pa0 = parkAircraft; parkAircraft = function (s) {
+  if (!s.big) return pa0(s);
+  const keep = PARKED.airport; PARKED.airport = AIR2_PARKED; try { pa0(s); } finally { PARKED.airport = keep; }
+}; }
+// the access road from the airport's east gate across to the highway
+{ const sr0 = stampRoads; stampRoads = function (cx, cz) {
+  let did = sr0(cx, cz);
+  if (wgChOld(cx, cz) || realmCh(cx)) return did;
+  const s = siteOf(fdiv(cx, TREG), fdiv(cz, TREG)); if (!s || !s.big) return did;
+  const c = data.get(ckey(cx, cz)), x0 = cx * CH, z0 = cz * CH, hc = (s.rx + 3) * 80, xa = s.x1 + s.ramp, xb = hc - HW_HALF - 1;
+  if (!hwSegOn('z', hc, s.z0 + 60)) return did;
+  const Yh = hwY('z', hc, s.z0 + 60);
+  for (let x = Math.max(xa - s.ramp, x0); x <= Math.min(xb, x0 + CH - 1); x++) for (let z = s.z0 + 58; z <= s.z0 + 61; z++) {
+    if (z < z0 || z >= z0 + CH) continue; const lx = x - x0, lz = z - z0, f = (x - (xa - s.ramp)) / Math.max(1, xb - (xa - s.ramp)), Y = Math.round(s.base + (Yh - s.base) * f);
+    for (let y = Y + 1; y < H; y++) c[lidx(lx, y, lz)] = AIR; for (let y = Y - 1; y > 0 && !solid(c[lidx(lx, y, lz)]); y--) c[lidx(lx, y, lz)] = STONE;
+    c[lidx(lx, Y, lz)] = z === s.z0 + 59 && hwMod(x, 3) === 0 ? ROADLINE : ASPHALT; did = true;
+  }
+  return did;
+}; }
+
+// ---------------- elevators ----------------
+const elevW = document.createElement('div'); elevW.className = 'panel'; elevW.id = 'elevP'; elevW.innerHTML = '<div class="box" id="elevBox"></div>'; document.body.appendChild(elevW); const elevP = elevW.querySelector('#elevBox');
+{ const st = document.createElement('style'); st.textContent = '#elevP .ebtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-height:52vh;overflow-y:auto;margin-top:8px}#elevP .ebtns .btn{min-width:84px}#elevP .btn.here{outline:2px solid #ffd84a}'; document.head.appendChild(st); }
+let elevAt = null;
+function elevStops(x, z) { const out = []; for (let y = 1; y < H - 1; y++) if (get(x, y, z) === ELEV) out.push(y); return out; }
+function elevFront(x, y, z) {
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = get(x + dx, y, z + dz), b = get(x + dx, y + 1, z + dz), u = get(x + dx, y - 1, z + dz);
+    if (!solid(a) && !solid(b) && !isWater(a) && solid(u)) return [x + dx + 0.5, y, z + dz + 0.5]; }
+  return null;
+}
+function openElevator(x, y, z) {
+  const ys = elevStops(x, z); if (ys.length < 2) { toast('🛗 This elevator has nowhere else to go'); return; }
+  const here = ys.reduce((b, v) => Math.abs(v - y) < Math.abs(b - y) ? v : b, ys[0]);
+  elevAt = { x, z, ys };
+  const name = (v, i) => i === 0 ? '🏢 Lobby' : i === ys.length - 1 ? (get(x, v - 1, z) === STEEL || ys.length === 2 ? '🔝 Top' : '🚁 Roof') : `Floor ${i + 1}`;
+  elevP.innerHTML = `<button class="btn close" data-ev="close">✕</button><h2>🛗 Elevator</h2><div style="font-size:13px;opacity:.8">Pick a floor</div><div class="ebtns">${ys.map((v, i) => `<button class="btn${v === here ? ' here' : ''}" data-ev="${v}">${name(v, i)}</button>`).join('')}</div>`;
+  openPanel('elevP'); beep(660, 0.08, 'sine', 0.05);
+}
+function rideElevator(y) {
+  if (!elevAt) return false; const f = elevFront(elevAt.x, y, elevAt.z); if (!f) { toast('🛗 The doors are blocked on that floor'); return false; }
+  player.pos.set(f[0], f[1], f[2]); if (player.vel) player.vel.set(0, 0, 0); player.fallStart = null;
+  closePanels(); beep(880, 0.12, 'sine', 0.06); setTimeout(() => beep(1175, 0.18, 'sine', 0.05), 140); return true;
+}
+elevW.addEventListener('click', e => { const b = e.target.closest('[data-ev]'); if (!b) return; e.stopPropagation(); if (b.dataset.ev === 'close') { closePanels(); return; } rideElevator(+b.dataset.ev); });
+{ const use16 = useAction; useAction = function () {
+  if (playing && player.alive && !player.car && !player.horse) { const h = raycast(); if (h && h.kind === 'block' && isElev(h.id)) { openElevator(h.x, h.id === ELEV_TOP ? h.y - 1 : h.y, h.z); return; } }
+  return use16();
+}; }
+
+// ---------------- highway traffic, hitchhikers, parked helicopters & airport cars ----------------
+const hwLane = (ax, c, dir, outer) => ax === 'x' ? (dir === 0 ? c + (outer ? 6.5 : 2.5) : c - (outer ? 5.5 : 1.5)) : (dir === 1 ? c - (outer ? 5.5 : 1.5) : c + (outer ? 6.5 : 2.5));
+const hwRoadOK = (x, y, z) => ROAD_SURF.has(get(Math.floor(x), y, Math.floor(z)));
+{ const ld0 = laneDrive; laneDrive = function (c, dt) {
+  if (!c.hwy) return ld0(c, dt);
+  const h = c.hwy, pos = c.dir === 0 || c.dir === 1, alongX = c.dir % 2 === 0, sg = pos ? 1 : -1;
+  const a0 = alongX ? c.x : c.z, a1 = a0 + sg * c.speed * (h.sp / 5) * dt, ah = a1 + sg * 3;
+  const Yn = hwY(h.ax, h.c, Math.floor(ah)), px = alongX ? ah : h.lane, pz = alongX ? h.lane : ah;
+  if (!loaded(px, pz) || !hwRoadOK(px, Yn, pz)) {   // end of the road (a town, old land, the edge of the loaded world): turn round
+    c.dir = (c.dir + 2) % 4; h.lane = hwLane(h.ax, h.c, c.dir, h.outer); if (alongX) c.z = h.lane; else c.x = h.lane; c.head = dirHead(c.dir); return; }
+  if (alongX) c.x = a1; else c.z = a1;
+  c.y = hwY(h.ax, h.c, Math.floor(a1)) + 1;
+}; }
+{ const sl0 = snapToLane; snapToLane = function (c) {
+  if (!c.hwy) return sl0(c);
+  const h = c.hwy, along = h.ax === 'x' ? Math.sin(c.head) : Math.cos(c.head);
+  c.dir = h.ax === 'x' ? (along > 0 ? 0 : 2) : (along > 0 ? 1 : 3); h.lane = hwLane(h.ax, h.c, c.dir, h.outer);
+  if (Math.abs((h.ax === 'x' ? c.z : c.x) - h.c) > 16) { removeCar(c); return; }
+  if (h.ax === 'x') c.z = h.lane; else c.x = h.lane;
+}; }
+function hwLinesNear(x, z, r) { return hwLinesIn(x - r, x + r, z - r, z + r, 0).filter(L => Math.abs((L.ax === 'x' ? z : x) - L.c) < r && hwSegOn(L.ax, L.c, L.ax === 'x' ? x : z)); }
+let hwT = 0;
+function updateRoads(dt) {
+  hwT -= dt; if (hwT > 0) return; hwT = 1;
+  const pp = player.pos; if (realmAt(pp.x)) return;
+  const near = hwLinesNear(pp.x, pp.z, 70);
+  if (near.length && cars.filter(c => c.hwy).length < 8) {
+    const L = near[Math.floor(Math.random() * near.length)], along = L.ax === 'x' ? pp.x : pp.z, s = Math.floor(along + (Math.random() < 0.5 ? -1 : 1) * (26 + Math.random() * 40));
+    const dir = L.ax === 'x' ? (Math.random() < 0.5 ? 0 : 2) : (Math.random() < 0.5 ? 1 : 3), outer = Math.random() < 0.4, lane = hwLane(L.ax, L.c, dir, outer);
+    const x = L.ax === 'x' ? s + 0.5 : lane, z = L.ax === 'x' ? lane : s + 0.5, Y = hwY(L.ax, L.c, s), d = Math.hypot(x - pp.x, z - pp.z);
+    if (d > 22 && d < 75 && loaded(x, z) && hwRoadOK(x, Y, z) && !cars.some(o => Math.hypot(o.x - x, o.z - z) < 9)) {
+      const kind = Math.random() < 0.12 ? 'truck' : Math.random() < 0.06 ? 'police' : 'car';
+      const car = spawnCar({ base: Y, id: 'hwy' }, { kind, people: 1, dir, x, z, ai: true });
+      car.hwy = { ax: L.ax, c: L.c, lane, outer, sp: kind === 'truck' ? 7.5 : 9 + Math.random() * 4 }; car.y = Y + 1; car.g.position.y = car.y;
+    }
+  }
+  // a hitchhiker or two on the shoulder
+  if (near.length && mobs.filter(m => m.hwyPed).length < 2 && Math.random() < 0.25) {
+    const L = near[0], s = Math.floor((L.ax === 'x' ? pp.x : pp.z) + (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 30)), o = Math.random() < 0.5 ? HW_HALF : -HW_HALF;
+    const x = L.ax === 'x' ? s + 0.5 : L.c + o + 0.5, z = L.ax === 'x' ? L.c + o + 0.5 : s + 0.5, Y = hwY(L.ax, L.c, s);
+    if (loaded(x, z) && hwRoadOK(x, Y, z) && !solid(get(Math.floor(x), Y + 1, Math.floor(z)))) { const m = spawnMob('ped', x, Y + 1, z); if (m) { m.hwyPed = true; m.home = new THREE.Vector2(x, z); } }
+  }
+  for (const m of [...mobs]) if (m.hwyPed && m.g.position.distanceTo(pp) > 100 && typeof removeMob === 'function') removeMob(m);
+  // parked helicopters on rooftop helipads, cars in airport parking
+  for (const [k, p] of helipads) {
+    const d = Math.hypot(p.x - pp.x, p.z - pp.z); if (!p.heli || d > 80 || (state.takenAir || {})[p.key] || !data.has(k)) continue;
+    if (aircraft.some(a => a.parkKey === p.key || Math.hypot(a.x - p.x, a.z - p.z) < 3)) continue;
+    const a = spawnAircraft('helicopter', p.x, p.y, p.z, Math.PI / 2); a.parkKey = p.key;
+  }
+  for (const [k, list] of airCarSpots) for (const p of list) {
+    if (spawnedSpots.has(p.key) || Math.hypot(p.x - pp.x, p.z - pp.z) > 55 || !data.has(k)) continue;
+    spawnedSpots.add(p.key); spawnCar({ base: p.base, id: 'air' }, { x: p.x, z: p.z, head: p.head, people: 0, spot: p.key });
+  }
+}
+{ const u16 = updateV113; updateV113 = function (dt, t) { u16(dt, t); if (playing) try { updateRoads(dt); } catch (e) { console.warn('roads', e); } }; }
+// GPS / map: show airports by name
+window.__dc17 = { HW_P, HW_OX, HW_OZ, HW_HALF, hwY, hwKnot, hwSegOn, hwLinesIn, hwLinesNear, isXLineB, isZLineB, spurOf, isolatedReg, bigAirportOf, siteHitsRoads, stampRoads: (a, b) => stampRoads(a, b), hwStats, helipads, airCarSpots,
+  elevStops, elevFront, openElevator, rideElevator, get elevAt() { return elevAt; }, wgChOld, wgRegNew, wgInit, updateRoads, hwLane, AIR2_PARKED, LINE_W, LINE_Y, ELEV, ELEV_TOP, HWY_SIGN, siteOf: (a, b) => siteOf(a, b), townOf: (a, b) => townOf(a, b) };
+
+// ======================= v1.15 round 2b: 22. texture packs, 23. smokable drugs =======================
+
+// ---------------- 22. HD texture packs: HD (classic), Realistic HD, Spooky HD, Cartoon HD ----------------
+// Every pack is made in code from the HD atlas, so every tile (old and new ids) gets it. Built the first time it is picked.
+const TEX_PACKS = { hd: '✨ HD', realistic: '📷 Realistic HD', spooky: '🎃 Spooky HD', toon: '🖍️ Cartoon HD' };
+const packAtlas = { hd: hdAtlas };
+const packOf = () => (settings.hdTex === false ? 'original' : (TEX_PACKS[settings.texPack] ? settings.texPack : 'hd'));
+function packHash(t, k) { let h = (t * 374761393 + k * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function buildPack(name) {
+  if (packAtlas[name]) return packAtlas[name];
+  const W = hdAtlas.width, Hh = hdAtlas.height, c = document.createElement('canvas'); c.width = W; c.height = Hh;
+  const x = c.getContext('2d'), src = hctx.getImageData(0, 0, W, Hh).data, out = x.createImageData(W, Hh), d = out.data;
+  const n1 = tfbm(9001, 4, 4), n2 = tnoise(9002, 16), rr = mulberry(name.length * 777 + 5);
+  const nz = new Float32Array(HS * HS), nm = new Float32Array(HS * HS);   // one tileable noise sheet shared by every tile (shifted per tile)
+  for (let y = 0; y < HS; y++) for (let xx = 0; xx < HS; xx++) { nz[y * HS + xx] = n1((xx + 0.5) / HS, (y + 0.5) / HS); nm[y * HS + xx] = n2((xx + 0.5) / HS, (y + 0.5) / HS); }
+  const lum = i => src[i] * 0.3 + src[i + 1] * 0.59 + src[i + 2] * 0.11;
+  for (let y = 0; y < Hh; y++) for (let xx = 0; xx < W; xx++) {
+    const i = (y * W + xx) * 4, a = src[i + 3]; d[i + 3] = a; if (!a) continue;
+    const lx = xx % HS, ly = y % HS, t = Math.floor(y / HS) * AT + Math.floor(xx / HS), sh = (packHash(t, 1) * HS) | 0;
+    const ni = ((ly + sh) % HS) * HS + ((lx + sh * 3) % HS), N = nz[ni], M = nm[ni];
+    // neighbours inside the same tile (for soft blur, relief and edges)
+    const ok = (ax, ay) => ax >= 0 && ay >= 0 && ax < HS && ay < HS && src[((y - ly + ay) * W + xx - lx + ax) * 4 + 3] > 0;
+    const at = (ax, ay) => ((y - ly + ay) * W + xx - lx + ax) * 4;
+    let r = src[i], g = src[i + 1], b = src[i + 2];
+    if (name === 'realistic') {
+      let sr = 0, sg = 0, sb = 0, sn = 0;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) if (ok(lx + ox, ly + oy)) { const j = at(lx + ox, ly + oy); sr += src[j]; sg += src[j + 1]; sb += src[j + 2]; sn++; }
+      r = r * 0.3 + sr / sn * 0.7; g = g * 0.3 + sg / sn * 0.7; b = b * 0.3 + sb / sn * 0.7;
+      const l0 = ok(lx - 1, ly - 1) ? lum(at(lx - 1, ly - 1)) : lum(i), l1 = ok(lx + 1, ly + 1) ? lum(at(lx + 1, ly + 1)) : lum(i);
+      const k = (0.78 + N * 0.4) * (1 + (l0 - l1) * 0.011) * (0.93 + M * 0.12) + (rr() - 0.5) * 0.04, L = (r + g + b) / 3;
+      r = L + (r - L) * 0.72; g = L + (g - L) * 0.72; b = L + (b - L) * 0.72;            // a touch less saturated
+      r = ((r * k - 118) * 1.2 + 124) * 1.05; g = (g * k - 118) * 1.2 + 122; b = ((b * k - 118) * 1.2 + 118) * 0.93;   // contrast, warm grade
+    } else if (name === 'spooky') {
+      const L = r * 0.3 + g * 0.59 + b * 0.11, ds = 0.42;
+      r = L + (r - L) * ds; g = L + (g - L) * ds; b = L + (b - L) * ds;
+      const dk = L / 255; r = r * 0.86 + (1 - dk) * 26 + dk * 4; g = g * 0.84 + dk * 22; b = b * 0.86 + (1 - dk) * 46;   // purple shadows, sickly green highlights
+      const ex = (lx + 0.5) / HS - 0.5, ey = (ly + 0.5) / HS - 0.5, vg = 1 - Math.min(0.32, (ex * ex + ey * ey) * 0.9);   // dark corners
+      r *= vg; g *= vg; b *= vg;
+      if (M > 0.78 && N > 0.5) { r = r * 0.6 + 30; g = g * 0.6 + 70; b = b * 0.6 + 26; }            // moss
+      if (packHash(t, 2) < 0.3) {                                                                 // cobweb in one corner
+        const cx = packHash(t, 3) < 0.5 ? 0 : HS - 1, cy = packHash(t, 4) < 0.5 ? 0 : HS - 1, dx = Math.abs(lx - cx), dy = Math.abs(ly - cy), dd = Math.hypot(dx, dy);
+        if (dd < 26) { const ang = Math.atan2(dy, dx), spoke = Math.abs(Math.sin(ang * 5)) < 0.06, ring = Math.abs((dd % 7) - 3.5) < 0.45; if (spoke || ring) { const w = 0.75 * (1 - dd / 26); r += (220 - r) * w; g += (220 - g) * w; b += (230 - b) * w; } }
+      }
+      r += (rr() - 0.5) * 8; g += (rr() - 0.5) * 8; b += (rr() - 0.5) * 8;
+    } else if (name === 'toon') {
+      let sr = 0, sg = 0, sb = 0, sn = 0;
+      for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) if (ok(lx + ox, ly + oy)) { const j = at(lx + ox, ly + oy); sr += src[j]; sg += src[j + 1]; sb += src[j + 2]; sn++; }
+      r = sr / sn; g = sg / sn; b = sb / sn;
+      const L = (r + g + b) / 3; r = L + (r - L) * 1.45; g = L + (g - L) * 1.45; b = L + (b - L) * 1.45;
+      const q = v => Math.round(Math.min(255, Math.max(0, v * 1.08 + 8)) / 51) * 51;              // flat cel bands
+      r = q(r); g = q(g); b = q(b);
+      const gx = (ok(lx + 1, ly) ? lum(at(lx + 1, ly)) : lum(i)) - (ok(lx - 1, ly) ? lum(at(lx - 1, ly)) : lum(i)), gy = (ok(lx, ly + 1) ? lum(at(lx, ly + 1)) : lum(i)) - (ok(lx, ly - 1) ? lum(at(lx, ly - 1)) : lum(i));
+      const edge = lx < 2 || ly < 2 || lx > HS - 3 || ly > HS - 3 || !ok(lx - 2, ly) || !ok(lx + 2, ly) || !ok(lx, ly - 2) || !ok(lx, ly + 2);
+      if (edge || Math.hypot(gx, gy) > 70) { r *= 0.35; g *= 0.35; b *= 0.4; }                    // ink outlines
+      else if (lx < 6 && ly < 6) { r += 30; g += 30; b += 30; }                                   // shine
+    }
+    d[i] = clamp255(r); d[i + 1] = clamp255(g); d[i + 2] = clamp255(b);
+  }
+  x.putImageData(out, 0, 0);
+  return (packAtlas[name] = c);
+}
+const curAtlas = () => { const p = packOf(); return p === 'original' ? atlas : buildPack(p); };
+hdBlit = function (c, t) { const s = HD_ON ? HS : TS; c.width = c.height = s; c.getContext('2d').drawImage(curAtlas(), (t % AT) * s, Math.floor(t / AT) * s, s, s, 0, 0, s, s); return c; };
+applyTexturePack = function () {
+  HD_ON = settings.hdTex !== false; tex.dispose(); tex.image = curAtlas(); tex.needsUpdate = true;
+  for (const id in iconCache) if (ITEMS[id] && (ITEMS[id].block != null || ITEMS[id].tile != null)) { delete iconCache[id]; delete iconCanvas[id]; }
+  handItem = '__refresh'; if (typeof renderHotbar === 'function') renderHotbar();
+};
+if (packOf() !== 'hd' && packOf() !== 'original') try { applyTexturePack(); } catch (e) { console.warn('pack', e); settings.texPack = 'hd'; }
+{ const rs = renderSettings; renderSettings = function () { rs();
+  const b0 = document.querySelector('#setBox [data-tex="0"]'); if (!b0) return; const row = b0.closest('.row'), cur = packOf();
+  row.style.flexWrap = 'wrap';
+  row.innerHTML = `<span class="nm">🖼️ Texture pack<br><span style="font-size:12px;opacity:.7">Original 16x or an HD 64x pack. Switches instantly.</span></span>`
+    + `<button class="btn ${cur === 'original' ? 'gold' : ''}" data-tex="0">Original</button>`
+    + Object.entries(TEX_PACKS).map(([k, n]) => `<button class="btn ${cur === k ? 'gold' : ''}" data-pack="${k}">${n}</button>`).join(''); }; }
+document.getElementById('setBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-pack]'); if (!b) return; e.stopPropagation();
+  const k = b.dataset.pack; if (packOf() === k) return;
+  settings.hdTex = true; settings.texPack = k; saveSettings(); applyTexturePack(); renderSettings(); toast(`🖼️ ${TEX_PACKS[k]} textures on`);
+}, true);
+
+// ---------------- 23. smokable drugs: joints, weed, crack and meth pipes ----------------
+ITEMS.joint = { name: 'Joint', emoji: '🚬' };
+shapeless('joint', 2, ['weed']);
+RAW_VALUE.joint = 50; ILLEGAL.add('joint');
+Object.assign(DRUGS, {
+  weed:  { kind: 'down', speed: 0.85, dur: 70,  fx: 'stoned', e: '🌿', n: 'Stoned' },
+  joint: { kind: 'down', speed: 0.85, dur: 110, fx: 'stoned', e: '🌿', n: 'Stoned' },
+});
+Object.assign(DRUG_MSG, { weed: '🌿 *cough* ...okay that hit', joint: '🌿 Puff puff... everything is chill' });
+Object.assign(OD_LOAD, { weed: 0.3, joint: 0.5 });
+const SMOKE = { weed: 'joint', joint: 'joint', crack: 'pipe', crack_pure: 'pipe', crack_prime: 'pipe', meth: 'pipe', meth_pure: 'pipe', meth_prime: 'pipe' };
+const SMK_DUR = 2.6, SMK_HIT = 1.35;
+const smk = { on: false, t: 0, id: null, sel: -1, kind: null, hit: false, puffN: 0, glow: 0, rushT: 0, buffT: 0 };
+// first-person props
+const smkProps = {};
+function smkProp(kind) {
+  if (smkProps[kind]) return smkProps[kind];
+  const g = new THREE.Group(), nd = m => { m.depthTest = false; m.depthWrite = false; return m; };
+  const part = (geo, col, x, y, z, o = {}) => { const m = new THREE.Mesh(geo, nd(new THREE.MeshBasicMaterial({ color: col, transparent: !!o.op, opacity: o.op || 1 }))); m.position.set(x, y, z); m.renderOrder = 11; g.add(m); return m; };
+  let ember;
+  if (kind === 'joint') {
+    part(new THREE.CylinderGeometry(0.014, 0.019, 0.24, 8), 0xf2efe6, 0, 0, 0).rotation.z = Math.PI / 2;
+    part(new THREE.CylinderGeometry(0.0145, 0.0145, 0.04, 8), 0xc9a36b, -0.105, 0, 0).rotation.z = Math.PI / 2;   // filter tip
+    ember = part(new THREE.CylinderGeometry(0.02, 0.02, 0.022, 8), 0xff6a1a, 0.13, 0, 0); ember.rotation.z = Math.PI / 2;
+    part(new THREE.CylinderGeometry(0.021, 0.021, 0.012, 8), 0x555555, 0.115, 0, 0).rotation.z = Math.PI / 2;      // ash ring
+  } else {
+    part(new THREE.CylinderGeometry(0.012, 0.012, 0.26, 8), 0xcfeaff, 0, 0, 0, { op: 0.55 }).rotation.z = Math.PI / 2;   // glass stem
+    part(new THREE.SphereGeometry(0.045, 10, 8), 0xcfeaff, 0.15, 0.01, 0, { op: 0.5 });                              // bulb
+    ember = part(new THREE.SphereGeometry(0.022, 8, 6), 0xff5a10, 0.15, 0.01, 0);
+  }
+  g.userData.ember = ember; return (smkProps[kind] = g);
+}
+// world-space smoke puffs (reused sprites, nothing allocated per puff)
+const SMK_POOL = [];
+for (let i = 0; i < 48; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, color: 0xe4e4e0, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; scene.add(s); SMK_POOL.push({ s, v: new THREE.Vector3(), life: 0, max: 1, s0: 0.2, s1: 1 }); }
+let smkPi = 0;
+function smkPuff(x, y, z, vx, vy, vz, life = 2.2, s0 = 0.12, s1 = 1.1, tint = 0xe4e4e0) {
+  const p = SMK_POOL[smkPi]; smkPi = (smkPi + 1) % SMK_POOL.length;
+  p.s.position.set(x, y, z); p.v.set(vx, vy, vz); p.life = p.max = life; p.s0 = s0; p.s1 = s1; p.s.material.color.setHex(tint); p.s.visible = true; p.s.scale.setScalar(s0); p.s.material.opacity = 0.6;
+}
+function stepPuffs(dt) {
+  for (const p of SMK_POOL) { if (p.life <= 0) continue; p.life -= dt; if (p.life <= 0) { p.s.visible = false; continue; }
+    p.s.position.addScaledVector(p.v, dt); p.v.multiplyScalar(Math.pow(0.35, dt)); p.v.y += 0.18 * dt;
+    const k = 1 - p.life / p.max; p.s.scale.setScalar(p.s0 + (p.s1 - p.s0) * Math.sqrt(k)); p.s.material.opacity = 0.62 * (1 - k); }
+}
+const puffsLive = () => SMK_POOL.filter(p => p.life > 0).length;
+function exhaleAt(pos, yaw, n, big) {   // a cloud blown forward from a mouth at pos, facing yaw
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  for (let i = 0; i < n; i++) smkPuff(pos.x + fx * 0.25 + (Math.random() - 0.5) * 0.08, pos.y - 0.05 + (Math.random() - 0.5) * 0.06, pos.z + fz * 0.25 + (Math.random() - 0.5) * 0.08,
+    fx * (0.9 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.35, 0.12 + Math.random() * 0.25, fz * (0.9 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.35, 1.8 + Math.random() * 1.2, 0.1, big ? 1.3 : 0.8);
+}
+function canSmoke() { return player.alive && playing && !uiOpen && !player.car && !player.sleeping && !smk.on; }
+function startSmoke(id) {
+  if (!SMOKE[id] || !canSmoke()) return false;
+  Object.assign(smk, { on: true, t: 0, id, sel: state.sel, kind: SMOKE[id], hit: false, glow: 0 });
+  beep(140, 0.05, 'square', 0.02);   // lighter flick
+  return true;
+}
+function cancelSmoke() { smk.on = false; const p = smkProps[smk.kind]; if (p && p.parent) p.parent.remove(p); for (const c of hand.children) c.visible = true; }
+function smokeHit() {   // the inhale: the item is used up and the drug kicks in
+  const s = state.slots[smk.sel]; if (!s || s.id !== smk.id) { cancelSmoke(); return; }
+  useHeld(1); takeDrug(smk.id);
+  if (smk.kind === 'pipe') smk.rushT = 1.2; else smk.buffT = Math.max(smk.buffT, 30);
+  if (typeof inhaleSnd === 'function') inhaleSnd();
+}
+function inhaleSnd() { if (!AC || !settings.sound) return; try { const n = AC.createBufferSource(), b = AC.createBuffer(1, AC.sampleRate * 0.7, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(i / d.length * Math.PI) * 0.25;
+  n.buffer = b; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; const gn = AC.createGain(); gn.gain.value = 0.18; n.connect(f); f.connect(gn); gn.connect(master || AC.destination); n.start(); } catch (e) {} }
+// use button: smoking replaces eating for these items; selling/giving to people you are looking at still comes first
+{ const e0 = eat; eat = function (id) { if (SMOKE[id]) { startSmoke(id); return; } return e0(id); }; }
+{ const ua = useAction; useAction = function () {
+  const id = held();
+  if (id && SMOKE[id] && !ITEMS[id].food && !player.car && !player.horse) {   // weed / joints have no food value, so eat() never sees them
+    const h = raycast(); if (!h || (h.kind !== 'mob' && h.kind !== 'villager' && h.kind !== 'car' && h.kind !== 'vessel')) { startSmoke(id); return; }
+  }
+  if (smk.on) return;
+  return ua(); }; }
+let smkRush = null;
+function updateSmoking(dt) {
+  stepPuffs(dt);
+  if (smk.rushT > 0) { smk.rushT -= dt; if (!smkRush) { smkRush = document.createElement('div'); smkRush.style.cssText = 'position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(circle,rgba(255,255,255,.0) 30%,rgba(255,250,235,.85));opacity:0'; document.body.appendChild(smkRush); }
+    smkRush.style.opacity = Math.max(0, smk.rushT / 1.2 * 0.7).toFixed(3); } else if (smkRush && smkRush.style.opacity !== '0') smkRush.style.opacity = 0;
+  const st = highs.stoned;
+  if (smk.buffT > 0 && st && st.t > 0 && playing && player.alive) {   // stoned: slow heal + the munchies
+    smk.buffT -= dt; smk.healT = (smk.healT || 0) + dt; if (smk.healT >= 6) { smk.healT = 0; if (state.hp < 20) { state.hp++; renderVitals(); } }
+    exhaust(dt * 0.9);
+  } else smk.buffT = 0;
+  if (!smk.on) return;
+  if (!player.alive || !playing || player.car || state.sel !== smk.sel || (!smk.hit && (!state.slots[smk.sel] || state.slots[smk.sel].id !== smk.id))) { cancelSmoke(); return; }
+  smk.t += dt; const t = smk.t;
+  const prop = smkProp(smk.kind); if (prop.parent !== hand) hand.add(prop);
+  for (const c of hand.children) c.visible = c === prop;
+  // pose: raise to mouth (0-0.5), hold & inhale (0.5-1.5), pull away and exhale (1.5-2.0), lower (2.0-2.6)
+  const up = t < 0.5 ? t / 0.5 : t < 1.6 ? 1 : t < 2.0 ? 1 - (t - 1.6) / 0.4 * 0.35 : 0.65 * Math.max(0, 1 - (t - 2.0) / 0.6), e = up * up * (3 - 2 * up);
+  const rest = [0.42, -0.36, -0.6], mouth = [0.03, -0.13, -0.27], L = (a2, b2) => a2 + (b2 - a2) * e;   // at the mouth the joint/pipe points straight ahead, ember low in view
+  hand.position.set(L(rest[0], mouth[0]), L(rest[1], mouth[1]), L(rest[2], mouth[2]));
+  hand.rotation.set(L(0.1, 0), L(0.5, 1.45), L(-0.1, -0.2));
+  prop.position.set(0, 0, 0); prop.rotation.set(0, 0, smk.kind === 'pipe' ? 0.15 : 0.05);
+  smk.glow = t > 0.5 && t < SMK_HIT + 0.15 ? Math.min(1, (t - 0.5) / 0.6) : Math.max(0, smk.glow - dt * 1.5);
+  const em = prop.userData.ember; em.material.color.setRGB(1, 0.25 + smk.glow * 0.6, 0.05 + smk.glow * 0.35); em.scale.setScalar(1 + smk.glow * 0.35);
+  // a thin wisp off the ember the whole time
+  smk.wispT = (smk.wispT || 0) - dt; if (smk.wispT <= 0) { smk.wispT = 0.12; const w = new THREE.Vector3(); em.getWorldPosition(w); smkPuff(w.x, w.y + 0.02, w.z, (Math.random() - 0.5) * 0.05, 0.25, (Math.random() - 0.5) * 0.05, 1.3, 0.04, 0.35, 0xcfcfcf); }
+  if (!smk.hit && t >= SMK_HIT) { smk.hit = true; smokeHit(); if (!smk.on) return; }
+  if (smk.hit && !smk.blown && t >= 1.65) { smk.blown = true; smk.puffN++; const m = new THREE.Vector3(); camera.getWorldPosition(m); exhaleAt(m, player.yaw, smk.kind === 'pipe' ? 7 : 10, smk.kind === 'joint');
+    if (smk.kind === 'pipe' && Math.random() < 0.5) setTimeout(() => toast('😮‍💨 *cough cough*'), 250); }
+  if (t >= SMK_DUR) { cancelSmoke(); smk.blown = false; }
+}
+{ const u = updateV113; updateV113 = function (dt, t) { u(dt, t); try { updateSmoking(dt); } catch (e) { console.warn('smoke', e); } }; }
+// online: others see you smoking (wisps at your head) and your exhale cloud
+{ const me0 = meExtra; meExtra = function () { const o = me0() || {}; if (smk.on) o.sm = smk.kind === 'pipe' ? 2 : 1; if (smk.puffN) o.sp = smk.puffN; return o; }; }
+{ const re0 = remoteExtra; remoteExtra = function (r, d, dt) { re0(r, d, dt);
+  if (!r.av || !d) return; const g = r.av.g; if (!g.visible) return;
+  const head = new THREE.Vector3(g.position.x, g.position.y + 1.62, g.position.z);
+  if (d.sm) { r.smW = (r.smW || 0) - dt; if (r.smW <= 0) { r.smW = 0.18; const fx = -Math.sin(d.yw || 0), fz = -Math.cos(d.yw || 0); smkPuff(head.x + fx * 0.3, head.y - 0.1, head.z + fz * 0.3, 0, 0.25, 0, 1.3, 0.05, 0.4, 0xcfcfcf); }
+    if (r.av.arms && r.av.arms[1]) r.av.arms[1].rotation.x = -2.2; }
+  if (d.sp != null) { if (r.smP != null && d.sp !== r.smP) { exhaleAt(head, d.yw || 0, 9, true); r.smPuffs = (r.smPuffs || 0) + 1; } r.smP = d.sp; }
+}; }
+
+window.__dc18 = { TEX_PACKS, packAtlas, buildPack, packOf, curAtlas, applyTexturePack: () => applyTexturePack(), SMOKE, smk, startSmoke, updateSmoking, puffsLive, SMK_POOL, exhaleAt, highs, smkProp, hand, get handItem() { return handItem; }, renderer, remote: (...a) => remoteExtra(...a), me: () => meExtra(), closePanels: () => closePanels() };
+
+// ======================= v1.15 round 3a: 24. player trading, 25. coin leaderboard, 26. public servers, 27. NPC voices,
+// 28. more levels + chapter 2 missions, 29. spooky reggae menu music =======================
+const V3 = () => { const v = state.r3 || (state.r3 = {}); if (!v.owed) v.owed = []; return v; };
+if (!INV_KEYS.includes('r3')) INV_KEYS.push('r3');   // online guests carry trade escrow / owed items home like their bag
+{ const st = document.createElement('style'); st.textContent = `
+#subBar{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);max-width:min(88vw,720px);background:rgba(0,0,0,.72);color:#fff;padding:7px 14px;border-radius:10px;font-size:15px;line-height:1.3;text-align:center;z-index:6;pointer-events:none;opacity:0;transition:opacity .25s}
+#subBar.on{opacity:1}#subBar b{color:#ffd84a;margin-right:6px}#toast.subbed{opacity:0!important}
+@media (max-height:520px){#subBar{bottom:64px;font-size:13px;padding:5px 12px}}
+#ptradeBox,#lboardBox{max-width:min(94vw,720px)}
+.trcols{display:flex;gap:10px;flex-wrap:wrap}.trcol{flex:1;min-width:230px;background:rgba(255,255,255,.05);border-radius:10px;padding:8px}
+.trcol h3{margin:2px 0 6px}.trslots{display:flex;flex-wrap:wrap;gap:4px;min-height:50px}.trbag{display:flex;flex-wrap:wrap;gap:3px;max-height:150px;overflow-y:auto;margin-top:6px}
+.trbag .slot,.trslots .slot{width:40px;height:40px}.trwarn{color:#ff8a6a;font-weight:700;margin:6px 0}.trok{color:#7dff9a;font-weight:700}
+.lbrow{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.08)}.lbrow.me{background:rgba(255,216,74,.18);border-radius:6px}
+.lbrow b{min-width:34px}.pubrow{display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid rgba(255,255,255,.08)}.pubrow .nm{flex:1}`;
+  document.head.appendChild(st); }
+const R3_NAME = /^[A-Za-z0-9_]{3,16}$/;
+
+// ---------------- 28. many more levels (each harder to reach) ----------------
+// The first five ranks stay as they were; 45 more follow, each gap bigger than the last (level 50 needs ~25 million earned).
+{ const N2 = ['Block Captain', 'Hustler', 'Shot Caller', 'Corner King', 'Night Trader', 'Big Earner', 'Money Mover', 'Street Legend', 'Underboss', 'Cartel Contact',
+  'Smuggler', 'Neighborhood Boss', 'Town Boss', 'City Boss', 'Diamond Dealer', 'Platinum Plug', 'Gold Grill', 'Money Printer', 'Highway Baron', 'Airport Runner',
+  'Skyline Owner', 'Crime Lord', 'Shadow Banker', 'County Kingpin', 'State Kingpin', 'Coast to Coast', 'Overseas Connect', 'Mothership Raider', 'Don Slayer', 'Untouchable',
+  'Millionaire', 'Multi-Millionaire', 'Penthouse King', 'Yacht Owner', 'Island Owner', 'Empire Builder', 'Legendary Kingpin', 'Mythic Tycoon', 'DealerCraft Icon', 'Billionaire Mindset',
+  'Living Legend', 'Hall of Fame', 'Ultimate Boss', 'Godfather', 'DealerCraft GOAT'];
+  let thr = RANKS[RANKS.length - 1][0], gap = 2000;
+  const nice = v => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(v)) - 1)); return Math.round(v / p) * p; };
+  let last = RANKS[RANKS.length - 1][0] - RANKS[RANKS.length - 2][0];
+  for (const n of N2) { gap *= 1.18; let g = nice(gap); if (g <= last) g = nice(last * 1.05) > last ? nice(last * 1.05) : last + 100; thr += g; last = g; RANKS.push([thr, n]); } }
+const lvlOf = () => RANKS.indexOf(rank()) + 1;
+{ const rs0 = renderStats; renderStats = function () { rs0(); const el = document.getElementById('stats'); if (el && !el.dataset.lv) { el.innerHTML = el.innerHTML.replace('🏆 ', `🏆 Lv ${lvlOf()} `); } }; }
+let r3Lvl = null;
+function checkLevel() {
+  if (!playing) return; const l = lvlOf();
+  if (r3Lvl == null || l < r3Lvl) { r3Lvl = l; return; }
+  if (l > r3Lvl) { r3Lvl = l; const nr = nextRank(); banner('⭐ LEVEL UP', `Level ${l}: ${rank()[1]}`, nr ? `Next: ${nr[1]} at 💰${nr[0].toLocaleString()} earned` : 'Max level!'); beep(523, 0.1, 'triangle', 0.06); setTimeout(() => beep(784, 0.18, 'triangle', 0.06), 150); }
+}
+// chapter 2: harder story missions after Don Calavera (finished stories pick up here)
+STORY.push(
+  { id: 'six', t: '💸 Six Figures', who: RAY, say: 'Kingpin, huh? A kingpin with pocket change. Earn 💰25,000 more and then we talk about a real empire.', goal: 'Earn 25,000 coins', need: 25000, prog: b => state.earned - b.earned, cash: 2500, hint: 'Sell, rob, work jobs. Everything you earn counts.' },
+  { id: 'king', t: '🌿 King of the Streets', who: RAY, say: 'Every corner in the county should know your product. Sell 40 drugs.', goal: 'Sell 40 drugs on the street', need: 40, prog: b => stN('sell') - b.sell, cash: 3000, hint: 'Hold product and ✋ townspeople. Crew runners help.' },
+  { id: 'spree', t: '🔫 Crime Spree', who: RAY, say: 'The cops think you went legit. Remind them. Five heists.', goal: 'Pull off 5 heists', need: 5, prog: b => stN('heist') - b.heist, cash: 3000, hint: 'Gas stations, jewelry stores, banks. Stay close until it\'s done.' },
+  { id: 'plug2', t: '🔌 The Plug\'s Favorite', who: RAY, say: 'The Plug wants someone he can count on. Five clean deliveries.', goal: 'Finish 5 Plug deliveries', need: 5, prog: b => V12().rep - b.rep, cash: 3500, hint: '📱 🔌 Plug app. Don\'t get caught: a fail costs rep.' },
+  { id: 'lab', t: '⚗️ Super Lab', who: RAY, say: 'One batch is a hobby. Ten batches is a business.', goal: 'Cook 10 batches in a drug lab', need: 10, prog: b => stN('cook') - b.cook, cash: 4000, hint: '✋ your ⚗️ Drug Lab with the ingredients in your bag.' },
+  { id: 'legit', t: '💼 Legit Tycoon', who: RAY, say: 'The tax man is sniffing around. Fifteen honest job runs and your books look clean.', goal: 'Finish 15 job runs', need: 15, prog: b => jobsDone() - b.jobs, cash: 4000, hint: 'Taxi, pizza or trucking from 📱 💼 Jobs.' },
+  { id: 'vault', t: '🏦 Vault Breaker', who: RAY, say: 'Three banks. Three vaults. Don\'t you dare get greedy... okay, get a little greedy.', goal: 'Empty 3 bank vaults', need: 3, prog: b => stN('bank') - b.bank, cash: 6000, hint: 'City 🏦 Banks. Bring armor: the cops come hard.' },
+  { id: 'ms2', t: '🛸 Close Encounters', who: RAY, say: 'They came back, kid. Two more ships over the desert. Send them home.', goal: 'Destroy the Mothership 2 more times', need: 2, prog: b => V14().boss.ms - b.ms, cash: 8000, hint: '📖 Story › 🛸 call it back, then go to Area 51 / a crash site.', pin: 'ms' },
+  { id: 'don2', t: '💀 No Mercy', who: DON, say: 'You think one fight makes you king, niño? I always come back. Beat me twice more.', goal: 'Beat Don Calavera 2 more times', need: 2, prog: b => V14().boss.jefe - b.jefe, cash: 10000, hint: 'He is back at his compound the next day. 📍 pins it.', pin: 'cmp' },
+  { id: 'mil', t: '👑 Million Dollar Kingpin', who: RAY, say: 'Last one, kid. A quarter million more. Then nobody will ever call you farm boy again.', goal: 'Earn 250,000 coins', need: 250000, prog: b => state.earned - b.earned, cash: 25000, hint: 'Businesses, heists, the bank. Go big.' });
+
+// ---------------- 27. NPC voice lines + subtitles ----------------
+if (settings.npcVoice == null) settings.npcVoice = true;
+if (settings.subs == null) settings.subs = true;
+if (settings.menuMusic == null) settings.menuMusic = true;
+if (settings.musicVol == null) settings.musicVol = 0.7;
+const subBar = document.createElement('div'); subBar.id = 'subBar'; document.body.appendChild(subBar);
+let subT = 0, sayQ = [], sayBusy = 0, lastSay = { text: '', t: 0 }, voiceLog = [];
+const VOICES = { '👴 Uncle Ray': [0.72, 0.92, 140], '💀 Don Calavera': [0.5, 0.85, 105], '💀 Crackhead': [1.45, 1.25, 260], '🔌 Plug': [0.85, 1.05, 160], '👮 Cop': [0.9, 1.1, 170], '🎃 Trick-or-treater': [1.9, 1.15, 380] };
+function voiceOf(who) { if (VOICES[who]) return VOICES[who]; let h = 0; for (const c of String(who)) h = Math.imul(h ^ c.charCodeAt(0), 2654435761) >>> 0; const r = (h % 1000) / 1000; return [0.75 + r * 0.8, 0.92 + ((h >> 10) % 100) / 400, 130 + r * 160]; }
+const synth = window.speechSynthesis || null;
+const haveVoices = () => { try { return !!(synth && synth.getVoices && synth.getVoices().length); } catch (e) { return false; } };
+function blipVoice(text, v) {   // a little synthesized "talking" voice, one blip per syllable (works in the Android app without TTS voices)
+  if (!AC || !master) return 0; const now = AC.currentTime + 0.02, syl = Math.min(26, Math.max(2, Math.round(text.replace(/[^a-z]/gi, '').length / 2.6)));
+  const step = 0.085 / v[1]; let rng = mulberry(text.length * 31 + syl);
+  for (let i = 0; i < syl; i++) {
+    const t = now + i * step, f = v[2] * (0.85 + rng() * 0.35) * (i === syl - 1 ? 0.85 : 1), o = AC.createOscillator(), g = AC.createGain(), bp = AC.createBiquadFilter();
+    o.type = 'square'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * (0.92 + rng() * 0.16), t + step * 0.8);
+    bp.type = 'bandpass'; bp.frequency.value = 700 + rng() * 1400; bp.Q.value = 2.5;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + step * 0.9);
+    o.connect(bp).connect(g).connect(master); o.start(t); o.stop(t + step);
+  }
+  return syl * step;
+}
+function speakLine(who, text) {
+  const v = voiceOf(who), clean = text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
+  if (!clean || !settings.sound || !settings.npcVoice) return { how: 'off', dur: 0 };
+  if (haveVoices()) {
+    try { synth.cancel(); const u = new SpeechSynthesisUtterance(clean); u.pitch = Math.min(2, v[0]); u.rate = v[1]; u.volume = 0.9; synth.speak(u); return { how: 'tts', dur: clean.length * 0.065 }; } catch (e) {}
+  }
+  return { how: 'blip', dur: blipVoice(clean, v) };
+}
+function npcSay(who, text, opt = {}) {
+  if (!who || !text) return null;
+  const now = performance.now(); if (lastSay.text === text && now - lastSay.t < 1500) return null; lastSay = { text, t: now };
+  const r = speakLine(who, text);
+  if (settings.subs) { subBar.innerHTML = `<b>${esc(who)}</b>${esc(text)}`; subBar.classList.add('on'); subT = Math.max(2.6, Math.min(8, 1.2 + text.length * 0.055, r.dur + 1.2)); }
+  voiceLog.push({ who, text, how: r.how, sub: !!settings.subs }); if (voiceLog.length > 30) voiceLog.shift();
+  return r;
+}
+// any toast in the form  Name: "line"  (villagers, crackheads, the Plug, crew, cab fares...) is spoken + subtitled
+{ const t0 = toast; toast = function (msg) {
+  t0(msg);
+  const m = typeof msg === 'string' && (msg.match(/^(.{1,48}?): "(.+?)"(?:\s|$)/) || msg.match(/^(\S{1,4}) "(.+?)"/));
+  const el = document.getElementById('toast');
+  if (m && playing) { npcSay(m[1], m[2]); if (settings.subs) el.classList.add('subbed'); } else el.classList.remove('subbed');
+}; }
+const GREET = ['Welcome, friend! Take a look.', 'Best prices in town!', 'Ah, a customer. What do you need?', 'Hmm. Buying or selling?', 'Fresh stock today!', 'Don\'t touch what you can\'t afford.', 'Happy Halloween! Spooky deals inside.'];
+{ const ot0 = openTrade; openTrade = function (v) { ot0(v); if (v && v.name) npcSay('💰 ' + v.name, GREET[Math.floor(Math.random() * GREET.length)]); }; }
+{ const sl0 = stLog; stLog = function (who, text) { sl0(who, text); if (playing && who !== '✅' && (who === RAY || who === DON)) setTimeout(() => npcSay(who, text), 600); }; }
+{ const sw0 = setWanted; setWanted = function () { const was = wanted; sw0(); if (was <= 0 && wanted > 0) npcSay('👮 Cop', ['Freeze! Police!', 'Stop right there!', 'Hands where I can see them!', 'You\'re under arrest!'][Math.floor(Math.random() * 4)]); }; }
+function updateSubs(dt) { if (subT > 0) { subT -= dt; if (subT <= 0) { subBar.classList.remove('on'); const el = document.getElementById('toast'); el && el.classList.remove('subbed'); } } if (!playing && subT > 0) { subT = 0; subBar.classList.remove('on'); } }
+
+// ---------------- 29. spooky reggae menu music (made in code, loops on the main menu) ----------------
+const MM = { on: false, gain: null, bus: null, echo: null, next: 0, step: 0, bar: 0, timer: null, rng: mulberry(1031) };
+const mHz = n => 440 * Math.pow(2, (n - 69) / 12);
+// A minor one-drop at 74 bpm: Am | Am | Dm | E7 (harmonic minor = spooky), organ bubble + guitar skank on the offbeats, dub echo on the rim
+const MM_PROG = [[57, [57, 60, 64]], [57, [57, 60, 64]], [62, [62, 65, 69]], [64, [64, 68, 71, 74]], [57, [57, 60, 64]], [53, [53, 57, 60]], [62, [62, 65, 69]], [64, [64, 68, 71]]];
+const MM_BASS = [[0, 0], [3, 0], [6, 7], [8, 12], [10, 10], [12, 7], [14, 5]];   // [16th step, semitone offset from the bar root]
+const MM_LEAD = [76, 75, 76, 71, 74, 72, 69, null, 64, 68, 71, 76, 75, null, 72, 71];
+function mmVoice(type, f, t, dur, vol, o = {}) {
+  const os = AC.createOscillator(), g = AC.createGain(); os.type = type; os.frequency.setValueAtTime(f, t);
+  if (o.glide) os.frequency.exponentialRampToValueAtTime(o.glide, t + dur);
+  let node = os; if (o.cut) { const fl = AC.createBiquadFilter(); fl.type = o.ft || 'lowpass'; fl.frequency.setValueAtTime(o.cut, t); if (o.cut2) fl.frequency.exponentialRampToValueAtTime(o.cut2, t + dur); fl.Q.value = o.q || 1; node.connect(fl); node = fl; }
+  if (o.vib) { const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = o.vib; lg.gain.value = f * (o.vd || 0.012); l.connect(lg).connect(os.frequency); l.start(t); l.stop(t + dur + 0.05); }
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (o.att || 0.008)); g.gain.setValueAtTime(vol, t + Math.max(o.att || 0.008, dur * (o.hold || 0.3))); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  node.connect(g).connect(o.to || MM.bus); os.start(t); os.stop(t + dur + 0.05);
+}
+function mmNoise(t, dur, vol, cut, type = 'highpass', to) {
+  const s = AC.createBufferSource(), b = AC.createBuffer(1, Math.ceil(AC.sampleRate * dur), AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; s.buffer = b;
+  const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = cut; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(to || MM.bus); s.start(t);
+}
+function mmStep(t, sd) {
+  const st = MM.step, bar = MM.bar % MM_PROG.length, [root, chord] = MM_PROG[bar];
+  // drums: one drop (kick + rim on beat 3), hats on the 8ths, rim echoes into the dub delay
+  if (st === 8) { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.22); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(g).connect(MM.bus); o.start(t); o.stop(t + 0.32);
+    mmNoise(t, 0.09, 0.22, 1800, 'bandpass', MM.echo); mmVoice('triangle', 820, t, 0.05, 0.12, { to: MM.echo }); }
+  if (st % 2 === 0) mmNoise(t + (st % 4 === 2 ? sd * 0.18 : 0), 0.035, st % 4 === 2 ? 0.05 : 0.025, 7000);
+  if (st === 15 && MM.bar % 4 === 3) mmNoise(t, 0.5, 0.06, 4000);
+  // skank: short choppy chord on every offbeat (2, 6, 10, 14) + organ bubble just after
+  if (st % 4 === 2) for (const n of chord) { mmVoice('sawtooth', mHz(n + 12), t, 0.09, 0.03, { cut: 2600, cut2: 900, q: 2 }); }
+  if (st % 4 === 3) for (const n of chord.slice(0, 3)) mmVoice('square', mHz(n), t, 0.08, 0.018, { cut: 1100 });
+  // bass: deep and round, leaves beat 1 open every other bar (one-drop feel)
+  for (const [s, off] of MM_BASS) if (s === st && !(st === 0 && MM.bar % 2 === 1)) mmVoice('sine', mHz(root - 24 + off), t, sd * (s === 0 ? 3 : 1.8), 0.32, { cut: 380, att: 0.01, hold: 0.6 });
+  // spooky organ pad: every 2 bars, tremolo + vibrato
+  if (st === 0 && MM.bar % 2 === 0) for (const n of chord) { mmVoice('triangle', mHz(n), t, sd * 31, 0.03, { vib: 5.5, vd: 0.006, att: 0.4, hold: 0.7 }); mmVoice('square', mHz(n - 12), t, sd * 31, 0.009, { cut: 700, vib: 6, att: 0.5, hold: 0.7 }); }
+  // theremin lead on bars 4-7 of every 8, sliding between notes
+  if (MM.bar % 8 >= 4 && st % 2 === 0) { const n = MM_LEAD[((MM.bar % 4) * 8 + st / 2) % MM_LEAD.length]; if (n) mmVoice('sine', mHz(n), t, sd * 2.2, 0.05, { vib: 6.5, vd: 0.02, att: 0.06, hold: 0.6, glide: mHz(n) * 0.985, to: MM.echo }); }
+  // a far-off church bell every 8 bars
+  if (st === 0 && MM.bar % 8 === 0) for (const [m, v] of [[1, 0.06], [2.76, 0.03], [5.4, 0.015]]) mmVoice('sine', 220 * m, t, 3.5, v, { att: 0.005, hold: 0.02, to: MM.echo });
+  MM.step = (st + 1) % 16; if (MM.step === 0) MM.bar++;
+}
+function mmBuild() {
+  if (MM.gain || !AC || !master) return;
+  MM.gain = AC.createGain(); MM.gain.gain.value = 0; MM.gain.connect(master);
+  MM.bus = AC.createGain(); MM.bus.gain.value = 0.8; MM.bus.connect(MM.gain);
+  const dl = AC.createDelay(1), fb = AC.createGain(), lp = AC.createBiquadFilter(); dl.delayTime.value = 60 / 74 * 0.75; fb.gain.value = 0.42; lp.type = 'lowpass'; lp.frequency.value = 2200;
+  MM.echo = AC.createGain(); MM.echo.connect(MM.bus); MM.echo.connect(dl); dl.connect(lp).connect(fb).connect(dl); lp.connect(MM.bus);
+}
+const mmWant = () => !!(AC && settings.sound && settings.menuMusic && document.body.classList.contains('menu') && !playing);
+function mmTick() {
+  if (!AC) return; const want = mmWant();
+  if (want && !MM.on) { mmBuild(); MM.on = true; MM.next = AC.currentTime + 0.1; MM.step = 0; MM.bar = 0; MM.gain.gain.cancelScheduledValues(AC.currentTime); MM.gain.gain.setTargetAtTime(settings.musicVol * 0.55, AC.currentTime, 0.4); }
+  if (!want && MM.on) { MM.on = false; MM.gain.gain.cancelScheduledValues(AC.currentTime); MM.gain.gain.setTargetAtTime(0, AC.currentTime, 0.25); }
+  if (!MM.on || AC.state !== 'running') return;
+  MM.gain.gain.setTargetAtTime(settings.musicVol * 0.55, AC.currentTime, 0.2);
+  const sd = 60 / 74 / 4;
+  if (MM.next < AC.currentTime - 0.5) MM.next = AC.currentTime + 0.05;
+  while (MM.next < AC.currentTime + 0.35) { mmStep(MM.next, sd); MM.next += sd; }
+}
+MM.timer = setInterval(mmTick, 90);
+// the browser keeps audio asleep until the first tap: wake it up on the main menu
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => { if (AC && AC.state === 'suspended') AC.resume().catch(() => {}); }, { passive: true });
+
+// ---------------- settings rows: voices, subtitles, menu music ----------------
+{ const rs = renderSettings; renderSettings = function () { rs(); const box = document.getElementById('setBox'); if (!box || box.querySelector('[data-r3s]')) return;
+  const tog = (k, label, sub) => `<div class="row"><span class="nm">${label}<br><span style="font-size:12px;opacity:.7">${sub}</span></span><button class="btn ${settings[k] ? 'gold' : ''}" data-r3s="${k}">${settings[k] ? 'ON' : 'OFF'}</button></div>`;
+  const html = tog('npcVoice', '🗣️ NPC voices', 'Traders, Uncle Ray, cops and townsfolk talk out loud') + tog('subs', '💬 Subtitles', 'Show what NPCs say at the bottom of the screen') +
+    `<div class="row"><span class="nm">🎃 Menu music<br><span style="font-size:12px;opacity:.7">Spooky reggae on the main menu (needs 🔊 Sound on)</span></span><button class="btn ${settings.menuMusic ? 'gold' : ''}" data-r3s="menuMusic">${settings.menuMusic ? 'ON' : 'OFF'}</button><button class="btn" data-r3v="-1">−</button><b style="min-width:44px;text-align:center" id="r3mv">${Math.round(settings.musicVol * 100)}%</b><button class="btn" data-r3v="1">+</button></div>`;
+  const snd = box.querySelector('[data-s="sound"]'); const row = snd && snd.closest('.row'); if (row) row.insertAdjacentHTML('afterend', html); else box.insertAdjacentHTML('beforeend', html); }; }
+document.getElementById('setBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-r3s],[data-r3v]'); if (!b) return; e.stopPropagation();
+  if (b.dataset.r3s) { const k = b.dataset.r3s; settings[k] = !settings[k]; if (k === 'npcVoice' && !settings[k] && synth) try { synth.cancel(); } catch (er) {} }
+  if (b.dataset.r3v) settings.musicVol = Math.max(0, Math.min(1, Math.round((settings.musicVol + 0.1 * +b.dataset.r3v) * 10) / 10));
+  saveSettings(); renderSettings();
+}, true);
+
+// ---------------- 25. coin leaderboard ----------------
+// Lives at rooms/_LB/<key> (the only shared path every signed-in player can write). Players without an account show up as
+// "user" + 5 numbers through a shared board-only login; when they make an account that entry is replaced by their username.
+const LB_PATH = 'rooms/_LB', LB_G = ['dc_board', 'hXtJCIqpzMBIHz3A0MioKN7D'];
+const guestId = () => { let g = localStorage.getItem('dc_guestname'); if (!g || !/^user\d{5}$/.test(g)) { g = 'user' + String(10000 + Math.floor(Math.random() * 90000)); localStorage.setItem('dc_guestname', g); } return g; };
+let lbg = (() => { try { return JSON.parse(localStorage.getItem('dc_lbg')); } catch (e) { return null; } })();
+async function lbToken() {
+  if (auth) return token();
+  if (lbg && Date.now() < lbg.exp - 120000) return lbg.idToken;
+  const r = await netFetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: LB_G[0] + '@dealercraft.game', password: LB_G[1], returnSecureToken: true }) });
+  const j = await r.json(); if (!r.ok) throw new Error('Leaderboard offline');
+  lbg = { idToken: j.idToken, exp: Date.now() + (+j.expiresIn || 3600) * 1000 }; localStorage.setItem('dc_lbg', JSON.stringify(lbg)); return lbg.idToken;
+}
+async function lbDb(method, path, body) {
+  const t = await lbToken(); const r = await netFetch(`${FB_DB}/${path}.json?auth=${t}`, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (!r.ok) throw new Error('Server error ' + r.status); return r.json();
+}
+const lbKey = () => auth ? auth.uid : 'g_' + guestId();
+const lbName = () => auth ? auth.name : guestId();
+function bestCoins() {   // your richest world on this device
+  let c = playing || !freshGame || state._welcomed ? state.coins | 0 : 0;
+  if (!MP_GUEST) for (let s = 1; s <= SLOTS; s++) { if (s === SLOT) continue; const i = slotInfo(s); if (i && i.coins > c) c = i.coins | 0; }
+  return Math.max(0, Math.min(1e12, c));
+}
+let lbSent = { k: '', c: -1, t: 0 }, lbCache = null, lbErr = '', lbBusy = false;
+async function lbSubmit(force) {
+  if (navigator.webdriver && !window.__lbTest) return;   // automated test browsers never post to the real board unless a test asks
+  const c = bestCoins(), k = lbKey(); if (!force && lbSent.k === k && lbSent.c === c && Date.now() - lbSent.t < 600000) return;
+  try { await lbDb('PUT', `${LB_PATH}/${k}`, { n: lbName(), c, a: auth ? 1 : 0, t: Date.now() }); lbSent = { k, c, t: Date.now() }; } catch (e) { lbErr = e.message; }
+}
+async function lbFetch() {
+  lbBusy = true; try { const raw = await lbDb('GET', LB_PATH) || {}; const rows = [];
+    for (const k in raw) { const e = raw[k]; if (!e || typeof e.c !== 'number' || !isFinite(e.c) || !R3_NAME.test(String(e.n || ''))) continue; if (k.startsWith('g_') ? !/^user\d{5}$/.test(e.n) : !e.a) continue; rows.push({ k, n: e.n, c: Math.min(1e12, Math.max(0, Math.floor(e.c))), a: !!e.a }); }
+    rows.sort((a, b) => b.c - a.c || (a.n < b.n ? -1 : 1)); lbCache = rows; lbErr = ''; } catch (e) { lbErr = e.message; }
+  lbBusy = false; return lbCache;
+}
+function lbHTML(max = 25) {
+  if (!lbCache) return `<p style="opacity:.75">${lbBusy ? 'Loading the leaderboard...' : lbErr ? '⚠️ ' + esc(lbErr) : 'Loading...'}</p>`;
+  const me = lbKey(), i = lbCache.findIndex(r => r.k === me);
+  let h = lbCache.slice(0, max).map((r, j) => `<div class="lbrow ${r.k === me ? 'me' : ''}"><span><b>${j < 3 ? ['🥇', '🥈', '🥉'][j] : '#' + (j + 1)}</b> ${esc(r.n)}${r.a ? '' : ' <span style="opacity:.6;font-size:12px">(no account)</span>'}</span><span>💰 ${r.c.toLocaleString()}</span></div>`).join('');
+  if (!lbCache.length) h = '<p style="opacity:.75">Nobody on the board yet. Be the first!</p>';
+  if (i >= max) h += `<div class="lbrow me"><span><b>#${i + 1}</b> ${esc(lbCache[i].n)}</span><span>💰 ${lbCache[i].c.toLocaleString()}</span></div>`;
+  return h + `<p style="font-size:12px;opacity:.7">Your richest world counts. ${auth ? 'Playing as <b>' + esc(auth.name) + '</b>.' : 'You show up as <b>' + guestId() + '</b>. Make an account and your username replaces it.'}</p>`;
+}
+const lbP = mkPanel('lboard');
+function renderLB() { const b = document.getElementById('lboardBox'); if (!b) return; b.innerHTML = `<button class="btn close" data-a="close">✕</button><h2>🏆 Richest Players</h2>${lbHTML()}<div class="frow"><button class="btn" data-a="lbref">🔄 Refresh</button>${auth ? '' : '<button class="btn gold" data-a="acct">👤 Make an account</button>'}</div>`; }
+async function openLB() { renderLB(); openPanel('lboard'); await lbSubmit(true); await lbFetch(); renderLB(); }
+lbP.addEventListener('click', async e => { e.stopPropagation(); const b = e.target.closest('[data-a]'); if (!b) return;
+  if (b.dataset.a === 'close') closePanels(); if (b.dataset.a === 'acct') { closePanels(); openAccount(); } if (b.dataset.a === 'lbref') { lbCache = null; renderLB(); await lbSubmit(true); await lbFetch(); renderLB(); } });
+{ const tb = document.createElement('button'); tb.className = 'btn'; tb.id = 'tLB'; tb.textContent = '🏆 Leaderboard'; titleRow.appendChild(tb); tb.addEventListener('click', e => { e.stopPropagation(); openLB(); }); }
+// making an account or logging in: the random "user12345" entry becomes your username
+async function lbClaim() { const g = 'g_' + guestId(); try { await db('DELETE', `${LB_PATH}/${g}`); } catch (e) {} lbSent.k = ''; await lbSubmit(true); }
+{ const su0 = signUp; signUp = async function (n, p) { await su0(n, p); await lbClaim(); }; const li0 = logIn; logIn = async function (n, p) { await li0(n, p); await lbClaim(); }; }
+setInterval(() => { if (playing) lbSubmit(false); }, 60000);
+addEventListener('visibilitychange', () => { if (document.hidden && (playing || auth)) lbSubmit(false); });
+
+// ---------------- 26. public servers (browse + join) and private code rooms ----------------
+let r3HostPub = false, pubRooms = null, pubBusy = false, pubErr = '', pubHbT = 0;
+const srvName = () => (auth ? auth.name : 'Player') + "'s world";
+{ const pr0 = putRoom; putRoom = function (code, room, onProg) {
+  if (room && room.meta && room.meta.host && !room.meta.pc) Object.assign(room.meta, { pub: !!r3HostPub, name: srvName(), pc: 1, hb: Date.now(), ver: V115 });
+  return pr0(code, room, onProg); }; }
+async function hostPublic() { r3HostPub = true; try { await hostOnline(); } finally { r3HostPub = false; } }
+async function pubFetch() {
+  if (!auth) { pubErr = 'Log in to see public servers'; return []; }
+  pubBusy = true; pubErr = '';
+  try {
+    const t = await token(), r = await netFetch(`${FB_DB}/rooms.json?auth=${t}&shallow=true`); if (!r.ok) throw new Error('Server error ' + r.status);
+    const codes = Object.keys(await r.json() || {}).filter(c => /^[A-Z0-9]{5}$/.test(c)).slice(0, 80);
+    const metas = await Promise.all(codes.map(c => db('GET', `rooms/${c}/meta`).then(m => [c, m]).catch(() => [c, null])));
+    const now = Date.now();
+    pubRooms = metas.filter(([c, m]) => m && m.open && m.pub && now - (m.hb || 0) < 45000).map(([c, m]) => ({ code: c, name: String(m.name || m.hostName || 'World').slice(0, 40), host: m.hostName || '?', pc: Math.min(MAX_PLAYERS, Math.max(1, m.pc | 0)), mine: m.host === auth.uid }))
+      .sort((a, b) => b.pc - a.pc || (a.name < b.name ? -1 : 1));
+  } catch (e) { pubErr = e.message; pubRooms = pubRooms || []; }
+  pubBusy = false; return pubRooms;
+}
+function pubHTML() {
+  if (pubBusy && !pubRooms) return '<p style="opacity:.75">Looking for servers...</p>';
+  if (pubErr) return `<p class="amsg">⚠️ ${esc(pubErr)}</p>`;
+  if (!pubRooms) return '<p style="opacity:.75">Tap 🔄 to look for servers.</p>';
+  if (!pubRooms.length) return '<p style="opacity:.75">No public servers open right now. Host one!</p>';
+  return pubRooms.map(r => `<div class="pubrow"><span class="nm">🌍 ${esc(r.name)}<br><span style="font-size:12px;opacity:.7">Host ${esc(r.host)} · ${r.pc}/${MAX_PLAYERS} players</span></span>${r.mine ? '<i>yours</i>' : r.pc >= MAX_PLAYERS ? '<button class="btn" disabled>Full</button>' : `<button class="btn gold" data-r3j="${r.code}">Join</button>`}</div>`).join('');
+}
+{ const ro0 = renderOnline; renderOnline = function () {
+  ro0(); const b = document.getElementById('onlineBox'); if (!b || !auth) return;
+  if (!net.on) {
+    const hb = b.querySelector('[data-a="host"]'); if (hb) { hb.textContent = '🔒 Private'; hb.insertAdjacentHTML('afterend', '<button class="btn gold" data-r3="hostpub">🌍 Public</button>');
+      const sub = hb.closest('.row').querySelector('.nm span'); if (sub) sub.textContent = `Private: friends join with a code. Public: anyone can find it in the list (World ${SLOT}, max ${MAX_PLAYERS})`; }
+    b.querySelector('#onMsg').insertAdjacentHTML('beforebegin', `<h3>🌍 Public servers <button class="btn" data-r3="pubref" style="padding:4px 10px">🔄</button></h3><div id="pubList">${pubHTML()}</div>`);
+  } else {
+    // trade buttons next to every other player
+    const now = performance.now(), rows = b.querySelectorAll('.row'); let i = 0;
+    const others = Object.entries(net.remotes).filter(([u, r]) => now - r.recv < 12000);
+    b.querySelectorAll('h3').forEach(h => { if (/^Players/.test(h.textContent)) { let el = h.nextElementSibling; el = el && el.nextElementSibling; for (const [u, r] of others) { if (!el) break; if (!el.querySelector('[data-r3t]')) el.insertAdjacentHTML('beforeend', `<button class="btn gold" data-r3t="${u}">🤝 Trade</button>`); el = el.nextElementSibling; } } });
+    if (net.role === 'host') { const c = b.querySelector('.code'); if (c && !b.querySelector('.r3pub')) c.insertAdjacentHTML('afterend', `<span class="r3pub" style="font-size:12px;opacity:.8;margin-left:6px">${netPubNow ? '🌍 Public' : '🔒 Private'}</span>`); }
+  }
+}; }
+let netPubNow = false;
+{ const ho0 = hostOnline; hostOnline = async function () { const pub = r3HostPub; await ho0(); if (net.on && net.role === 'host') { netPubNow = pub; renderOnline(); } }; }
+onP.addEventListener('click', async e => {
+  const b = e.target.closest('[data-r3],[data-r3j],[data-r3t]'); if (!b) return; e.stopPropagation();
+  if (b.dataset.r3 === 'hostpub') { hostPublic(); return; }
+  if (b.dataset.r3 === 'pubref') { pubRooms = null; renderOnline(); await pubFetch(); renderOnline(); return; }
+  if (b.dataset.r3j) { joinOnline(b.dataset.r3j); return; }
+  if (b.dataset.r3t) { tradeRequest(b.dataset.r3t); return; }
+}, true);
+{ const oo0 = openOnline; openOnline = function () { oo0(); if (auth && !net.on && !pubBusy) pubFetch().then(() => { if (onP.classList.contains('show')) renderOnline(); }); }; }
+function updatePubHb(dt) {   // hosts keep their player count + heartbeat fresh so the public list knows they're alive
+  if (!net.on || net.role !== 'host') return; const now = performance.now(); if (now - pubHbT < 8000) return; pubHbT = now;   // real time (game dt is clamped on slow frames)
+  db('PATCH', `rooms/${net.code}/meta`, { pc: net.count(), hb: Date.now() }).catch(() => {});
+}
+
+// ---------------- 24. trading coins and items between players ----------------
+// rooms/<code>/trades/<id>: request -> accept -> both sides build an offer -> both confirm -> done.
+// Every change is a conditional write (Firebase ETag), so a confirm and a change can never cross. Your offer is held in escrow
+// (out of your bag, saved with your world) while you are confirmed; the swap happens on each side only when the trade reads "done".
+const trades = {}; let trOpen = null, trMy = { c: 0, sl: [] }, trPrompted = new Set(), trWarnT = 0;
+const myUid = () => auth && auth.uid;
+const trSide = t => t && (t.a === myUid() ? 'a' : t.b === myUid() ? 'b' : null);
+const other = s => s === 'a' ? 'b' : 'a';
+const trName = (t, s) => esc(t[s + 'n'] || 'Player');
+function setDeep(o, keys, v) { if (!keys.length) return v; const [k, ...r] = keys; const base = o && typeof o === 'object' ? o : {}; if (r.length === 0) { if (v == null) delete base[k]; else base[k] = v; return base; } base[k] = setDeep(base[k], r, v); return base; }
+async function tx(path, fn, tries = 6) {
+  for (let i = 0; i < tries; i++) {
+    const t = await token(); const r = await netFetch(`${FB_DB}/${path}.json?auth=${t}`, { headers: { 'X-Firebase-ETag': 'true' } }); if (!r.ok) throw new Error('Server error ' + r.status);
+    const etag = r.headers.get('ETag'), cur = await r.json(), next = fn(cur == null ? null : cur); if (next === undefined) return { ok: false, cur };
+    const w = await netFetch(`${FB_DB}/${path}.json?auth=${t}`, { method: 'PUT', headers: { 'if-match': etag }, body: JSON.stringify(next) });
+    if (w.ok) return { ok: true, cur: next }; if (w.status !== 412) throw new Error('Server error ' + w.status);
+  }
+  throw new Error('Trade busy, try again');
+}
+const trPath = id => `rooms/${net.code}/trades/${id}`;
+const offerOf = (t, s) => { const o = (t && t['o' + s]) || {}; return { c: Math.max(0, o.c | 0), it: Array.isArray(o.it) ? o.it.filter(x => x && ITEMS[x.id] && x.n > 0) : Object.values(o.it || {}).filter(x => x && ITEMS[x.id] && x.n > 0), v: o.v | 0 }; };
+// would these stacks fit in my bag (after my own offered slots leave)?
+function fitsBag(stacks, freed = []) {
+  const sim = state.slots.slice(0, 36).map(s => s ? { id: s.id, n: s.n, t: !!ITEMS[s.id].tool } : null); for (const i of freed) sim[i] = null;
+  for (const s of stacks) { let n = s.n; const max = stackOf(s.id), tool = !!ITEMS[s.id].tool;
+    if (!tool) for (const x of sim) if (n > 0 && x && x.id === s.id && x.n < max) { const k = Math.min(n, max - x.n); x.n += k; n -= k; }
+    for (let i = 0; i < 36 && n > 0; i++) if (!sim[i]) { const k = tool ? 1 : Math.min(n, max); sim[i] = { id: s.id, n: k, t: tool }; n -= k; }
+    if (n > 0) return false; }
+  return true;
+}
+function receiveStacks(stacks) {   // put received stacks in the bag, keeping tool durability; anything left over waits in "owed"
+  const owed = V3().owed;
+  for (const s of stacks) { if (!ITEMS[s.id]) continue;
+    if (ITEMS[s.id].tool || s.d != null) { const i = state.slots.findIndex((x, j) => j < 36 && !x); if (i >= 0) state.slots[i] = { id: s.id, n: 1, d: s.d != null ? s.d : newStack(s.id, 1).d }; else owed.push({ id: s.id, n: 1, d: s.d }); continue; }
+    const left = give(s.id, s.n); if (left > 0) owed.push({ id: s.id, n: left }); }
+  hbDirty = true; renderHotbar();
+}
+function giveOwed() { const v = V3(); if (!v.owed.length || !playing) return; const o = v.owed.splice(0); receiveStacks(o); if (!v.owed.length) toast('🎒 Your traded items are in your bag now'); }
+const trDirty = mine => mine.c !== trMy.c || mine.it.length !== trMy.sl.length || trMy.sl.some((si, k) => !mine.it[k] || !state.slots[si] || mine.it[k].id !== state.slots[si].id || mine.it[k].n !== state.slots[si].n);
+const myOfferStacks = () => trMy.sl.map(i => state.slots[i]).filter(Boolean).map(s => ({ id: s.id, n: s.n, ...(s.d != null ? { d: s.d } : {}) }));
+function escrowTake(id) {   // move my offer out of the bag
+  const v = V3(); if (v.esc && v.esc.id === id) return true;
+  const it = myOfferStacks(); if (state.coins < trMy.c) return false;
+  v.esc = { id, code: net.code, c: trMy.c, it, sl: trMy.sl.slice() }; state.coins -= trMy.c; for (const i of trMy.sl) state.slots[i] = null; hbDirty = true; renderHotbar(); renderStats(); save(); return true;
+}
+function escrowReturn(msg) {
+  const v = V3(); if (!v.esc) return; const e = v.esc; v.esc = null; state.coins += e.c | 0;
+  e.sl.forEach((si, k) => { const s = e.it[k]; if (!s) return; if (!state.slots[si]) state.slots[si] = Object.assign({}, s); else receiveStacks([s]); });
+  hbDirty = true; renderHotbar(); renderStats(); save(); if (msg) toast(msg);
+}
+async function tradeRequest(uid) {
+  if (!net.on || !auth) return; const r = net.remotes[uid]; if (!r) return;
+  if (Object.values(trades).some(t => t && trSide(t) && ['req', 'open'].includes(t.st))) { toast('🤝 Finish your current trade first'); return; }
+  const id = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const t = { a: auth.uid, an: auth.name, b: uid, bn: (r.d && r.d.n) || 'Player', st: 'req', t: Date.now(), ca: -1, cb: -1, fa: true, fb: true };
+  trades[id] = t; trOpen = id; trMy = { c: 0, sl: [] };
+  try { await db('PUT', trPath(id), t); toast(`🤝 Trade request sent to ${t.bn}`); } catch (e) { toast('⚠️ ' + e.message); delete trades[id]; trOpen = null; }
+  renderTradeP(); openPanel('ptrade');
+}
+function tradeAnswer(id, yes) { tx(trPath(id), t => (t && t.st === 'req') ? Object.assign(t, { st: yes ? 'open' : 'no' }) : undefined).then(() => { if (yes) { trOpen = id; trMy = { c: 0, sl: [] }; renderTradeP(); openPanel('ptrade'); } }).catch(e => toast('⚠️ ' + e.message)); }
+async function tradePushOffer() {
+  const id = trOpen, t = trades[id], s = trSide(t); if (!t || t.st !== 'open') return;
+  const wasEsc = V3().esc && V3().esc.id === id;
+  const res = await tx(trPath(id), cur => { if (!cur || cur.st !== 'open') return undefined; const o = offerOf(cur, s); cur['o' + s] = { c: trMy.c, it: myOfferStacks(), v: o.v + 1 }; cur['c' + s] = -1; return cur; }).catch(e => { toast('⚠️ ' + e.message); return { ok: false }; });
+  if (res.ok && wasEsc) escrowReturn();
+}
+async function tradeConfirm() {
+  const id = trOpen, t = trades[id], s = trSide(t); if (!t || t.st !== 'open') return;
+  const theirs = offerOf(t, other(s)), mine = offerOf(t, s);
+  if (!fitsBag(theirs.it, trMy.sl)) { toast('🎒 Not enough bag space for their items! Make room first'); trWarnT = 3; renderTradeP(); return; }
+  if (t['f' + other(s)] === false) { toast(`🎒 ${t[other(s) + 'n']} doesn't have enough bag space`); return; }
+  if (!theirs.c && !theirs.it.length && !mine.c && !mine.it.length) { toast('🤝 Add something to the trade first'); return; }
+  if (!(V3().esc && V3().esc.id === id) && trDirty(mine)) { await tradePushOffer(); return; }
+  if (!escrowTake(id)) { toast('💰 Not enough coins'); return; }
+  const res = await tx(trPath(id), cur => { if (!cur || cur.st !== 'open') return undefined; const th = offerOf(cur, other(s)), me = offerOf(cur, s); if (th.v !== theirs.v) return undefined;
+    cur['c' + s] = th.v; if (cur['c' + other(s)] === me.v) cur.st = 'done'; return cur; }).catch(e => { toast('⚠️ ' + e.message); return { ok: false }; });
+  if (!res.ok) { escrowReturn(); toast('🤝 Their offer changed, check it again'); }
+  else { trades[id] = res.cur; trSync(id); }
+}
+async function tradeUnconfirm() { const id = trOpen, s = trSide(trades[id]); const res = await tx(trPath(id), cur => (cur && cur.st === 'open') ? Object.assign(cur, { ['c' + s]: -1 }) : undefined).catch(() => ({ ok: false }));
+  if (res.ok) escrowReturn(); else if (res.cur && res.cur.st === 'done') { trades[id] = res.cur; trApply(id, res.cur); } }
+async function tradeCancel(id = trOpen, quiet) {
+  if (!id) return; const res = await tx(trPath(id), cur => (cur && cur.st !== 'done' && cur.st !== 'x') ? Object.assign(cur, { st: 'x' }) : undefined).catch(() => ({ ok: false }));
+  if (!res.ok && res.cur && res.cur.st === 'x') res.ok = true;
+  if (res.ok) { if (V3().esc && V3().esc.id === id) escrowReturn(); const code = net.code; setTimeout(() => { if (net.on && net.code === code) db('DELETE', `rooms/${code}/trades/${id}`).catch(() => {}); }, 4000); }
+  else if (res.cur && res.cur.st === 'done') { trades[id] = res.cur; trApply(id, res.cur); }
+  else if (res.cur === null) { if (V3().esc && V3().esc.id === id) escrowReturn(); }
+  if (trOpen === id) { trOpen = null; if (!quiet) closePanels(); }
+}
+function trApply(id, t) {   // the trade says "done": my escrow goes to them, their offer comes to me (once)
+  const v = V3(), s = trSide(t); if (!s) return;
+  if (t['p' + s]) return;
+  if (!v.esc || v.esc.id !== id) return;
+  const theirs = offerOf(t, other(s)); v.esc = null;
+  state.coins += theirs.c; receiveStacks(theirs.it); renderStats(); save();
+  toast(`🤝 Trade done with ${t[other(s) + 'n']}!${theirs.c ? ' +💰' + theirs.c : ''}${theirs.it.length ? ' +' + theirs.it.reduce((a, x) => a + x.n, 0) + ' items' : ''}`); coinSnd();
+  t['p' + s] = true; db('PATCH', trPath(id), { ['p' + s]: true }).catch(() => {});
+  if (t['p' + other(s)]) db('DELETE', trPath(id)).catch(() => {});
+  if (trOpen === id) { trOpen = null; trMy = { c: 0, sl: [] }; closePanels(); }
+}
+function trSync(id) {
+  const t = trades[id], s = trSide(t); if (!s) { if (!t && trOpen === id) { trOpen = null; closePanels(); } return; }
+  if (t.st === 'req' && s === 'b' && !trPrompted.has(id)) { trPrompted.add(id); tradePrompt(id, t); }
+  if (t.st === 'no' && s === 'a' && trOpen === id) { toast(`🤝 ${t.bn} said no to the trade`); trOpen = null; closePanels(); db('DELETE', trPath(id)).catch(() => {}); return; }
+  if (t.st === 'x') { if (V3().esc && V3().esc.id === id) escrowReturn(); if (trOpen === id) { toast('🤝 Trade cancelled'); trOpen = null; trMy = { c: 0, sl: [] }; closePanels(); } return; }
+  if (t.st === 'done') { trApply(id, t); if (t.pa && t.pb && s === 'a' && !t._del) { t._del = 1; db('DELETE', trPath(id)).catch(() => {}); } return; }
+  if (t.st === 'open') {
+    if (s === 'a' && trOpen === id && !document.getElementById('ptrade').classList.contains('show')) openPanel('ptrade');
+    // tell them whether their offer fits in my bag
+    const fit = fitsBag(offerOf(t, other(s)).it, trMy.sl); if (t['f' + s] !== fit) { t['f' + s] = fit; db('PATCH', trPath(id), { ['f' + s]: fit }).catch(() => {}); }
+    // they changed their offer after I confirmed: my old confirm no longer counts, give my stuff back
+    if (V3().esc && V3().esc.id === id && t['c' + s] !== offerOf(t, other(s)).v && !trFixing) trAutoUnconfirm(id);
+    if (trOpen === id) renderTradeP();
+  }
+}
+// their offer changed after my confirm: un-confirm through a conditional write (a stale stream event can't hand my escrow back)
+let trFixing = false;
+async function trAutoUnconfirm(id) {
+  const s = trSide(trades[id]); trFixing = true;
+  try { const res = await tx(trPath(id), cur => (cur && cur.st === 'open' && cur['c' + s] !== offerOf(cur, other(s)).v) ? Object.assign(cur, { ['c' + s]: -1 }) : undefined);
+    if (res.ok) escrowReturn('🤝 They changed their offer, check it and confirm again'); else if (res.cur && res.cur.st === 'done') { trades[id] = res.cur; trApply(id, res.cur); } } catch (e) {}
+  trFixing = false; if (trOpen === id) renderTradeP();
+}
+function tradePrompt(id, t) {
+  const box = document.createElement('div'); box.className = 'wconfirm'; box.style.zIndex = 85; box.id = 'trAsk';
+  box.innerHTML = `<div>🤝 <b>${trName(t, 'a')}</b> wants to trade with you</div><button class="btn" data-no>Decline</button><button class="btn gold" data-yes>Accept</button>`;
+  box.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-yes]')) tradeAnswer(id, true); else if (e.target.closest('[data-no]')) tradeAnswer(id, false); if (e.target.closest('[data-yes],[data-no]')) box.remove(); });
+  document.body.appendChild(box); beep(880, 0.08, 'sine', 0.06);
+  setTimeout(() => { if (box.isConnected) { box.remove(); tradeAnswer(id, false); } }, 30000);
+}
+const trP = mkPanel('ptrade');
+function renderTradeP() {
+  const b = document.getElementById('ptradeBox'); if (!b) return; const id = trOpen, t = trades[id], s = trSide(t);
+  if (!t || !s) { b.innerHTML = `<button class="btn close" data-tr="close">✕</button><h2>🤝 Trade</h2><p>No trade open.</p>`; return; }
+  const o = other(s), them = trName(t, o);
+  if (t.st === 'req') { b.innerHTML = `<button class="btn close" data-tr="cancel">✕</button><h2>🤝 Trade with ${them}</h2><p>Waiting for ${them} to accept...</p><button class="btn" data-tr="cancel" style="background:#7a2222">Cancel</button>`; return; }
+  const theirs = offerOf(t, o), mine = offerOf(t, s), inEsc = !!(V3().esc && V3().esc.id === id), iConf = t['c' + s] === theirs.v && inEsc, theyConf = t['c' + o] === mine.v;
+  const myFit = fitsBag(theirs.it, trMy.sl), theirFit = t['f' + o] !== false;
+  const offerSlots = (arr, attr) => arr.length ? arr.map((x, k) => slotHTML(x, attr ? `${attr}="${k}"` : '')).join('') : '<span style="opacity:.6;font-size:13px">Nothing yet</span>';
+  const mySlots = inEsc ? V3().esc.it : trMy.sl.map(i => state.slots[i]).filter(Boolean);
+  const bag = inEsc ? '' : state.slots.slice(0, 36).map((x, i) => x && !trMy.sl.includes(i) ? slotHTML(x, `data-trs="${i}"`) : '').join('');
+  const dirty = !inEsc && trDirty(mine);
+  b.innerHTML = `<button class="btn close" data-tr="cancel">✕</button><h2>🤝 Trade with ${them}</h2><div class="trcols">
+    <div class="trcol"><h3>You give</h3><div>💰 <b>${(inEsc ? V3().esc.c : trMy.c).toLocaleString()}</b> coins ${inEsc ? '' : `<button class="btn" data-trc="-100">−100</button><button class="btn" data-trc="-10">−10</button><button class="btn" data-trc="10">+10</button><button class="btn" data-trc="100">+100</button><button class="btn" data-trc="1000">+1k</button>`}</div>
+      <div class="trslots">${offerSlots(mySlots, inEsc ? '' : 'data-trr')}</div>${inEsc ? '' : `<div style="font-size:12px;opacity:.7;margin-top:4px">Tap your bag to add a stack · tap an offered stack to take it back</div><div class="trbag">${bag}</div>`}</div>
+    <div class="trcol"><h3>${them} gives</h3><div>💰 <b>${theirs.c.toLocaleString()}</b> coins</div><div class="trslots">${offerSlots(theirs.it)}</div>
+      <div style="margin-top:6px">${theyConf ? `<span class="trok">✅ ${them} confirmed</span>` : `<span style="opacity:.7">⏳ ${them} hasn't confirmed</span>`}</div></div></div>
+    ${!myFit ? `<div class="trwarn">🎒 Not enough bag space for ${them}'s items! Make room or ask for less.</div>` : ''}${!theirFit ? `<div class="trwarn">🎒 ${them} doesn't have enough bag space for your items.</div>` : ''}
+    <div class="frow">${dirty ? '<button class="btn gold" data-tr="push">📤 Update offer</button>' : iConf ? '<button class="btn" data-tr="unconf">↩️ Change my offer</button>' : `<button class="btn gold" data-tr="conf" ${myFit && theirFit ? '' : 'disabled'}>✅ Confirm trade</button>`}<button class="btn" data-tr="cancel" style="background:#7a2222">Cancel</button></div>
+    <p style="font-size:12px;opacity:.7">Both players confirm, then everything swaps at once. Changing an offer un-confirms both.</p>`;
+}
+trP.addEventListener('click', async e => {
+  e.stopPropagation(); const b = e.target.closest('[data-tr],[data-trs],[data-trr],[data-trc]'); if (!b) return;
+  const a = b.dataset.tr;
+  if (a === 'close') { closePanels(); return; }
+  if (a === 'cancel') { await tradeCancel(); return; }
+  if (a === 'conf') { b.disabled = true; await tradeConfirm(); renderTradeP(); return; }
+  if (a === 'unconf') { await tradeUnconfirm(); renderTradeP(); return; }
+  if (a === 'push') { b.disabled = true; await tradePushOffer(); renderTradeP(); return; }
+  if (V3().esc && V3().esc.id === trOpen) return;
+  if (b.dataset.trs != null) { const i = +b.dataset.trs; if (!trMy.sl.includes(i) && state.slots[i]) trMy.sl.push(i); }
+  if (b.dataset.trr != null) trMy.sl.splice(+b.dataset.trr, 1);
+  if (b.dataset.trc) trMy.c = Math.max(0, Math.min(state.coins, trMy.c + +b.dataset.trc));
+  renderTradeP();
+});
+// network: the trades branch of the room
+{ const on0 = onNet; onNet = function (path, data) {
+  const seg = path.split('/').filter(Boolean);
+  if (!seg.length && data && typeof data === 'object' && data.trades) { const { trades: tr, ...rest } = data; onNet('/trades', tr); return on0(path, rest); }
+  if (seg[0] !== 'trades') return on0(path, data);
+  if (seg.length === 1) { for (const k in (data || {})) { trades[k] = data[k]; trSync(k); } return; }
+  const id = seg[1]; if (seg.length === 2) { if (data == null) delete trades[id]; else trades[id] = data; } else trades[id] = setDeep(trades[id] || {}, seg.slice(2), data);
+  trSync(id);
+}; }
+// leaving the room (or the host closing it) gives back anything in escrow first
+{ const lo0 = leaveOnline; leaveOnline = async function (msg) {
+  const v = V3(); if (v.esc) { const id = v.esc.id; try { await tradeCancel(id, true); } catch (e) {} if (v.esc) escrowReturn(); }
+  for (const k in trades) delete trades[k]; trOpen = null; return lo0(msg); }; }
+// a world reloaded mid-trade (not in that room any more): give the escrow back
+setTimeout(() => { const v = V3(); if (v.esc && !(net.on && net.code === v.esc.code)) escrowReturn('🤝 An unfinished trade was cancelled, your items are back'); }, 3000);
+let trT = 0;
+function updateTrades(dt) {
+  trT += dt; if (trT < 2) return; trT = 0; giveOwed();
+  if (trOpen && document.getElementById('ptrade').classList.contains('show')) { const t = trades[trOpen]; if (t && t.st === 'open') { const s = trSide(t), fit = fitsBag(offerOf(t, other(s)).it, trMy.sl); if (t['f' + s] !== fit) trSync(trOpen); } }
+  if (trOpen && trades[trOpen] && trades[trOpen].st === 'open') { const t = trades[trOpen], o = other(trSide(t)); if (!net.remotes[t[o]] || performance.now() - net.remotes[t[o]].recv > 30000) { tradeCancel(trOpen); toast('🤝 The other player left, trade cancelled'); } }
+}
+
+// ---------------- phone apps: 🏆 Ranks (levels + leaderboard) ----------------
+{ const rp = renderPhone; renderPhone = function () {
+  rp(); const el = document.getElementById('pScreen'); if (!el) return;
+  if (phoneApp === 'home') { const a = el.querySelector('.papps'); if (a && !a.querySelector('[data-app="ranks"]')) a.insertAdjacentHTML('beforeend', '<button class="papp" data-app="ranks"><i style="background:linear-gradient(#ffd84a,#c08a10)">🏆</i>Ranks</button>'); return; }
+  if (phoneApp === 'ranks') {
+    const l = lvlOf(), nr = nextRank(), cur = rank(), p = nr ? Math.max(0, Math.min(1, (state.earned - cur[0]) / (nr[0] - cur[0]))) : 1;
+    el.innerHTML = phoneStatus() + `<div class="pappbar">🏆 Ranks</div><div class="pplug"><div class="pst pmis"><b>Level ${l}/${RANKS.length} · ${cur[1]}</b><br>💰 ${state.earned.toLocaleString()} earned${nr ? ` · next: ${nr[1]} at ${nr[0].toLocaleString()}` : ' · max level!'}<div class="pbar"><i style="width:${Math.round(p * 100)}%"></i></div></div><h4>Richest players</h4>${lbHTML(15)}</div>`;
+    if (!lbCache && !lbBusy) lbSubmit(true).then(lbFetch).then(() => { if (phoneApp === 'ranks') renderPhone(); });
+  }
+}; }
+
+// ---------------- per-frame ----------------
+let r3T = 0, r3Ch2 = false;
+function updateR3(dt) {
+  updateSubs(dt); updateTrades(dt); updatePubHb(dt);
+  r3T += dt; if (r3T < 0.5) return; r3T = 0; checkLevel();
+  if (!r3Ch2 && playing) { r3Ch2 = true; const s = V14().st; if (s.done && s.i === 14) { const v = V3(); if (!v.ch2) { v.ch2 = 1; setTimeout(() => kpToast('📖 Chapter 2 unlocked! 10 harder missions from Uncle Ray in 📱 📖 Story'), 6000); } } }
+}
+window.__dc19 = { V3, RANKS, lvlOf, checkLevel, STORY, npcSay, voiceLog, voiceOf, speakLine, haveVoices, subBar, MM, mmTick, mmWant, mmStep, lbSubmit, lbFetch, lbKey, lbName, guestId, bestCoins, get lbCache() { return lbCache; }, lbHTML, openLB, lbClaim, lbToken,
+  pubFetch, get pubRooms() { return pubRooms; }, hostPublic, get netPubNow() { return netPubNow; }, trades, tradeRequest, tradeAnswer, tradePushOffer, tradeConfirm, tradeUnconfirm, tradeCancel, fitsBag, receiveStacks, escrowReturn, renderTradeP,
+  get trOpen() { return trOpen; }, set trOpen(v) { trOpen = v; }, get trMy() { return trMy; }, set trMy(v) { trMy = v; }, offerOf, tx, updateR3, renderStats, LB_PATH,
+  toast: m => toast(m), openTrade: v => openTrade(v), closePanels: () => closePanels(), renderHotbar: () => renderHotbar(), showStart: () => showStart(), openOnline: () => openOnline(), hostOnline: () => hostOnline(), openSettings: () => openSettings() };
+{ const u = updateV113; updateV113 = function (dt, t) { u(dt, t); try { updateR3(dt); } catch (e) { console.warn('r3', e); } }; }
+
+// ======================= v1.15 round 3b: 30. ZOMBIES SHOOTER MODE =======================
+// Its own mode from the main menu. Boots the page with ZM set (read once by p_a_constants), builds a fixed compound map
+// instead of the survival world, and never saves: saveBlocked stays on, the explored map / leaderboard are not touched,
+// and online co-op uses its own room data (meta.zm = 1), so survival worlds and saves are never involved.
+ITEMS.monkey_bomb = { name: 'Monkey Bomb', emoji: '🐒', stack: 8 };
+const ZM_ON = !!ZM;
+{ const st = document.createElement('style'); st.textContent = `
+#zmBtn{background:linear-gradient(#5a1010,#2a0606);border-color:#ff4a3a;color:#ffd0c8;margin-top:8px}
+#zMenu .box,#zIntro .box,#zOver .box,#zPause .box{max-width:min(94vw,560px)}
+.zrow{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08)}.zrow .nm{flex:1}
+#zHud{position:fixed;left:50%;top:44px;transform:translateX(-50%);display:none;pointer-events:none;text-align:center;z-index:5;font-family:inherit}
+#zHud .r{color:#ff3a2a;font-size:30px;font-weight:900;text-shadow:0 0 8px #000,2px 2px 0 #300;letter-spacing:2px}
+#zHud .p{color:#ffe28a;font-size:15px;font-weight:700;text-shadow:0 0 4px #000}#zHud .s{color:#fff;font-size:12px;opacity:.85;text-shadow:0 0 4px #000}
+#zPrompt{position:fixed;left:50%;top:60%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:5px 12px;border-radius:9px;font-size:15px;display:none;pointer-events:none;z-index:5;white-space:nowrap}
+#zPrompt .bar{height:4px;background:#ffd84a;border-radius:2px;margin-top:4px}
+#zDown{position:fixed;inset:0;display:none;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center,rgba(120,0,0,.15),rgba(140,0,0,.7));color:#fff;text-align:center;padding-top:26vh;font-size:22px;font-weight:800;text-shadow:0 0 6px #000}
+#zBanner{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%);color:#ff3a2a;font-size:46px;font-weight:900;text-shadow:0 0 12px #000,3px 3px 0 #300;opacity:0;transition:opacity .4s;pointer-events:none;z-index:6;text-align:center}
+#zBanner.on{opacity:1}#zBanner i{display:block;font-size:16px;color:#fff;font-style:normal}
+@media (max-height:520px){#zHud{top:40px}#zHud .r{font-size:22px}#zBanner{font-size:34px}}
+body.zm #storyPill,body.zm #hud4,body.zm #bPhone,body.zm #bNet,body.zm #netPill,body.zm #stats{display:none!important}
+.zgrid{display:grid;grid-template-columns:1fr auto auto auto;gap:4px 12px;text-align:left;margin:8px 0}`;
+  document.head.appendChild(st); }
+const zMk = (id, html) => { const p = document.createElement('div'); p.className = 'panel toppanel'; p.id = id; p.innerHTML = `<div class="box" id="${id}Box">${html || ''}</div>`; document.body.appendChild(p); return p; };
+const zHud = document.createElement('div'); zHud.id = 'zHud'; document.body.appendChild(zHud);
+const zPrompt = document.createElement('div'); zPrompt.id = 'zPrompt'; document.body.appendChild(zPrompt);
+const zDownEl = document.createElement('div'); zDownEl.id = 'zDown'; document.body.appendChild(zDownEl);
+const zBanEl = document.createElement('div'); zBanEl.id = 'zBanner'; document.body.appendChild(zBanEl);
+let zBanT = 0; function zBanner(t, sub, dur = 3) { zBanEl.innerHTML = t + (sub ? `<i>${sub}</i>` : ''); zBanEl.classList.add('on'); zBanT = dur; }
+
+// ---------------- main menu entry (survival boot) ----------------
+const zMenuP = zMk('zMenu');
+{ const pb = document.getElementById('playBtn'); const zb = document.createElement('div'); zb.className = 'play'; zb.id = 'zmBtn'; zb.textContent = '🧟 ZOMBIES';
+  pb.after(zb); zb.addEventListener('click', e => { e.stopPropagation(); openZMenu(); }); }
+function openZMenu(msg) {
+  const peace = settings.difficulty === 'peaceful';
+  document.getElementById('zMenuBox').innerHTML = `<button class="btn close" data-z="close">✕</button><h2>🧟 Zombies</h2>
+    <p style="font-size:13px;opacity:.8;margin:2px 0 8px">Survive endless rounds in an abandoned compound. Shoot zombies for points, board up the windows, buy wall guns, spin the Mystery Box and throw Monkey Bombs. Separate from your worlds: it never touches your saves.</p>
+    ${peace ? '<p style="font-size:13px;color:#7dff9a">☮️ Peaceful is on: zombies can\'t hurt you.</p>' : ''}
+    <div class="zrow"><span class="nm">🧍 Solo</span><button class="btn gold" data-z="solo">Play</button></div>
+    <div class="zrow"><span class="nm">🌐 Host co-op<br><span style="font-size:12px;opacity:.7">Up to ${MAX_PLAYERS} players · friends join with a code</span></span><button class="btn" data-z="host">Host</button></div>
+    <div class="zrow"><span class="nm">🔑 Join co-op</span><input id="zCode" placeholder="CODE" maxlength="5" style="width:96px;text-transform:uppercase"><button class="btn" data-z="join">Join</button></div>
+    <div id="zMsg" class="amsg">${msg ? esc(msg) : ''}</div>`;
+  openPanel('zMenu');
+}
+const zSetMsg = m => { const e = document.getElementById('zMsg'); if (e) e.textContent = m; };
+function zLaunch(o) { if (!ZM_ON) save(); saveBlocked = true; localStorage.setItem('dc_zm', JSON.stringify(o)); location.reload(); }
+async function zJoinCheck(code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 5) throw new Error('Codes are 5 letters/numbers');
+  const r = await db('GET', 'rooms/' + code);
+  if (!r || !r.meta || !r.meta.open) throw new Error('No open game with that code');
+  if (!r.meta.zm) throw new Error('That code is a survival world, not a Zombies game');
+  if (r.meta.host === auth.uid) throw new Error("That's your own game");
+  const now = Date.now(), seats = new Set(Object.entries(r.players || {}).filter(([u, p]) => u !== auth.uid && p && now - p.t < 60000).map(([u]) => u)); seats.add(r.meta.host);
+  if (seats.size + 1 > MAX_PLAYERS) throw new Error(`That game is full (${MAX_PLAYERS}/${MAX_PLAYERS})`);
+  return { code, host: r.meta.hostName || 'a friend' };
+}
+zMenuP.addEventListener('click', async e => {
+  e.stopPropagation(); if (e.target === zMenuP) { closePanels(); return; } const b = e.target.closest('[data-z]'); if (!b) return; const a = b.dataset.z;
+  if (a === 'close') { closePanels(); return; }
+  if (a === 'solo') { zLaunch({ role: 'solo' }); return; }
+  if (!auth) { closePanels(); openAccount(); toast('👤 Log in first to play online'); return; }
+  if (a === 'host') { zLaunch({ role: 'host' }); return; }
+  if (a === 'join') { zSetMsg('Joining...'); try { const j = await zJoinCheck(document.getElementById('zCode').value); zLaunch({ role: 'guest', code: j.code, host: j.host }); } catch (err) { zSetMsg('⚠️ ' + err.message); } }
+});
+// a survival "join" with a Zombies code goes to the Zombies game instead
+{ const jo0 = joinOnline; joinOnline = async function (code) {
+  // (survival worlds keep their own 4-player cap: MAX_PLAYERS is still checked inside the original joinOnline)
+  if (auth && !ZM_ON) { const c = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length === 5) { try { const m = await db('GET', 'rooms/' + c + '/meta'); if (m && m.zm) { try { const j = await zJoinCheck(c); zLaunch({ role: 'guest', code: j.code, host: j.host }); } catch (err) { setOnlineMsg('⚠️ ' + err.message); } return; } } catch (e) {} } }
+  return jo0(code); }; }
+
+// ---------------- the map: an abandoned compound (yard + boarded-up house) ----------------
+const ZX = VX, ZZ = VZ, ZY = G + 1, ZW = { x0: -17, x1: 16, z0: -12, z1: 11 }, ZWH = 6;
+const ZWIN = [   // windows: 2 wide, 2 high, sill 1 high. side = which outer wall, d = offset along it, room 0 = yard, 1 = house
+  { side: 'N', d: -11, room: 0 }, { side: 'S', d: -7, room: 0 }, { side: 'W', d: -1, room: 0 },
+  { side: 'N', d: 6, room: 1 }, { side: 'S', d: 9, room: 1 }, { side: 'E', d: -1, room: 1 }];
+const ZBOARDS = 6;
+const zWallCell = (side, d) => side === 'N' ? [d, ZW.z0] : side === 'S' ? [d, ZW.z1] : side === 'W' ? [ZW.x0, d] : [ZW.x1, d];
+const zInward = side => side === 'N' ? [0, 1] : side === 'S' ? [0, -1] : side === 'W' ? [1, 0] : [-1, 0];
+for (const w of ZWIN) { const [cx, cz] = zWallCell(w.side, w.d), [nx, nz] = zInward(w.side), along = w.side === 'N' || w.side === 'S';
+  w.cells = along ? [[cx, cz], [cx + 1, cz]] : [[cx, cz], [cx, cz + 1]];
+  w.c = { x: ZX + cx + (along ? 1 : 0.5), z: ZZ + cz + (along ? 0.5 : 1) }; w.n = { x: nx, z: nz };
+  w.out = { x: w.c.x - nx * 1.6, z: w.c.z - nz * 1.6 }; w.in = { x: w.c.x + nx * 1.4, z: w.c.z + nz * 1.4 }; w.along = along; }
+const ZDOOR = { cells: [[0, -1], [0, 0]], cost: 750, c: { x: ZX + 0.5, z: ZZ } };
+const ZBOXSPOTS = [{ dx: -13, dz: 8, room: 0 }, { dx: 11, dz: -9, room: 1 }, { dx: 11, dz: 8, room: 1 }];
+const ZWALLGUNS = [
+  { id: 'pistol', side: 'W', d: 5, cost: 500, ammo: ['pistol_ammo', 48], ac: 250, room: 0 },
+  { id: 'rifle', side: 'N', d: -3, cost: 1200, ammo: ['rifle_ammo', 120], ac: 600, room: 0 },
+  { id: 'gold_rifle', side: 'S', d: 4, cost: 2200, ammo: ['rifle_ammo', 150], ac: 1100, room: 1 },
+  { id: 'monkey_bomb', side: 'E', d: 5, cost: 1500, ammo: ['monkey_bomb', 2], ac: 1500, room: 1 }];
+const ZBOX_COST = 950, ZBOX_POOL = ['pistol', 'rifle', 'rifle', 'minigun', 'gold_rifle', 'ray_gun', 'monkey_bomb', 'monkey_bomb', 'grenade'];
+const ZAMMO = { pistol: ['pistol_ammo', 64], rifle: ['rifle_ammo', 150], minigun: ['rifle_ammo', 300], gold_rifle: ['rifle_ammo', 180], ray_gun: ['plasma_cell', 40], monkey_bomb: ['monkey_bomb', 3], grenade: ['grenade', 4] };
+function zBlock(dx, y, dz) {   // the compound, relative to (ZX, ZZ); y absolute. null = not part of the map
+  const inX = dx >= ZW.x0 && dx <= ZW.x1, inZ = dz >= ZW.z0 && dz <= ZW.z1;
+  if (y === G) { if (inX && inZ) return dx > 0 ? PLANKS : (hash2(dx, dz, 91) < 0.3 ? DIRT : DEADGRASS); return hash2(dx, dz, 7) < 0.35 ? DEADGRASS : GRASS; }
+  if (!inX || !inZ || y < ZY) return null;
+  const edge = dx === ZW.x0 || dx === ZW.x1 || dz === ZW.z0 || dz === ZW.z1;
+  if (edge) {
+    if (y > G + ZWH) return null;
+    for (const w of ZWIN) for (const [cx, cz] of w.cells) if (cx === dx && cz === dz && (y === ZY + 1 || y === ZY + 2)) return AIR;
+    if (y === G + ZWH) return dx > 0 ? ROOF : COBBLE;
+    return dx > 0 ? BRICK : (hash3(dx, y, dz, 3) < 0.12 ? STONE : COBBLE);
+  }
+  if (dx === 0) { if (y > G + ZWH) return null; if ((dz === -1 || dz === 0) && y <= ZY + 2) return CRATE; return BRICK; }   // divider + door
+  if (dx > 0 && y === G + ZWH + 1 && !(dx % 5 === 3 && dz % 5 === 2)) return ROOF;   // house roof (a few holes let the moon in)
+  if (y === ZY) {   // props: torches, crates for cover, a table
+    if ((dx === ZW.x0 + 1 || dx === ZW.x1 - 1 || dx === 1 || dx === -1) && (dz === -8 || dz === 7)) return TORCH;
+    if ((dx === -8 || dx === -7) && dz === 3) return CRATE; if (dx === -4 && (dz === -6 || dz === -5)) return CRATE;
+    if (dx === 6 && dz === 2) return TABLE; if (dx === 13 && dz === 0) return TRASH;
+  }
+  if (y === ZY + 1 && dx === -8 && dz === 3) return CRATE;
+  return null;
+}
+if (ZM_ON) {
+  genChunk = function (cx, cz) {
+    const c = new Uint8Array(CH * CH * H); data.set(ckey(cx, cz), c); const x0 = cx * CH, z0 = cz * CH;
+    for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+      const dx = x0 + lx - ZX, dz = z0 + lz - ZZ;
+      for (let y = 0; y < G; y++) c[lidx(lx, y, lz)] = y === 0 ? BEDROCK : y < G - 3 ? STONE : DIRT;
+      c[lidx(lx, G, lz)] = zBlock(dx, G, dz);
+      if (dx >= ZW.x0 && dx <= ZW.x1 && dz >= ZW.z0 && dz <= ZW.z1) for (let y = ZY; y <= G + ZWH + 1; y++) { const b = zBlock(dx, y, dz); if (b != null) c[lidx(lx, y, lz)] = b; }
+      else if (hash2(dx, dz, 55) < 0.006 && Math.abs(dx) > 24) { for (let y = ZY; y < ZY + 4; y++) c[lidx(lx, y, lz)] = LOG; }   // dead trees outside
+    }
+    const ed = editIdx.get(ckey(cx, cz)); if (ed) for (const k of ed) { const [x, y, z] = k.split(',').map(Number); c[lidx(x - x0, y, z - z0)] = state.edits[k]; }
+  };
+}
+
+// ---------------- game state ----------------
+const Z = { on: ZM_ON, role: ZM ? ZM.role : null, phase: 'intro', r: 0, toSpawn: 0, spawnT: 0, breakT: 0, pts: 500, kills: 0, downs: 0, boards: ZWIN.map(() => ZBOARDS), door: 0,
+  box: { spot: 0, st: 'idle', t: 0, item: null, spins: 0, show: 0 }, bombs: [], zid: 1, flowT: 0, flow: null, down: false, dead: false, bleed: 0, over: 0, go: 1, rvT: 0, rbT: 0, hold: false, started: false };
+const zAlive = () => mobs.filter(m => m.zm && !m.zm.gone);
+const zHp = r => Math.round(r < 10 ? 10 + 8 * (r - 1) : 82 * Math.pow(1.1, r - 9));
+const zCount = (r, n) => Math.round((6 + r * 2.5 + (r > 5 ? r * r * 0.08 : 0)) * (1 + 0.6 * (n - 1)));
+const zMaxAlive = r => Math.min(24, 8 + 2 * r);
+const zPlayers = () => 1 + Object.values(ZN.remotes).filter(r => performance.now() - r.recv < 12000).length;
+function zLoadout() {
+  state.slots = emptySlots(36); state.armor = emptySlots(4); state.off = null; state.sel = 0;
+  state.slots[0] = { id: 'pistol', n: 1 }; state.slots[1] = { id: 'iron_sword', n: 1, d: TIERS.iron.dur }; state.slots[9] = { id: 'pistol_ammo', n: 64 }; state.slots[10] = { id: 'pistol_ammo', n: 32 };
+  state.hp = 20; state.food = 20; state.sat = 5; renderHotbar(); renderVitals();
+}
+const zSpawnPos = () => { const ps = [[-9, 0], [-10, -2], [-8, 2], [-11, 1]]; const p = ps[(Object.keys(ZN.remotes).length + (Z.role === 'guest' ? 1 : 0)) % 4]; return [ZX + p[0] + 0.5, ZY, ZZ + p[1] + 0.5]; };
+
+// meshes: boards, wall-buy chalk signs, the Mystery Box
+const zBoardMat = new THREE.MeshLambertMaterial({ color: 0x7a5530 }), zBoardGeo = new THREE.BoxGeometry(2.25, 0.24, 0.1);
+const zWinG = ZWIN.map(w => { const g = new THREE.Group(); g.position.set(w.c.x, ZY + 1, w.c.z); if (!w.along) g.rotation.y = Math.PI / 2;
+  w.planks = []; for (let i = 0; i < ZBOARDS; i++) { const m = new THREE.Mesh(zBoardGeo, zBoardMat); m.position.set(0, 0.18 + i * 0.3, (i % 2 ? 0.06 : -0.06)); m.rotation.z = (hash2(i, ZWIN.indexOf(w), 4) - 0.5) * 0.35; g.add(m); w.planks.push(m); }
+  if (ZM_ON) scene.add(g); return g; });
+function zBoardsShow() { ZWIN.forEach((w, i) => w.planks.forEach((p, k) => { p.visible = k < Z.boards[i]; })); }
+function zSign(lines, col = '#e8f0ff') {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(10,10,14,.82)'; x.fillRect(0, 0, 256, 160); x.strokeStyle = col; x.lineWidth = 5; x.setLineDash([14, 6]); x.strokeRect(8, 8, 240, 144);
+  x.fillStyle = col; x.textAlign = 'center'; x.font = 'bold 34px sans-serif'; x.fillText(lines[0], 128, 62); x.font = 'bold 26px sans-serif'; x.fillText(lines[1] || '', 128, 104); x.font = '20px sans-serif'; x.fillStyle = '#ffd84a'; x.fillText(lines[2] || '', 128, 138);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.94), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true })); return m;
+}
+const zFace = (side, d) => { const [cx, cz] = zWallCell(side, d), [nx, nz] = zInward(side);
+  return { x: ZX + cx + 0.5 + nx * 0.52, z: ZZ + cz + 0.5 + nz * 0.52, nx, nz, ry: Math.atan2(nx, nz) }; };
+for (const wg of ZWALLGUNS) { const f = zFace(wg.side, wg.d); wg.f = f; const nm = ITEMS[wg.id] ? ITEMS[wg.id].name : wg.id;
+  const m = zSign([(wg.id === 'monkey_bomb' ? '🐒 ' : '🔫 ') + nm, '💲' + wg.cost, wg.id === 'monkey_bomb' ? 'x' + wg.ammo[1] : 'ammo 💲' + wg.ac]); m.position.set(f.x, ZY + 1.4, f.z); m.rotation.y = f.ry; if (ZM_ON) scene.add(m); }
+{ for (const s of [-1, 1]) { const m = zSign(['🚪 Debris', '💲' + ZDOOR.cost, 'clear the way'], '#ffb27a'); m.position.set(ZDOOR.c.x + s * 0.53, ZY + 2.6, ZDOOR.c.z); m.rotation.y = s * Math.PI / 2; m.scale.setScalar(0.8); if (ZM_ON) scene.add(m); } }
+const zBoxG = new THREE.Group();
+{ const q = document.createElement('canvas'); q.width = 128; q.height = 64; const x = q.getContext('2d'); x.fillStyle = '#5a3a1e'; x.fillRect(0, 0, 128, 64); x.fillStyle = '#ffd84a'; x.font = 'bold 50px sans-serif'; x.textAlign = 'center'; x.fillText('? ? ?', 64, 52);
+  const side = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(q) }), wood = new THREE.MeshLambertMaterial({ color: 0x6b4a2a }), dark = new THREE.MeshLambertMaterial({ color: 0x3a2412 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.8, 0.95), [wood, wood, dark, wood, side, side]); base.position.y = 0.4; zBoxG.add(base);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.14, 1.0), dark); lid.position.set(0, 0.86, 0); zBoxG.add(lid); zBoxG.userData.lid = lid;
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 16, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x7ad0ff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); beam.position.y = 8.5; zBoxG.add(beam); zBoxG.userData.beam = beam;
+  const lt = new THREE.PointLight(0x7ad0ff, 0.8, 7, 1.5); lt.position.y = 1.4; zBoxG.add(lt);
+  const rc = document.createElement('canvas'); rc.width = 256; rc.height = 96; const rs = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(rc), transparent: true, depthTest: false })); rs.scale.set(2.2, 0.82, 1); rs.position.y = 1.6; rs.visible = false; rs.renderOrder = 15; zBoxG.add(rs); zBoxG.userData.rs = rs; zBoxG.userData.rc = rc;
+  if (ZM_ON) scene.add(zBoxG); }
+function zBoxDraw(id) { const c = zBoxG.userData.rc, x = c.getContext('2d'); x.clearRect(0, 0, 256, 96); if (!id) return; x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, 0, 256, 96);
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 34px sans-serif'; x.fillText((id === 'teddy' ? '🧸' : ITEMS[id].emoji || '🔫') + ' ' + (id === 'teddy' ? 'Bye bye!' : ITEMS[id].name), 128, 60); zBoxG.userData.rs.material.map.needsUpdate = true; }
+function zBoxPlace() { const s = ZBOXSPOTS[Z.box.spot]; zBoxG.position.set(ZX + s.dx + 1, ZY, ZZ + s.dz + 0.5); }
+zBoxPlace();
+function zDoorSet(open) { Z.door = open ? 1 : 0; for (const [dx, dz] of ZDOOR.cells) for (let y = ZY; y <= ZY + 2; y++) { const x = ZX + dx, z = ZZ + dz; if (get(x, y, z) !== (open ? AIR : CRATE)) setBlock(x, y, z, open ? AIR : CRATE); } }
+const zRoomOpen = room => room === 0 || Z.door;
+
+// ---------------- sounds ----------------
+function zGroan(p) { const v = Math.max(0, 1 - p.distanceTo(player.pos) / 26); if (v <= 0.05) return; sweep(140 + Math.random() * 60, 70, 0.6, 'sawtooth', 0.03 * v); noiseF(0.5, 0.03 * v, 'bandpass', 300, 180, 3); }
+function zCrack(p) { const v = Math.max(0.15, 1 - p.distanceTo(player.pos) / 30); noiseF(0.16, 0.16 * v, 'bandpass', 1400, 600, 2); beep(160, 0.05, 'square', 0.03 * v); }
+function zChime(phase) { const n = [784, 988, 1175, 988, 1319, 1175, 988, 784][phase % 8]; beep(n, 0.12, 'triangle', 0.06); if (phase % 2 === 0) noiseF(0.09, 0.08, 'highpass', 6000, 9000, 1); }
+function zRoundSnd(up) { const ns = up ? [220, 262, 330, 440] : [330, 262, 196, 147]; ns.forEach((f, i) => setTimeout(() => beep(f, 0.35, 'sawtooth', 0.05), i * 220)); }
+
+// ---------------- zombies (host / solo simulate; guests show proxies) ----------------
+function zSpawn() {
+  const ws = ZWIN.map((w, i) => i).filter(i => zRoomOpen(ZWIN[i].room)); const wi = ws[Math.floor(Math.random() * ws.length)], w = ZWIN[wi];
+  const far = 7 + Math.random() * 7, lat = (Math.random() - 0.5) * 8, lx = w.along ? lat : 0, lz = w.along ? 0 : lat;
+  const m = spawnMob('zombie', w.out.x - w.n.x * far + lx, ZY, w.out.z - w.n.z * far + lz); if (!m) return null;
+  m.g.position.y = ZY; m.hp = zHp(Z.r); const run = Math.random() < Math.max(0, Math.min(0.7, (Z.r - 3) * 0.12));
+  m.zm = { id: Z.zid++, ph: 'out', w: wi, sp: Math.min(5.2, 1.3 + 0.12 * Z.r + (run ? 1.6 : 0) + Math.random() * 0.3), tear: 1, climb: 0, atk: 0, groan: 2 + Math.random() * 5, max: m.hp };
+  return m;
+}
+function zCellOf(x, z) { return [Math.floor(x) - ZX - ZW.x0, Math.floor(z) - ZZ - ZW.z0]; }
+const ZGW = ZW.x1 - ZW.x0 + 1, ZGH = ZW.z1 - ZW.z0 + 1;
+const zWalk = (gx, gz) => { if (gx <= 0 || gz <= 0 || gx >= ZGW - 1 || gz >= ZGH - 1) return false; const x = ZX + ZW.x0 + gx, z = ZZ + ZW.z0 + gz; return !solid(get(x, ZY, z)) && !solid(get(x, ZY + 1, z)); };
+function zFlowFrom(targets) {   // BFS distance field over the floor of the compound
+  const d = new Int16Array(ZGW * ZGH).fill(-1), q = [];
+  for (const t of targets) { const [gx, gz] = zCellOf(t.x, t.z); if (gx > 0 && gz > 0 && gx < ZGW - 1 && gz < ZGH - 1 && d[gx + gz * ZGW] < 0) { d[gx + gz * ZGW] = 0; q.push(gx, gz); } }
+  for (let i = 0; i < q.length; i += 2) { const x = q[i], z = q[i + 1], v = d[x + z * ZGW];
+    for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, nz = z + az; if (d[nx + nz * ZGW] >= 0 || !zWalk(nx, nz)) continue; d[nx + nz * ZGW] = v + 1; q.push(nx, nz); } }
+  return d;
+}
+function zTargets() {   // who the zombies go for: live monkey bombs first, else every standing player
+  const b = Z.bombs.filter(b => b.land && b.t > 0); if (b.length) return { pts: b.map(b => b.m ? b.m.position : b.p), bomb: true };
+  const ps = []; if (!Z.down && !Z.dead && Z.started) ps.push(player.pos);
+  for (const r of Object.values(ZN.remotes)) if (r.d && r.d.x != null && r.d.rd && !r.d.dn && !r.d.dd && performance.now() - r.recv < 12000) ps.push(new THREE.Vector3(r.d.x, r.d.y, r.d.z));
+  return { pts: ps, bomb: false };
+}
+function zMoveTo(m, tx, tz, sp, dt) {
+  const p = m.g.position, dx = tx - p.x, dz = tz - p.z, dd = Math.hypot(dx, dz); if (dd < 0.05) return dd;
+  const s = Math.min(dd, sp * dt), nx = p.x + dx / dd * s, nz = p.z + dz / dd * s;
+  if (m.zm.ph !== 'in') { p.x = nx; p.z = nz; } else {
+    const ok = (x, z) => { const [gx, gz] = zCellOf(x, z); return zWalk(gx, gz); };
+    if (ok(nx, p.z)) p.x = nx; if (ok(p.x, nz)) p.z = nz; }
+  m.g.rotation.y = Math.atan2(dx, dz); return dd;
+}
+function zSim(dt, t) {
+  const tg = zTargets(); Z.flowT -= dt; if (Z.flowT <= 0) { Z.flowT = 0.35; Z.flow = tg.pts.length ? zFlowFrom(tg.pts) : null; }
+  const zs = zAlive();
+  for (const m of zs) {
+    const z = m.zm, p = m.g.position, w = ZWIN[z.w]; z.groan -= dt; if (z.groan <= 0) { z.groan = 4 + Math.random() * 6; zGroan(p); }
+    let moving = false;
+    if (z.ph === 'out') { const d = zMoveTo(m, w.out.x, w.out.z, z.sp, dt); moving = d > 0.1; if (d < 0.25) { z.ph = 'tear'; z.tear = 0.8; } }
+    else if (z.ph === 'tear') { m.g.rotation.y = Math.atan2(w.n.x, w.n.z);
+      if (Z.boards[z.w] <= 0) { z.ph = 'climb'; z.climb = 0; }
+      else { z.tear -= dt; m.arms[0].rotation.x = m.arms[1].rotation.x = -1.6 + Math.sin(t * 9) * 0.5; if (z.tear <= 0) { z.tear = Math.max(0.65, 1.9 - Z.r * 0.06); Z.boards[z.w]--; zBoardsShow(); zCrack(p); particles(w.c.x, ZY + 1.5, w.c.z, new THREE.Color(0.45, 0.3, 0.15), 6); zStDirty(); } } }
+    else if (z.ph === 'climb') { z.climb += dt / 1.1; const s = Math.min(1, z.climb); p.x = w.out.x + (w.in.x - w.out.x) * s; p.z = w.out.z + (w.in.z - w.out.z) * s; p.y = ZY + Math.sin(Math.PI * s) * 1.25; m.g.rotation.y = Math.atan2(w.n.x, w.n.z); if (s >= 1) { z.ph = 'in'; p.y = ZY; } }
+    else if (z.ph === 'in') {
+      let best = null; if (Z.flow) { const [gx, gz] = zCellOf(p.x, p.z), here = gx >= 0 && gz >= 0 && gx < ZGW && gz < ZGH ? Z.flow[gx + gz * ZGW] : -1; let bv = here < 0 ? 1e9 : here;
+        for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const nx = gx + ax, nz = gz + az; if (nx < 0 || nz < 0 || nx >= ZGW || nz >= ZGH) continue; const v = Z.flow[nx + nz * ZGW];
+          if (v < 0 || v >= bv) continue; if (ax && az && (!zWalk(gx + ax, gz) || !zWalk(gx, gz + az))) continue; bv = v; best = [nx, nz]; }
+        if (here === 0 || !best) { let bp = null, bd = 1e9; for (const q of tg.pts) { const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; bp = q; } } if (bp) best = { x: bp.x, z: bp.z }; }
+        else best = { x: ZX + ZW.x0 + best[0] + 0.5, z: ZZ + ZW.z0 + best[1] + 0.5 }; }
+      if (best) { let tx = best.x, tz = best.z; const near = tg.pts.find(q => Math.hypot(q.x - p.x, q.z - p.z) < 1.0); if (!near || tg.bomb) { zMoveTo(m, tx, tz, z.sp, dt); moving = true; } else m.g.rotation.y = Math.atan2(near.x - p.x, near.z - p.z); }
+    }
+    if (m.legs && m.legs.length) { const sw = moving ? Math.sin(t * (6 + z.sp * 2) + z.id) * 0.7 : 0; m.legs[0].rotation.x = sw; m.legs[1].rotation.x = -sw; }
+    if (z.ph !== 'tear' && m.arms && m.arms.length) { m.arms[0].rotation.x = m.arms[1].rotation.x = -1.45 + (z.atkA > 0 ? -0.6 : 0); }
+    if (m.hurt > 0) m.hurt -= dt;
+  }
+  for (let i = 0; i < zs.length; i++) for (let j = i + 1; j < zs.length; j++) { const a = zs[i].g.position, b = zs[j].g.position, dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);   // don't stack up
+    if (d > 0.01 && d < 0.6 && zs[i].zm.ph === 'in' && zs[j].zm.ph === 'in') { const k = (0.6 - d) * 0.5; a.x -= dx / d * k; a.z -= dz / d * k; b.x += dx / d * k; b.z += dz / d * k; } }
+  // rounds
+  if (Z.phase === 'wave') {
+    Z.spawnT -= dt;
+    if (Z.toSpawn > 0 && Z.spawnT <= 0 && zs.length < zMaxAlive(Z.r)) { Z.spawnT = Math.max(0.45, 2.2 - Z.r * 0.12); if (zSpawn()) Z.toSpawn--; }
+    if (Z.toSpawn <= 0 && !zs.length) { Z.phase = 'break'; Z.breakT = 9; zRoundSnd(false); zBanner(`ROUND ${Z.r}`, 'survived!'); zStDirty(); }
+  } else if (Z.phase === 'break') { Z.breakT -= dt; if (Z.breakT <= 0) zNextRound(); }
+}
+function zNextRound() { Z.r++; Z.phase = 'wave'; Z.toSpawn = zCount(Z.r, zPlayers()); Z.spawnT = 2; zRoundSnd(true); zBanner(`ROUND ${Z.r}`, Z.r === 1 ? 'they\'re coming...' : ''); zStDirty(); }
+// every client takes its own hits from whatever zombies are near (host's real ones or a guest's proxies)
+function zAttacks(dt) {
+  if (Z.down || Z.dead || !Z.started || !player.alive) return;
+  for (const m of zAlive()) { const z = m.zm; z.atk = Math.max(0, (z.atk || 0) - dt); z.atkA = Math.max(0, (z.atkA || 0) - dt);
+    if (z.ph !== 'in') continue;
+    const p = m.g.position; if (Math.hypot(p.x - player.pos.x, p.z - player.pos.z) < 1.2 && Math.abs(p.y - player.pos.y) < 1.6 && z.atk <= 0) {
+      z.atk = 1.1; z.atkA = 0.3; damage(3 + Math.floor(Z.r / 4), 'zombie', p.clone()); } }
+}
+// shots: host/solo hurt the real zombie; a guest tells the host and shows the hit right away
+{ const hm0 = hurtMob; hurtMob = function (m, dmg, from, noDrop) {
+  if (!m || !m.zm) return hm0(m, dmg, from, noDrop);
+  if (m.zm.gone) return; const mine = from === player.pos;
+  if (mine) { Z.pts += 10; hitSnd(); particles(m.g.position.x, m.g.position.y + 1.2, m.g.position.z, new THREE.Color(0.6, 0.05, 0.05), 4); }
+  if (m.zm.proxy) { m.hp -= dmg; zEv({ t: 'hit', id: m.zm.id, d: dmg }); if (m.hp <= 0) { m.zm.gone = true; m.g.visible = false; if (mine) { Z.pts += heldTool() && heldTool().kind === 'sword' ? 120 : 60; Z.kills++; } } zHudDraw(); return; }
+  m.hp -= dmg; m.hurt = 0.3;
+  if (from && from.x != null) { const k = m.g.position.clone().sub(from).setY(0); if (k.lengthSq() > 0 && m.zm.ph === 'in') m.g.position.addScaledVector(k.normalize(), 0.15); }
+  if (m.hp <= 0) { m.zm.gone = true; if (mine) { Z.pts += heldTool() && heldTool().kind === 'sword' ? 120 : 60; Z.kills++; } particles(m.g.position.x, m.g.position.y + 1, m.g.position.z, new THREE.Color(0.35, 0.5, 0.2), 12); removeMob(m, false); }
+  zHudDraw(); }; }
+
+// ---------------- monkey bombs ----------------
+const zMonkeyMesh = () => { const g = new THREE.Group(); box(0.26, 0.3, 0.2, 0x6b3a1a, 0, 0.15, 0, g); box(0.22, 0.2, 0.2, 0x6b3a1a, 0, 0.4, 0, g); box(0.14, 0.1, 0.04, 0xe0b080, 0, 0.38, 0.11, g);
+  for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 10), new THREE.MeshLambertMaterial({ color: 0xffcc33, emissive: 0x442200 })); c.rotation.z = Math.PI / 2; c.position.set(s * 0.2, 0.25, 0.05); g.add(c); }
+  const l = new THREE.PointLight(0xff3030, 0.9, 5, 1.6); l.position.y = 0.5; g.add(l); g.userData.l = l; return g; };
+function zThrowMonkey(remote) {
+  if (!remote && !take('monkey_bomb', 1)) return false; const dir = getDir(), g = zMonkeyMesh();
+  g.position.set(player.pos.x + dir.x * 0.6, player.pos.y + EYE - 0.25, player.pos.z + dir.z * 0.6); scene.add(g); swing();
+  const b = { m: g, v: dir.multiplyScalar(10).add(new THREE.Vector3(0, 3.5, 0)), t: 6.5, land: false, mine: true, ph: 0, chT: 0, id: Z.zid++ + '_' + Math.floor(Math.random() * 1e6) };
+  Z.bombs.push(b); beep(600, 0.05, 'triangle', 0.05); renderHotbar(); return true;
+}
+function zBoom(x, y, z) { bigBoomSnd(false); if (typeof fireball === 'function') fireball(x, y + 0.3, z, 2.6, 0.6); if (typeof shockRing === 'function') shockRing(x, Math.floor(y), z, 6, 0.5); smokePuff(x, y + 0.5, z, 5, 0x6a6a6a); particles(x, y, z, new THREE.Color(0.3, 0.3, 0.3), 18); shake(0.4, 0.15); }
+function zUpdateBombs(dt) {
+  for (const b of [...Z.bombs]) {
+    if (b.m && !b.land) { const p = b.m.position; b.v.y -= 22 * dt;
+      for (const ax of ['x', 'y', 'z']) { const o = p[ax]; p[ax] += b.v[ax] * dt; if (solid(get(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)))) { p[ax] = o; b.v[ax] *= -0.3; b.v.x *= 0.6; b.v.z *= 0.6; } }
+      if (Math.abs(b.v.y) < 0.6 && solid(get(Math.floor(p.x), Math.floor(p.y - 0.05), Math.floor(p.z)))) { b.land = true; if (b.mine && Z.role === 'guest') zEv({ t: 'mb', id: b.id, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2) }); zStDirty(); } }
+    if (!b.land) continue;
+    b.t -= dt; b.chT -= dt; if (b.chT <= 0) { b.chT = 0.2; b.ph++; if (b.m || b.p) { const q = b.m ? b.m.position : b.p; if (q.distanceTo(player.pos) < 40) zChime(b.ph); } if (b.m) { b.m.rotation.y += 0.6; b.m.userData.l.intensity = b.ph % 2 ? 1.6 : 0.4; } }
+    if (b.t <= 0) { const q = b.m ? b.m.position.clone() : b.p.clone(); if (b.m) scene.remove(b.m); Z.bombs.splice(Z.bombs.indexOf(b), 1); zBoom(q.x, q.y, q.z);
+      if (Z.role !== 'guest') { const killer = b.mine; for (const m of zAlive()) if (m.g.position.distanceTo(q) < 4.5) hurtMob(m, 9999, killer ? player.pos : q); }   // zombies only: players are never hurt by it
+      zStDirty(); }
+  }
+}
+
+// ---------------- interacting: re-board, wall guns, door, Mystery Box, revive ----------------
+function zNear() {
+  const p = player.pos, fx = Math.sin(player.yaw) * -1, fz = Math.cos(player.yaw) * -1;
+  const facing = (x, z) => { const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz) || 1; return (dx * fx + dz * fz) / d; };
+  for (const r of Object.entries(ZN.remotes)) { const d = r[1].d; if (d && d.dn && !d.dd && Math.hypot(d.x - p.x, d.z - p.z) < 2.2) return { k: 'revive', u: r[0], name: d.n }; }
+  if (Z.box.st === 'ready' && Math.hypot(zBoxG.position.x - p.x, zBoxG.position.z - p.z) < 2.3) return { k: 'boxtake' };
+  for (let i = 0; i < ZWIN.length; i++) { const w = ZWIN[i]; if (!zRoomOpen(w.room)) continue; if (Math.hypot(w.in.x - p.x, w.in.z - p.z) < 2.1 && Z.boards[i] < ZBOARDS) return { k: 'board', i }; }
+  for (const wg of ZWALLGUNS) if (zRoomOpen(wg.room) && Math.hypot(wg.f.x - p.x, wg.f.z - p.z) < 2.0 && facing(wg.f.x, wg.f.z) > 0.3) return { k: 'wall', wg };
+  if (!Z.door && Math.hypot(ZDOOR.c.x - p.x, ZDOOR.c.z - p.z) < 2.4) return { k: 'door' };
+  if (Z.box.st === 'idle' && Math.hypot(zBoxG.position.x - p.x, zBoxG.position.z - p.z) < 2.3) return { k: 'box' };
+  return null;
+}
+const zHas = id => state.slots.some(s => s && s.id === id);
+function zPay(c) { if (Z.pts < c) { beep(180, 0.12, 'square', 0.05); toast(`⭐ Not enough points (need ${c})`); return false; } Z.pts -= c; beep(880, 0.06, 'triangle', 0.05); setTimeout(() => beep(1320, 0.08, 'triangle', 0.05), 70); zHudDraw(); return true; }
+function zGiveGun(id) { if (!ITEMS[id]) return; if (id === 'monkey_bomb' || id === 'grenade') { give(id, ZAMMO[id][1]); renderHotbar(); return; }
+  if (!zHas(id)) { const free = state.slots.findIndex((s, i) => i < 9 && !s); if (free >= 0) state.slots[free] = { id, n: 1 }; else state.slots[state.sel] = { id, n: 1 }; }
+  const a = ZAMMO[id]; if (a) give(a[0], a[1]); renderHotbar(); }
+function zUse() {   // ✋ / right click / R, one press
+  const n = zNear(); if (!n) return false;
+  if (n.k === 'wall') { const wg = n.wg, own = wg.id !== 'monkey_bomb' && zHas(wg.id);
+    if (own) { if (zPay(wg.ac)) { give(wg.ammo[0], wg.ammo[1]); renderHotbar(); toast(`🔫 Ammo for the ${ITEMS[wg.id].name}`); } }
+    else if (zPay(wg.cost)) { if (wg.id === 'monkey_bomb') give('monkey_bomb', wg.ammo[1]); else zGiveGun(wg.id); renderHotbar(); toast(`🔫 Bought ${ITEMS[wg.id].name}`); } return true; }
+  if (n.k === 'door') { if (zPay(ZDOOR.cost)) { if (Z.role === 'guest') zEv({ t: 'door' }); zDoorSet(true); zStDirty(); toast('🚪 The house is open! More windows to watch'); } return true; }
+  if (n.k === 'box') { if (zPay(ZBOX_COST)) zSpin(); return true; }
+  if (n.k === 'boxtake') { const id = Z.box.item; Z.box.st = 'idle'; Z.box.item = null; zBoxG.userData.rs.visible = false; zGiveGun(id); toast(`🎁 Got ${ITEMS[id].name}!`); return true; }
+  return n.k === 'board' || n.k === 'revive';
+}
+function zSpin() { Z.box.st = 'spin'; Z.box.t = 4.2; Z.box.show = 0; Z.box.spins++; Z.box.item = ZBOX_POOL[Math.floor(Math.random() * ZBOX_POOL.length)]; Z.box.teddy = false;
+  if (Z.role !== 'guest' && Z.box.spins >= 3 && Math.random() < 0.3) Z.box.teddy = true;   // host decides when the box moves
+  if (Z.role === 'guest') zEv({ t: 'spin' }); zBoxG.userData.rs.visible = true; for (let i = 0; i < 16; i++) setTimeout(() => beep(500 + (i % 4) * 160, 0.06, 'triangle', 0.035), i * 240); }
+function zMoveBox(to) { Z.box.spot = to; Z.box.spins = 0; zBoxPlace(); zStDirty(); }
+function zUpdateBox(dt) {
+  const b = Z.box, ud = zBoxG.userData; ud.beam.material.opacity = 0.16 + Math.sin(performance.now() / 300) * 0.06;
+  if (b.st === 'spin') { b.t -= dt; ud.lid.position.y = 0.86 + Math.min(0.4, (4.2 - b.t) * 0.5); b.show -= dt; ud.rs.position.y = 1.4 + (4.2 - b.t) * 0.12;
+    if (b.show <= 0) { b.show = 0.14 + (4.2 - b.t) * 0.04; zBoxDraw(ZBOX_POOL[Math.floor(Math.random() * ZBOX_POOL.length)]); }
+    if (b.t <= 0) { if (b.teddy) { zBoxDraw('teddy'); Z.pts += ZBOX_COST; zHudDraw(); b.st = 'gone'; b.t = 2.5; toast('🧸 The Mystery Box is moving! (points refunded)'); sweep(600, 120, 1.2, 'sawtooth', 0.05); }
+      else { zBoxDraw(b.item); b.st = 'ready'; b.t = 7; beep(1046, 0.25, 'triangle', 0.06); } } }
+  else if (b.st === 'ready') { b.t -= dt; if (b.t <= 0) { b.st = 'idle'; b.item = null; ud.rs.visible = false; } }
+  else if (b.st === 'gone') { b.t -= dt; ud.rs.position.y += dt * 2; if (b.t <= 0) { b.st = 'idle'; ud.rs.visible = false; let to = b.spot; while (to === b.spot) to = Math.floor(Math.random() * ZBOXSPOTS.length); zMoveBox(to); toast('🎁 The Mystery Box moved!'); } }
+  else { ud.lid.position.y = 0.86; }
+}
+function zHoldTick(dt) {   // things you hold the button for
+  const n = Z.hold && player.alive && !Z.down && !Z.dead ? zNear() : null; let prog = null;
+  if (n && n.k === 'board') { Z.rbT += dt; prog = Math.min(1, Z.rbT / 0.8); if (Z.rbT >= 0.8) { Z.rbT = 0; if (Z.boards[n.i] < ZBOARDS) { Z.boards[n.i]++; Z.pts += 10; zBoardsShow(); beep(300, 0.05, 'square', 0.05); noiseF(0.06, 0.1, 'bandpass', 900, 700, 3); if (Z.role === 'guest') zEv({ t: 'rb', w: n.i }); zStDirty(); zHudDraw(); } } }
+  else Z.rbT = 0;
+  if (n && n.k === 'revive') { Z.rvT += dt; prog = Math.min(1, Z.rvT / 3); if (Z.rvT >= 3) { Z.rvT = 0; db('PUT', `rooms/${ZN.code}/rv/${n.u}`, { by: auth ? auth.name : 'friend', t: Date.now() }).catch(() => {}); toast(`💉 Revived ${n.name || 'your friend'}!`); Z.pts += 100; } }
+  else Z.rvT = 0;
+  return prog;
+}
+function zPromptDraw(prog) {
+  if (!Z.started || Z.phase === 'over' || Z.down || Z.dead || uiOpen) { zPrompt.style.display = 'none'; return; }
+  const n = zNear(), key = isTouch ? '✋' : 'R / right click'; let t = '';
+  if (n) { if (n.k === 'board') t = `Hold ${key} to rebuild the window (+10)`; else if (n.k === 'wall') { const own = n.wg.id !== 'monkey_bomb' && zHas(n.wg.id); t = `${key}: ${own ? 'ammo' : 'buy ' + ITEMS[n.wg.id].name} (${own ? n.wg.ac : n.wg.cost} pts)`; }
+    else if (n.k === 'door') t = `${key}: clear the debris (${ZDOOR.cost} pts)`; else if (n.k === 'box') t = `${key}: Mystery Box (${ZBOX_COST} pts)`; else if (n.k === 'boxtake') t = `${key}: take the ${ITEMS[Z.box.item].name}`; else if (n.k === 'revive') t = `Hold ${key} to revive ${n.name || 'your friend'}`; }
+  zPrompt.style.display = t ? 'block' : 'none'; if (t) zPrompt.innerHTML = esc(t) + (prog != null ? `<div class="bar" style="width:${Math.round(prog * 100)}%"></div>` : '');
+}
+let zHudKey = '';
+function zHudDraw() {
+  if (!Z.on) return; const left = zAlive().length + Z.toSpawn, k = [Z.r, Z.pts, left, Z.phase, zPlayers()].join(); if (k === zHudKey) return; zHudKey = k;
+  zHud.innerHTML = `<div class="r">${Z.r ? 'ROUND ' + Z.r : 'GET READY'}</div><div class="p">⭐ ${Z.pts.toLocaleString()} pts</div><div class="s">${Z.phase === 'wave' ? `🧟 ${left} left` : Z.phase === 'break' ? 'next round soon...' : ''}${ZN.on ? ` · 👥 ${zPlayers()}/${MAX_PLAYERS}` : ''}${ZN.on && ZN.code ? ` · ${ZN.code}` : ''}</div>`;
+}
+
+// ---------------- downed / revive / game over ----------------
+const zCoopAlive = () => Object.values(ZN.remotes).some(r => r.d && performance.now() - r.recv < 12000 && !r.d.dn && !r.d.dd);
+{ const die0 = die; die = function (cause) {
+  if (!Z.on) return die0(cause);
+  if (Z.down || Z.dead || Z.phase === 'over') { state.hp = Math.max(1, state.hp); return; }
+  Z.downs++; state.hp = 20; renderVitals();
+  if (ZN.on && zCoopAlive()) { Z.down = true; Z.bleed = 30; holdBreak = false; toast('🩸 You\'re down! A teammate can revive you'); sweep(400, 90, 1.2, 'sawtooth', 0.06); zSendMe(true); return; }
+  zGameOver(); }; }
+function zUpdateDown(dt) {
+  if (Z.down) { Z.bleed -= dt; state.hp = 20; zDownEl.style.display = 'block'; zDownEl.innerHTML = `🩸 DOWNED<br><span style="font-size:15px">A teammate can revive you · ${Math.ceil(Z.bleed)}s</span>`;
+    if (Z.bleed <= 0) { Z.down = false; Z.dead = true; zSendMe(true); toast('💀 You bled out. You\'ll be back next game'); } }
+  else if (Z.dead && Z.phase !== 'over') { zDownEl.style.display = 'block'; zDownEl.innerHTML = '💀 BLED OUT<br><span style="font-size:15px">Watching your team...</span>'; }
+  else zDownEl.style.display = 'none';
+  // host: everyone down or dead = game over for the room
+  if (Z.role !== 'guest' && Z.phase !== 'over' && Z.started && (Z.down || Z.dead) && !zCoopAlive()) zGameOver();
+}
+const zOverP = zMk('zOver');
+function zGameOver(fromHost) {
+  if (Z.phase === 'over') return; Z.phase = 'over'; Z.over = Math.max(1, Z.r); Z.down = false; player.alive = true; holdBreak = false; zDownEl.style.display = 'none';
+  zRoundSnd(false); setTimeout(() => sweep(220, 50, 2, 'sawtooth', 0.06), 600); zSendMe(true); zStDirty();
+  const rows = [[auth && ZN.on ? auth.name : 'You', Z.pts, Z.kills, Z.downs, true], ...Object.values(ZN.remotes).filter(r => r.d && performance.now() - r.recv < 20000).map(r => [r.d.n || 'Player', r.d.pts | 0, r.d.k | 0, r.d.dw | 0, false])];
+  document.getElementById('zOverBox').innerHTML = `<h2 style="color:#ff3a2a;font-size:34px;margin:4px 0">GAME OVER</h2><p style="font-size:18px">You survived <b>${Z.over}</b> round${Z.over === 1 ? '' : 's'}</p>
+    <div class="zgrid"><b>Player</b><b>⭐ Points</b><b>🧟 Kills</b><b>🩸 Downs</b>${rows.map(r => `<span>${esc(r[0])}${r[4] ? ' (you)' : ''}</span><span>${r[1]}</span><span>${r[2]}</span><span>${r[3]}</span>`).join('')}</div>
+    <div class="frow">${Z.role !== 'guest' ? '<button class="btn gold" data-z="again">🔁 Play again</button>' : '<span style="opacity:.8;font-size:13px">Waiting for the host to start again...</span>'}<button class="btn" data-z="quit">🏠 Main menu</button></div>`;
+  openPanel('zOver');
+}
+zOverP.addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('[data-z]'); if (!b) return; if (b.dataset.z === 'again') zRestart(); if (b.dataset.z === 'quit') zQuit(); });
+function zReset() {   // fresh game on this client
+  for (const m of [...mobs]) if (m.zm) removeMob(m, false); for (const b of Z.bombs) if (b.m) scene.remove(b.m);
+  Object.assign(Z, { phase: Z.role === 'guest' ? 'wave' : 'break', r: 0, toSpawn: 0, breakT: 4, pts: 500, kills: 0, downs: 0, boards: ZWIN.map(() => ZBOARDS), bombs: [], down: false, dead: false, over: 0 });
+  Object.assign(Z.box, { spot: 0, st: 'idle', item: null, spins: 0 }); zBoxG.userData.rs.visible = false; zBoxPlace(); zBoardsShow(); zDoorSet(false); zLoadout();
+  const sp = zSpawnPos(); player.pos.set(sp[0], sp[1], sp[2]); player.vel.set(0, 0, 0); player.yaw = -Math.PI / 2; player.pitch = 0; player.alive = true;
+  zHudKey = ''; zHudDraw(); if (zOverP.classList.contains('show')) closePanels();
+}
+function zRestart() { Z.go++; zReset(); zStDirty(); zSendMe(true); if (!isTouch && playing) canvas.requestPointerLock(); }
+
+// ---------------- intro / pause / quit ----------------
+const zIntroP = zMk('zIntro'), zPauseP = zMk('zPause');
+function zIntroDraw(msg) {
+  const peace = settings.difficulty === 'peaceful', host = Z.role === 'host', guest = Z.role === 'guest';
+  const list = [`${esc(auth ? auth.name : 'You')} (you)${host ? ' 👑' : ''}`, ...Object.values(ZN.remotes).filter(r => r.d && performance.now() - r.recv < 12000).map(r => esc(r.d.n || 'Player'))];
+  document.getElementById('zIntroBox').innerHTML = `<h2 style="color:#ff3a2a">🧟 ZOMBIES</h2>
+    <p style="font-size:13px;opacity:.85">Shoot zombies for ⭐ points. Hold ✋ (or R / right click) at a broken window to board it up. Buy guns off the walls, clear the 🚪 debris to open the house, spin the 🎁 Mystery Box and throw 🐒 Monkey Bombs to pull zombies away.</p>
+    ${peace ? '<p style="color:#7dff9a;font-size:13px">☮️ Peaceful: zombies can\'t hurt you.</p>' : ''}
+    ${ZN.on || host || guest ? `<div class="zrow"><span class="nm">Game code<br><span style="font-size:12px;opacity:.7">${host ? 'Send this to friends: 🧟 Zombies → Join' : 'Hosted by ' + esc((ZM && ZM.host) || 'a friend')}</span></span><b class="code">${ZN.code || '...'}</b></div><h3>Players ${list.length}/${MAX_PLAYERS}</h3>${list.map(n => `<div class="zrow"><span class="nm">🧍 ${n}</span></div>`).join('')}` : ''}
+    <div class="amsg">${esc(msg || ZN.msg || '')}</div>
+    <div class="frow"><button class="btn gold" data-z="start" ${host && !ZN.code ? 'disabled' : ''}>${guest ? (Z.hostStarted ? '▶ Jump in' : '✅ Ready') : '▶ Start'}</button><button class="btn" data-z="quit">🏠 Main menu</button></div>`;
+}
+zIntroP.addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('[data-z]'); if (!b) return; if (b.dataset.z === 'start') zStart(); if (b.dataset.z === 'quit') zQuit(); });
+function zStart() {
+  closePanels(); document.getElementById('start').style.display = 'none'; document.body.classList.remove('menu'); playing = true; Z.started = true;
+  if (AC && AC.state === 'suspended') AC.resume(); try { startAmbience(); } catch (e) {} if (!isTouch) canvas.requestPointerLock();
+  if (Z.role !== 'guest' && Z.phase === 'intro') { Z.phase = 'break'; Z.breakT = 3; zBanner('🧟 ZOMBIES', 'get ready...', 2.5); zStDirty(); }
+  zHud.style.display = 'block'; zHudKey = ''; zHudDraw(); zSendMe(true);
+}
+function zPause() { if (Z.phase === 'over') return; playing = Z.role !== 'solo'; holdBreak = false;   // co-op keeps going while you're in the menu
+  document.getElementById('zPauseBox').innerHTML = `<h2>⏸ Paused</h2><p style="font-size:13px;opacity:.8">${Z.role === 'solo' ? 'The zombies are waiting.' : 'Co-op keeps going while you\'re here!'}</p><div class="frow"><button class="btn gold" data-z="resume">▶ Resume</button><button class="btn" data-z="quit">🏠 Quit to menu</button></div>`;
+  openPanel('zPause'); }
+zPauseP.addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('[data-z]'); if (!b && e.target === zPauseP) return; if (!b) return; if (b.dataset.z === 'resume') { closePanels(); playing = true; if (!isTouch) canvas.requestPointerLock(); } if (b.dataset.z === 'quit') zQuit(); });
+async function zQuit() {
+  try { if (ZN.on) { ZN.on = false; if (ZN.es) ZN.es.close(); if (Z.role === 'host') { await db('PATCH', 'rooms/' + ZN.code + '/meta', { open: false }).catch(() => {}); await db('DELETE', 'rooms/' + ZN.code).catch(() => {}); } else await db('DELETE', `rooms/${ZN.code}/players/${auth.uid}`).catch(() => {}); } } catch (e) {}
+  saveBlocked = true; location.reload();
+}
+
+// ---------------- co-op online (own room format: meta.zm = 1) ----------------
+const ZN = { on: false, code: null, es: null, remotes: {}, posT: 0, zsT: 0, stT: 0, hbT: 0, evT: 0, stDirty: false, busyP: false, busyZ: false, evDone: [], msg: '', lastSt: '' };
+const zStDirty = () => { ZN.stDirty = true; };
+function zEv(o) { if (!ZN.on || Z.role !== 'guest') return; db('POST', `rooms/${ZN.code}/ev`, Object.assign({ u: auth.uid, at: Date.now() }, o)).catch(() => {}); }
+const zMe = () => ({ n: auth.name, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yw: +player.yaw.toFixed(2), p: +player.pitch.toFixed(2), sk: mySkin(), t: Date.now(),
+  dn: Z.down ? 1 : 0, dd: Z.dead ? 1 : 0, pts: Z.pts, k: Z.kills, dw: Z.downs, rd: Z.started ? 1 : 0, g: held() || '' });
+function zSendMe(now) { if (!ZN.on) return; if (now) ZN.posT = 1; }
+const zStNet = () => ({ r: Z.r, ph: Z.phase, b: Z.boards.join(','), d: Z.door, bx: Z.box.spot, over: Z.over, go: Z.go, left: zAlive().length + Z.toSpawn,
+  mb: Z.bombs.filter(b => b.land).map(b => { const q = b.m ? b.m.position : b.p; return [b.id, +q.x.toFixed(2), +q.y.toFixed(2), +q.z.toFixed(2), +b.t.toFixed(1)].join(','); }).join(';'), t: Date.now() });
+async function zHostRoom() {
+  ZN.msg = 'Opening your game online...'; zIntroDraw();
+  try { const code = newCode();
+    await db('PUT', 'rooms/' + code, { meta: { host: auth.uid, hostName: auth.name, open: true, zm: 1, created: Date.now(), hb: Date.now(), pc: 1, name: '🧟 ' + auth.name + "'s Zombies", ver: V115 }, st: zStNet(), players: { [auth.uid]: zMe() } });
+    ZN.on = true; ZN.code = code; ZN.msg = ''; await zStream(); zIntroDraw(); zHudKey = ''; zHudDraw();
+  } catch (e) { ZN.msg = '⚠️ Could not open online: ' + e.message + ' (playing solo)'; Z.role = 'solo'; zIntroDraw(); }
+}
+async function zGuestJoin() { ZN.on = true; ZN.code = ZM.code; ZN.msg = 'Connecting...'; zIntroDraw();
+  try { await zStream(); ZN.msg = ''; ZN.posT = 1; zIntroDraw(); } catch (e) { ZN.on = false; ZN.msg = '⚠️ Could not join: ' + e.message; zIntroDraw(); } }
+async function zStream() {
+  if (ZN.es) ZN.es.close(); const t = await token(), es = new EventSource(`${FB_DB}/rooms/${ZN.code}.json?auth=${t}`); ZN.es = es;
+  const handle = (ev, patch) => { try { const m = JSON.parse(ev.data); if (!m) return; if (patch) for (const k in m.data) zOnNet(join(m.path, k), m.data[k]); else zOnNet(m.path, m.data); } catch (e) { console.warn('zn', e); } };
+  es.addEventListener('put', e => handle(e, false)); es.addEventListener('patch', e => handle(e, true));
+  es.addEventListener('auth_revoked', () => { token().then(() => ZN.on && zStream()).catch(() => {}); });
+  es.addEventListener('cancel', () => { if (ZN.on && Z.role === 'guest') zHostGone(); });
+}
+function zHostGone() { if (!ZN.on) return; ZN.on = false; if (ZN.es) ZN.es.close(); localStorage.setItem('dc_mp_msg', '🧟 The host closed the Zombies game'); saveBlocked = true; location.reload(); }
+function zOnNet(path, data) {
+  const seg = path.split('/').filter(Boolean);
+  if (!seg.length) { if (data == null) { if (Z.role === 'guest') zHostGone(); return; } for (const k in data) zOnNet('/' + k, data[k]); return; }
+  const [top, key, ...rest] = seg;
+  if (top === 'meta') { if ((key === 'open' && data === false) || (!key && (!data || data.open === false))) { if (Z.role === 'guest') zHostGone(); } return; }
+  if (top === 'players') {
+    if (!key) { for (const u in (data || {})) zOnNet('/players/' + u, data[u]); return; }
+    if (auth && key === auth.uid) return;
+    if (data == null && !rest.length) { zRemoveRemote(key); return; }
+    const r = ZN.remotes[key] || (ZN.remotes[key] = { d: {}, recv: 0, av: null, skinKey: '' });
+    if (rest.length) r.d[rest[0]] = data; else r.d = data; r.recv = performance.now(); return;
+  }
+  if (top === 'rv') { if (!key) { for (const u in (data || {})) zOnNet('/rv/' + u, data[u]); return; }
+    if (auth && key === auth.uid && data && Z.down) { Z.down = false; state.hp = 12; renderVitals(); toast(`💉 ${data.by || 'A teammate'} revived you!`); zSendMe(true); db('DELETE', `rooms/${ZN.code}/rv/${auth.uid}`).catch(() => {}); } return; }
+  if (Z.role === 'guest') {
+    if (top === 'st') { const s = key ? Object.assign({}, ZN.st || {}, { [key]: data }) : data; if (!s) return; ZN.st = s; zApplySt(s); return; }
+    if (top === 'zs') { ZN.zs = data; zApplyZs(data || ''); return; }
+  } else if (top === 'ev') {
+    if (!key) { for (const k in (data || {})) zOnNet('/ev/' + k, data[k]); return; }
+    if (data && !rest.length) { zHostEv(data); ZN.evDone.push(key); }
+  }
+}
+function zHostEv(e) {
+  const r = ZN.remotes[e.u], rp = r && r.d ? new THREE.Vector3(r.d.x, r.d.y, r.d.z) : new THREE.Vector3(ZX, ZY, ZZ);
+  if (e.t === 'hit') { const m = mobs.find(m => m.zm && m.zm.id === e.id); if (m) hurtMob(m, Math.min(60, +e.d || 0), rp); }
+  else if (e.t === 'rb') { const i = e.w | 0; if (Z.boards[i] < ZBOARDS) { Z.boards[i]++; zBoardsShow(); zStDirty(); } }
+  else if (e.t === 'door') { if (!Z.door) { zDoorSet(true); zStDirty(); toast(`🚪 ${(r && r.d.n) || 'A teammate'} opened the house`); } }
+  else if (e.t === 'spin') { Z.box.spins++; if (Z.box.spins >= 4 && Math.random() < 0.3) { let to = Z.box.spot; while (to === Z.box.spot) to = Math.floor(Math.random() * ZBOXSPOTS.length); setTimeout(() => { zMoveBox(to); toast('🎁 The Mystery Box moved!'); }, 6000); } }
+  else if (e.t === 'mb') { Z.bombs.push({ p: new THREE.Vector3(+e.x, +e.y, +e.z), t: 6.5, land: true, mine: false, ph: 0, chT: 0, id: String(e.id), m: null, remote: e.u }); zStDirty(); }
+}
+function zApplySt(s) {   // guest: the host's shared state
+  if (s.go != null && s.go !== Z.go) { Z.go = s.go; zReset(); }
+  Z.r = s.r | 0; if (s.ph) Z.phase = s.ph === 'intro' ? 'break' : s.ph; if (s.ph && s.ph !== 'intro') Z.hostStarted = true;
+  if (s.left != null) Z.toSpawn = Math.max(0, (s.left | 0) - zAlive().length);
+  if (typeof s.b === 'string') { const b = s.b.split(',').map(Number); if (b.length === ZWIN.length) { Z.boards = b; zBoardsShow(); } }
+  if ((s.d | 0) !== Z.door) zDoorSet(!!s.d);
+  if (s.bx != null && (s.bx | 0) !== Z.box.spot) { Z.box.spot = s.bx | 0; zBoxPlace(); if (Z.started) toast('🎁 The Mystery Box moved!'); }
+  // monkey bombs thrown by others: show them, chime, and the boom when they go
+  const want = new Map(); for (const e of String(s.mb || '').split(';').filter(Boolean)) { const [id, x, y, z, t] = e.split(','); want.set(id, [+x, +y, +z, +t]); }
+  for (const b of [...Z.bombs]) if (!b.mine && !want.has(b.id)) { if (b.m) { const q = b.m.position; scene.remove(b.m); zBoom(q.x, q.y, q.z); } Z.bombs.splice(Z.bombs.indexOf(b), 1); }
+  for (const [id, v] of want) if (!Z.bombs.some(b => b.id === id)) { const g = zMonkeyMesh(); g.position.set(v[0], v[1], v[2]); scene.add(g); Z.bombs.push({ m: g, id, land: true, t: v[3], mine: false, ph: 0, chT: 0, v: new THREE.Vector3() }); }
+  if (s.over && Z.phase !== 'over' && Z.started) zGameOver(true); else if (s.over && !Z.started) Z.phase = 'over';
+  zHudKey = ''; zHudDraw(); if (zIntroP.classList.contains('show')) zIntroDraw();
+}
+function zApplyZs(str) {   // guest: zombie proxies from the host's snapshot
+  const seen = new Set();
+  for (const e of String(str).split(';').filter(Boolean)) { const [id, x, y, z, ry, hp, ph] = e.split(','); const n = +id; seen.add(n);
+    let m = mobs.find(m => m.zm && m.zm.id === n);
+    if (!m) { m = spawnMob('zombie', +x, +y, +z); if (!m) continue; m.g.position.set(+x, +y, +z); m.zm = { id: n, proxy: true, ph: zPhR[ph] || 'in', tx: +x, ty: +y, tz: +z, ry: +ry, atk: 0 }; }
+    const zz = m.zm; zz.tx = +x; zz.ty = +y; zz.tz = +z; zz.ry = +ry; zz.ph = zPhR[ph] || 'in'; if (!zz.gone) m.hp = +hp; zz.seen = performance.now(); }
+  for (const m of [...mobs]) if (m.zm && m.zm.proxy && !seen.has(m.zm.id)) { particles(m.g.position.x, m.g.position.y + 1, m.g.position.z, new THREE.Color(0.35, 0.5, 0.2), 10); removeMob(m, false); }
+}
+const zPh = { out: 'o', tear: 't', climb: 'c', in: 'i' };
+const zPhR = { o: 'out', t: 'tear', c: 'climb', i: 'in' };
+function zProxies(dt, t) {
+  for (const m of mobs) { const z = m.zm; if (!z || !z.proxy) continue; const p = m.g.position, k = Math.min(1, dt * 8), ox = p.x, oz = p.z;
+    p.x += (z.tx - p.x) * k; p.y += (z.ty - p.y) * k; p.z += (z.tz - p.z) * k; let dy = z.ry - m.g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); m.g.rotation.y += dy * k;
+    const mv = Math.hypot(p.x - ox, p.z - oz) / Math.max(dt, 0.001), sw = mv > 0.2 ? Math.sin(t * 9 + z.id) * 0.7 : 0; if (m.legs && m.legs.length) { m.legs[0].rotation.x = sw; m.legs[1].rotation.x = -sw; }
+    if (m.arms && m.arms.length) m.arms[0].rotation.x = m.arms[1].rotation.x = z.ph === 'tear' ? -1.6 + Math.sin(t * 9) * 0.5 : -1.45; }
+}
+function zRemoveRemote(u) { const r = ZN.remotes[u]; if (!r) return; if (r.av) scene.remove(r.av.g); delete ZN.remotes[u]; }
+function zNetTick(dt, t) {
+  if (!ZN.on) return; ZN.posT += dt; ZN.zsT += dt; ZN.stT += dt; ZN.hbT += dt; ZN.evT += dt;
+  if (ZN.posT > 0.2 && !ZN.busyP) { ZN.posT = 0; ZN.busyP = true; db('PUT', `rooms/${ZN.code}/players/${auth.uid}`, zMe()).catch(() => {}).finally(() => { ZN.busyP = false; }); }
+  if (Z.role === 'host') {
+    if (ZN.zsT > 0.15 && !ZN.busyZ) { ZN.zsT = 0; ZN.busyZ = true; const s = zAlive().map(m => { const p = m.g.position; return [m.zm.id, p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2), m.g.rotation.y.toFixed(2), Math.max(0, m.hp | 0), zPh[m.zm.ph] || 'i'].join(','); }).join(';');
+      db('PUT', `rooms/${ZN.code}/zs`, s).catch(() => {}).finally(() => { ZN.busyZ = false; }); }
+    if ((ZN.stDirty && ZN.stT > 0.25) || ZN.stT > 2) { const st = zStNet(), k = JSON.stringify(Object.assign({}, st, { t: 0 })); ZN.stT = 0; ZN.stDirty = false; if (k !== ZN.lastSt || Math.random() < 0.2) { ZN.lastSt = k; db('PUT', `rooms/${ZN.code}/st`, st).catch(() => {}); } }
+    if (ZN.hbT > 8) { ZN.hbT = 0; db('PATCH', `rooms/${ZN.code}/meta`, { hb: Date.now(), pc: zPlayers() }).catch(() => {}); }
+    if (ZN.evT > 0.6 && ZN.evDone.length) { ZN.evT = 0; const p = {}; for (const k of ZN.evDone.splice(0)) p['ev/' + k] = null; db('PATCH', `rooms/${ZN.code}`, p).catch(() => {}); }
+  }
+  const now = performance.now();
+  for (const u in ZN.remotes) {
+    const r = ZN.remotes[u], d = r.d; if (!d || d.x == null) continue; if (now - r.recv > 60000) { zRemoveRemote(u); continue; }
+    const sk = JSON.stringify(d.sk || {}); if (!r.av || sk !== r.skinKey) { if (r.av) scene.remove(r.av.g); r.av = buildAvatar(d.sk || randomSkin(u)); r.av.g.add(nameTag(d.n || 'Player')); scene.add(r.av.g); r.skinKey = sk; r.av.g.position.set(d.x, d.y, d.z); }
+    const g = r.av.g; g.visible = now - r.recv < 12000 && !d.dd; const ox = g.position.x, oz = g.position.z, k = Math.min(1, dt * 10);
+    g.position.x += (d.x - g.position.x) * k; g.position.y += (d.y - g.position.y) * k; g.position.z += (d.z - g.position.z) * k;
+    let dy = (d.yw + Math.PI) - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * k; r.av.head.rotation.x = -(d.p || 0) * 0.6;
+    animAvatar(r.av, Math.hypot(g.position.x - ox, g.position.z - oz) / Math.max(dt, 0.001), t, !!d.dn);
+  }
+}
+
+// ---------------- hooking into the game (only when ZM is on) ----------------
+if (ZM_ON) {
+  document.body.classList.add('zm'); saveBlocked = true;
+  state.seed = 1337; state.time = DAY * 0.505; state.crops = {}; state.pets = []; state.boats = []; state.waypoints = []; state._welcomed = true;
+  { const sp = zSpawnPos(); state.pos = sp; player.pos.set(sp[0], sp[1], sp[2]); player.yaw = -Math.PI / 2; player.pitch = 0; }
+  VIEW = Math.min(VIEW, 3);
+  zLoadout(); zBoardsShow();
+  for (const v of villagers) { v.g.visible = false; v.g.position.set(VX, -200, VZ); }
+  for (const gh of ghosts) if (gh.g) gh.g.visible = false;
+  saveExplored = function () {}; lbSubmit = async function () {}; updateStory = function () {}; updateVillagers = function () {}; updateSpooks = function () {};
+  updateTowns = function () {}; updateCars = function () {}; updateServices = function () {}; updateWeather = function () {}; updateSea = function () {};
+  updateRoads = function () {};
+  updateMobs = function (dt, t) {
+    for (const m of [...mobs]) if (!m.zm) removeMob(m, false);   // nothing but zombies in here
+    if (Z.role !== 'guest' && (Z.started || ZN.on)) zSim(dt, t); else zProxies(dt, t);
+  };
+  { const up0 = updatePlayer; updatePlayer = function (dt) { if (Z.down || Z.dead || Z.phase === 'over') { player.vel.set(0, 0, 0); camera.position.set(player.pos.x, player.pos.y + (Z.down ? 0.5 : EYE), player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); return false; } return up0(dt); }; }
+  { const um0 = updateMining; updateMining = function (dt) { if (heldGun()) return um0(dt); mine.key = null; crackMesh.visible = false; mine.cd = Math.max(0, mine.cd - dt);   // no digging the walls
+    const h = holdBreak && playing && !uiOpen && player.alive ? raycast() : null; if (h && h.kind === 'mob' && holdBreak) attackOrSwing(); }; }
+  { const ua0 = useAction; useAction = function () { if (!player.alive || Z.down || Z.dead) return; if (zUse()) return; if (held() === 'monkey_bomb') { zThrowMonkey(); return; } return ua0(); }; }
+  { const aw0 = attackOrSwing; attackOrSwing = function () { if (held() === 'monkey_bomb' && !Z.down) { zThrowMonkey(); return; } return aw0(); }; }
+  showStart = function () { if (Z.phase === 'intro') return; zPause(); };
+  // hold-to-use: ✋ button, right mouse, R
+  { const bu = document.getElementById('bUse'); if (bu) { bu.addEventListener('touchstart', () => { Z.hold = true; }); bu.addEventListener('touchend', () => { Z.hold = false; }); bu.addEventListener('touchcancel', () => { Z.hold = false; }); } }
+  canvas.addEventListener('mousedown', e => { if (e.button === 2) Z.hold = true; }); addEventListener('mouseup', e => { if (e.button === 2) Z.hold = false; });
+  addEventListener('keydown', e => { if (e.code === 'KeyR' && !e.repeat && playing && !uiOpen) { Z.hold = true; zUse(); } }); addEventListener('keyup', e => { if (e.code === 'KeyR') Z.hold = false; });
+  const u = updateV113; updateV113 = function (dt, t) { u(dt, t); try { zFrame(dt, t); } catch (e) { console.warn('zombies', e); } };
+  // boot: hide the title screen and show the Zombies intro
+  setTimeout(() => { document.getElementById('start').style.display = 'none'; document.body.classList.remove('menu'); zIntroDraw(); openPanel('zIntro');
+    if (Z.role === 'host') { if (auth) zHostRoom(); else { Z.role = 'solo'; ZN.msg = 'Log in to host online (playing solo)'; zIntroDraw(); } }
+    if (Z.role === 'guest') { if (auth) zGuestJoin(); else { Z.role = 'solo'; ZN.msg = 'Log in to join online (playing solo)'; zIntroDraw(); } } }, 50);
+}
+let zIntroT = 0;
+function zFrame(dt, t) {
+  state.time = DAY * 0.505; state.food = 20; if (state.sat < 5) state.sat = 5;
+  if (zBanT > 0) { zBanT -= dt; if (zBanT <= 0) zBanEl.classList.remove('on'); }
+  // keep everyone inside the compound
+  if (player.alive && Z.started) { const p = player.pos; p.x = Math.max(ZX + ZW.x0 + 1.3, Math.min(ZX + ZW.x1 - 0.3, p.x)); p.z = Math.max(ZZ + ZW.z0 + 1.3, Math.min(ZZ + ZW.z1 - 0.3, p.z)); if (p.y > ZY + 6) p.y = ZY + 6; if (p.y < ZY - 0.5) p.y = ZY; }
+  zUpdateBombs(dt); zUpdateBox(dt); zAttacks(dt); zUpdateDown(dt);
+  const prog = zHoldTick(dt); zPromptDraw(prog); zNetTick(dt, t); zHudDraw();
+  if (zIntroP.classList.contains('show')) { zIntroT -= dt; if (zIntroT <= 0) { zIntroT = 1; zIntroDraw(); } }
+}
+window.__dcZ = { Z, ZN, ZWIN, ZWALLGUNS, ZBOXSPOTS, ZDOOR, ZBOX_POOL, zBlock, zSpawn, zSim, zNextRound, zAlive, zHp, zCount, zUse, zNear, zSpin, zThrowMonkey, zStart, zReset, zRestart, zGameOver, zQuit, zLaunch, zJoinCheck, zBoxG, zDoorSet, zMoveBox, zStNet, zIntroDraw, openZMenu, zFlowFrom, zEv,
+  get on() { return ZM_ON; }, tick(dt, n = 1) { for (let i = 0; i < n; i++) { if (Z.role !== 'guest') zSim(dt, performance.now() / 1000); else zProxies(dt, performance.now() / 1000); zUpdateBombs(dt); zUpdateBox(dt); zAttacks(dt); zUpdateDown(dt); zHoldTick(dt); } } };
+
 // ================== SOUNDS ==================
 let ambStarted = false;
 function startAmbience() {
@@ -10047,7 +12177,7 @@ addEventListener('pagehide', save);
 
 // ================== BOOT ==================
 for (const k in state.edits) indexEdit(k);
-if (freshGame) {
+if (freshGame && !ZM) {
   const st = [[6, 6, 'wheat'], [7, 6, 'wheat'], [6, 7, 'pumpkin'], [7, 7, 'pumpkin']];
   for (const [dx, dz, ty] of st) state.crops[(VX + dx) + ',' + (G + 1) + ',' + (VZ + dz)] = { type: ty, t: -30 };
 }
