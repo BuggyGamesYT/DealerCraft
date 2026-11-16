@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>DealerCraft: Spooky Season by Buggy Games YT</title>
+<title>DealerCraft: Thanksgiving by Buggy Games YT</title>
 <meta name="description" content="DealerCraft: a blocky 3D farming game. Grow crops, craft goods and sell them to villagers. By Buggy Games YT.">
 <meta name="theme-color" content="#150a1e">
 <link rel="icon" href="icon.png">
@@ -44,11 +44,11 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .close{float:right}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:5px}
 .up{color:#6f6}.down{color:#f77}
-#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,rgba(255,110,20,.28),rgba(40,10,60,.6) 45%,rgba(0,0,0,.9));z-index:10;text-align:center;padding:20px;cursor:pointer}
-#start h1{font-size:min(72px,13vw);margin:0;line-height:1;color:#ff8a1a;text-shadow:-4px 0 #7a2bd6,4px 0 #39ff7a,0 6px 0 #000,0 0 30px rgba(255,120,20,.8);animation:flick 3s infinite}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,rgba(255,170,40,.35),rgba(120,50,10,.65) 45%,rgba(30,12,4,.92));z-index:10;text-align:center;padding:20px;cursor:pointer}
+#start h1{font-size:min(72px,13vw);margin:0;line-height:1;color:#ffb12a;text-shadow:-4px 0 #8a3a12,4px 0 #c8501a,0 6px 0 #2a1204,0 0 30px rgba(255,170,40,.7)}
 @keyframes flick{0%,100%{opacity:1}47%{opacity:1}48%{opacity:.55}50%{opacity:1}52%{opacity:.7}53%{opacity:1}}
-#start .ed{font-size:18px;color:#39ff7a;letter-spacing:3px;margin-top:6px;text-shadow:0 0 10px #39ff7a}
-#start .sub{margin:10px 0 18px;font-size:17px;color:#d8ccff}
+#start .ed{font-size:18px;color:#ffd27a;letter-spacing:3px;margin-top:6px;text-shadow:0 0 10px #e07a1a}
+#start .sub{margin:10px 0 18px;font-size:17px;color:#ffe6c0}
 #start .play{font-size:24px;padding:12px 34px;border-radius:12px;background:#e8650f;border:3px solid #a33f00;box-shadow:0 5px 0 #5a2200,0 0 24px rgba(255,120,20,.6);font-weight:700}
 #start .help{margin-top:18px;font-size:14px;color:#bbb;line-height:1.6;max-width:560px}
 #start .by{position:absolute;bottom:12px;font-size:13px;color:#999}
@@ -173,6 +173,8 @@ body:not(.touch) #bUp,body:not(.touch) #bDown{display:none!important}body:not(.t
 #flashFx{position:fixed;inset:0;background:#fffbe8;pointer-events:none;display:none;z-index:40}
 #stunFx{position:fixed;inset:0;background:radial-gradient(rgba(120,190,255,0),rgba(90,160,255,.45));pointer-events:none;display:none;z-index:6;animation:stunfl .15s infinite alternate}
 @keyframes stunfl{from{opacity:.6}to{opacity:1}}
+#start .leaves{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}#start .leaf{position:absolute;top:-40px;font-size:26px;opacity:.85;animation:leafFall 10s linear infinite}@keyframes leafFall{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(40px,55vh) rotate(180deg)}100%{transform:translate(-20px,110vh) rotate(360deg)}}#start>*:not(.leaves){position:relative;z-index:1}
+#hotbar,#vitals,#offSlot{z-index:5}
 </style>
 </head>
 <body class="menu">
@@ -204,10 +206,11 @@ body:not(.touch) #bUp,body:not(.touch) #bDown{display:none!important}body:not(.t
 <div id="death"><h1 class="px">YOU DIED!</h1><p id="deathMsg"></p><p style="font-size:14px;opacity:.85">Your items are safe in a 🪦 gravestone where you fell.</p><button class="btn gold" id="bRespawn" style="font-size:20px;padding:12px 28px">Respawn</button></div>
 <div id="scare"><img id="scareImg" alt=""></div>
 <div id="start">
+  <div class="leaves"><span class="leaf" style="left:6%;animation-delay:0s;animation-duration:9s">🍂</span><span class="leaf" style="left:18%;animation-delay:3s;animation-duration:11s">🍁</span><span class="leaf" style="left:31%;animation-delay:6s;animation-duration:10s">🍂</span><span class="leaf" style="left:47%;animation-delay:1s;animation-duration:12s">🍁</span><span class="leaf" style="left:62%;animation-delay:4s;animation-duration:9s">🍂</span><span class="leaf" style="left:76%;animation-delay:7s;animation-duration:11s">🍁</span><span class="leaf" style="left:90%;animation-delay:2s;animation-duration:10s">🍂</span></div>
   <h1 class="px">DEALER<br>CRAFT</h1>
-  <div class="ed px">🎃 SPOOKY SEASON · SURVIVAL 🎃</div>
-  <div class="sub">Survive the night. Craft tools. Grow pumpkins. Explore an endless haunted world.</div>
-  <div class="play" id="playBtn">🎃 PLAY</div>
+  <div class="ed px">🦃 HARVEST SEASON · THANKSGIVING 🦃</div>
+  <div class="sub">Hunt turkeys. Grow giant pumpkins. Cook the big feast. Explore an endless world.</div>
+  <div class="play" id="playBtn">🦃 PLAY</div>
   <div id="worlds"></div>
   <div class="help" id="helpText"></div>
   <div class="by">by Buggy Games YT · <a class="donate" href="https://cash.app/$BuggyGamesYT" target="_blank" rel="noopener">💚 Donate</a></div>
