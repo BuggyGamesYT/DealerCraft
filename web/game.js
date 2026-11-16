@@ -687,6 +687,25 @@ function wgChOld(cx, cz) { wgSets(); return wgAll() || wgOldSet.has(cx + ',' + c
 function wgRegNew(rx, rz) { wgSets(); return !wgAll() && !wgOldReg.has(rx + ',' + rz); }
 const helipads = new Map();   // chunk key -> rooftop helipad {x, y, z, heli, key}
 
+// ================== v1.16: THANKSGIVING ==================
+Object.assign(ITEMS, {
+  raw_turkey: { name: 'Raw Turkey', emoji: '🦃', tag: 'RAW', food: 2 },
+  roast_turkey: { name: 'Roast Turkey', emoji: '🍗', tag: 'TKY', food: 10 },
+  mashed_potatoes: { name: 'Mashed Potatoes', emoji: '🥔', tag: 'MASH', food: 6 },
+  cranberry_sauce: { name: 'Cranberry Sauce', emoji: '🫐', tag: 'CRAN', food: 4 },
+  stuffing: { name: 'Stuffing', emoji: '🍞', tag: 'STUF', food: 6 },
+  thanksgiving_feast: { name: 'Thanksgiving Feast', emoji: '🦃', tag: 'FEAST', food: 20 },
+  giant_pumpkin: { name: 'Giant Pumpkin (prize)', emoji: '🎃', tag: 'BIG' },
+});
+Object.assign(SMELT, { raw_turkey: 'roast_turkey' });
+shapeless('mashed_potatoes', 1, ['baked_potato', 'baked_potato']);
+shapeless('cranberry_sauce', 1, ['berries', 'berries', 'berries']);
+shapeless('stuffing', 1, ['bread', 'wheat']);
+shapeless('thanksgiving_feast', 1, ['roast_turkey', 'mashed_potatoes', 'cranberry_sauce', 'stuffing', 'pumpkin_pie']);
+Object.assign(VILLAGERS[0].buys, { giant_pumpkin: 150 });
+Object.assign(VILLAGERS[1].buys, { thanksgiving_feast: 120, stuffing: 18, mashed_potatoes: 16, cranberry_sauce: 12 });
+Object.assign(VILLAGERS[2].buys, { roast_turkey: 20, raw_turkey: 7 });
+
 // ================== RANDOM / NOISE ==================
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hash2(x, z, s) { let h = x * 374761393 + z * 668265263 + s * 982451653; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -3451,6 +3470,7 @@ function removeCrop(key, drop) {
       const a = rint(...cr.yield) * (cr.tall ? (c.tall || 2) - 1 : 1), s = rint(...cr.seeds);
       give(CROP_ITEM[c.type], a); if (s) give(seedOf(c.type), s);
       if (cr.tall && c.tall === 3) toast('🌿 A rare 3-block plant!');
+      if (c.type === 'pumpkin' && Math.random() < 0.12) { give('giant_pumpkin', 1); toast('🎃 A GIANT pumpkin! Farmer Fred pays $150 for it at the farm fair'); }
       toast(`+${a} ${ITEMS[CROP_ITEM[c.type]].name}${s ? `, +${s} seeds` : ''}`); beep(660, 0.09, 'triangle', 0.08);
     } else { give(seedOf(c.type), 1); toast(CROPS[c.type].seed ? 'Not grown yet, picked it back up' : 'Not ripe yet, got the seed back'); }
   }
@@ -10101,6 +10121,7 @@ function drawCompass() {
   b.addEventListener('click', e => { e.stopPropagation(); openSettings(); });
   document.getElementById('settings').classList.add('toppanel'); }
 const PATCH = [
+  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150']],
   ['v1.15', ['NEW 🧟 Zombies mode (main menu): wave survival solo or online co-op up to 4, board up the windows, wall guns, the Mystery Box, Monkey Bombs, downs and revives', '4-lane highways with lane markings, bridges and tunnels link the cities, with traffic', 'Big airports: runway, terminal, jet bridges, control tower, hangars and parked planes', 'Skyscraper roofs you can walk on: stairs and an elevator to every floor, some with helipads and helicopters', 'Hosting big worlds online works again (fixed "Server error 400")', 'Full-size 2-block beds', 'Torches go on walls, with flames and smoke', 'Two chests side by side become one double chest', 'Transfer All button in chests (hotbar stays unless you tick it)', 'Giant wall-mounted flatscreen TV (💰5000), laptops 💰3500, TVs 💰2500', 'Compass at the top of the screen with your waypoints', 'Story mission moved under the top-right buttons', 'Look around while holding jump', 'Ultra and Max render distances', 'Map tilts down when you look ahead', 'Boats slide over ice and get unstuck from land', 'Flames and cars no longer float after explosions', 'Hatchets and paddles held the right way round', 'Phone apps fit the screen better', '3 new texture packs: Realistic HD, Spooky HD and Cartoon HD (Settings)', 'Smoke joints, weed, crack and meth with a smoking animation and smoke clouds other players can see', 'Trade coins and items with other players online (🌐 › 🤝 Trade)', 'Coin leaderboard: 🏆 on the menu and 📱 Ranks app', 'Public servers anyone can join, plus private code worlds', 'NPCs talk out loud with subtitles (toggle in Settings)', '50 levels to climb and 10 harder Chapter 2 story missions', 'Spooky reggae music on the main menu']],
   ['v1.14 Story & Space', ['Story mode with 14 missions from Uncle Ray', 'Cartel compound and Mothership boss fights', 'Taxi, pizza and trucker jobs', 'Deep caves with diamonds and emeralds, the Moon and the Backrooms', 'Car mods, player shops and 6 hidden glitches']],
   ['v1.13 Kingpin & v1.12 Hustle', ['Crews, homes, businesses and goals', 'The Plug, drug labs, laundering and heists']],
@@ -11939,6 +11960,34 @@ function zFrame(dt, t) {
 }
 window.__dcZ = { Z, ZN, ZWIN, ZWALLGUNS, ZBOXSPOTS, ZDOOR, ZBOX_POOL, zBlock, zSpawn, zSim, zNextRound, zAlive, zHp, zCount, zUse, zNear, zSpin, zThrowMonkey, zStart, zReset, zRestart, zGameOver, zQuit, zLaunch, zJoinCheck, zBoxG, zDoorSet, zMoveBox, zStNet, zIntroDraw, openZMenu, zFlowFrom, zEv,
   get on() { return ZM_ON; }, tick(dt, n = 1) { for (let i = 0; i < n; i++) { if (Z.role !== 'guest') zSim(dt, performance.now() / 1000); else zProxies(dt, performance.now() / 1000); zUpdateBombs(dt); zUpdateBox(dt); zAttacks(dt); zUpdateDown(dt); zHoldTick(dt); } } };
+
+// ================== v1.16: THANKSGIVING (turkeys, patch notes, version) ==================
+Object.assign(MOBDEF, { turkey: { hp: 8, w: 0.3, h: 1.0, speed: 1.2, animal: true, ai: true, wild: true, hitX: 0.2, drops: () => [['raw_turkey', rint(1, 2)], ['feather', rint(1, 3)]] } });
+MOB_NAMES.turkey = '🦃 Turkey';
+SPAWN_TABLE.plains.push(['turkey', 2.5, 2, 4]); SPAWN_TABLE.forest.push(['turkey', 2, 2, 3]);
+{ const bmT = buildMob; buildMob = function (type, v = 0) {
+  if (type !== 'turkey') return bmT(type, v);
+  const g = new THREE.Group(), legs = [], arms = [];
+  const bx = (w, h, d, c, x, y, z, p) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: c })); m.position.set(x, y, z); p.add(m); return m; };
+  bx(0.5, 0.45, 0.6, 0x5a3a22, 0, 0.6, 0, g);
+  for (const s of [-1, 1]) bx(0.07, 0.32, 0.45, 0x4a2e1a, s * 0.27, 0.62, 0, g);
+  const fan = new THREE.Group(); fan.position.set(0, 0.8, -0.3); g.add(fan);   // tail fan
+  const fc = [0x7a4a22, 0xc8862a, 0x3a2414, 0xa86030, 0x7a4a22];
+  for (let i = 0; i < 5; i++) { const f = bx(0.16, 0.6, 0.04, fc[i], 0, 0.25, 0, fan); f.rotation.z = (i - 2) * 0.38; f.position.x = (i - 2) * 0.1; }
+  const head = new THREE.Group(); head.position.set(0, 0.98, 0.3); g.add(head);
+  bx(0.1, 0.3, 0.1, 0x8a6a5a, 0, -0.1, 0, head); bx(0.16, 0.16, 0.16, 0x9aa0b8, 0, 0.08, 0.02, head);
+  bx(0.06, 0.05, 0.1, 0xe0a020, 0, 0.07, 0.13, head); bx(0.05, 0.14, 0.04, 0xd82020, 0.02, -0.02, 0.12, head);
+  for (const e of [-0.06, 0.06]) bx(0.03, 0.03, 0.02, 0x111111, e, 0.12, 0.1, head);
+  for (const lx of [-0.12, 0.12]) { const l = new THREE.Group(); l.position.set(lx, 0.38, 0); g.add(l); bx(0.06, 0.38, 0.06, 0xd0902a, 0, -0.19, 0, l); legs.push(l); }
+  return { g, legs, arms, head };
+}; }
+{ const asT = animalSnd; animalSnd = function (type, vol, pain = false) {
+  if (type !== 'turkey') return asT(type, vol, pain);
+  for (let i = 0; i < 5; i++) setTimeout(() => beep(520 + (i % 2) * 180, 0.05, 'square', vol * 0.45), i * 60);   // gobble gobble
+}; }
+Object.assign(RAW_VALUE, { raw_turkey: 4, roast_turkey: 10, mashed_potatoes: 8, cranberry_sauce: 6, stuffing: 8, thanksgiving_feast: 60, giant_pumpkin: 75 });
+{ const vt = document.getElementById('verTag'); if (vt) vt.textContent = 'DealerCraft v1.16'; }
+{ const d = new Date(); if (d.getMonth() === 10) setTimeout(() => { try { toast('🦃 Happy Thanksgiving! Turkeys are roaming the plains'); } catch (e) {} }, 8000); }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
