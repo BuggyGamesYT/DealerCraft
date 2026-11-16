@@ -11070,7 +11070,7 @@ for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, 
 { const rs = renderSettings; renderSettings = function () { rs(); const box = document.getElementById('setBox'); if (!box || box.querySelector('[data-r3s]')) return;
   const tog = (k, label, sub) => `<div class="row"><span class="nm">${label}<br><span style="font-size:12px;opacity:.7">${sub}</span></span><button class="btn ${settings[k] ? 'gold' : ''}" data-r3s="${k}">${settings[k] ? 'ON' : 'OFF'}</button></div>`;
   const html = tog('npcVoice', '🗣️ NPC voices', 'Traders, Uncle Ray, cops and townsfolk talk out loud') + tog('subs', '💬 Subtitles', 'Show what NPCs say at the bottom of the screen') +
-    `<div class="row"><span class="nm">🎃 Menu music<br><span style="font-size:12px;opacity:.7">Spooky reggae on the main menu (needs 🔊 Sound on)</span></span><button class="btn ${settings.menuMusic ? 'gold' : ''}" data-r3s="menuMusic">${settings.menuMusic ? 'ON' : 'OFF'}</button><button class="btn" data-r3v="-1">−</button><b style="min-width:44px;text-align:center" id="r3mv">${Math.round(settings.musicVol * 100)}%</b><button class="btn" data-r3v="1">+</button></div>`;
+    `<div class="row"><span class="nm">🦃 Menu music<br><span style="font-size:12px;opacity:.7">Thanksgiving reggae on the main menu (needs 🔊 Sound on)</span></span><button class="btn ${settings.menuMusic ? 'gold' : ''}" data-r3s="menuMusic">${settings.menuMusic ? 'ON' : 'OFF'}</button><button class="btn" data-r3v="-1">−</button><b style="min-width:44px;text-align:center" id="r3mv">${Math.round(settings.musicVol * 100)}%</b><button class="btn" data-r3v="1">+</button></div>`;
   const snd = box.querySelector('[data-s="sound"]'); const row = snd && snd.closest('.row'); if (row) row.insertAdjacentHTML('afterend', html); else box.insertAdjacentHTML('beforeend', html); }; }
 document.getElementById('setBox').addEventListener('click', e => {
   const b = e.target.closest('[data-r3s],[data-r3v]'); if (!b) return; e.stopPropagation();
@@ -12033,6 +12033,28 @@ setInterval(() => {
   }; }
 // ---- held map sits inside the HUD layer, under the hotbar, hearts and hunger ----
 { const hud = document.getElementById('hud'), mv = document.getElementById('mapView'); if (hud && mv) hud.insertBefore(mv, document.getElementById('vitals')); }
+// ---- menu: PLAY and ZOMBIES side by side ----
+{ const pb = document.getElementById('playBtn'), zb = document.getElementById('zmBtn');
+  if (pb && zb) { const row = document.createElement('div'); row.id = 'playRow'; pb.before(row); row.append(pb, zb);
+    const st = document.createElement('style'); st.textContent = '#playRow{display:flex;gap:12px;justify-content:center;align-items:stretch;flex-wrap:nowrap}#playRow .play{margin:0!important;white-space:nowrap}'; document.head.appendChild(st); } }
+// ---- Thanksgiving reggae menu music: warm G-major one-drop, banjo-ish skank, happy whistle lead, wooden harvest clave ----
+{ const TP = [[55, [55, 59, 62]], [60, [60, 64, 67]], [62, [62, 66, 69]], [55, [55, 59, 62]], [52, [52, 55, 59]], [60, [60, 64, 67]], [62, [62, 66, 69, 72]], [55, [55, 59, 62]]];
+  const TB = [[0, 0], [3, 7], [6, 12], [8, 7], [10, 4], [12, 5], [14, 7]];
+  const TL = [74, 76, 79, 76, 74, 71, 74, null, 72, 74, 76, 74, 71, 67, 69, 71];
+  mmStep = function (t, sd) {
+    const st = MM.step, bar = MM.bar % TP.length, [root, chord] = TP[bar];
+    if (st === 8) { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(115, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.2); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28); o.connect(g).connect(MM.bus); o.start(t); o.stop(t + 0.3);
+      mmNoise(t, 0.08, 0.2, 2000, 'bandpass', MM.echo); }
+    if (st % 2 === 0) mmNoise(t + (st % 4 === 2 ? sd * 0.18 : 0), 0.03, st % 4 === 2 ? 0.045 : 0.022, 7500);
+    if (st === 3 || st === 11) mmVoice('triangle', 1250, t, 0.04, 0.07, { to: MM.echo });   // wooden clave
+    if (st % 4 === 2) for (const n of chord) mmVoice('square', mHz(n + 12), t, 0.07, 0.022, { cut: 3200, cut2: 1400, q: 1.5 });   // bright banjo-ish skank
+    if (st % 4 === 3) for (const n of chord.slice(0, 3)) mmVoice('triangle', mHz(n), t, 0.08, 0.03, { cut: 1600 });
+    for (const [s, off] of TB) if (s === st && !(st === 0 && MM.bar % 2 === 1)) mmVoice('sine', mHz(root - 24 + off), t, sd * (s === 0 ? 3 : 1.8), 0.32, { cut: 400, att: 0.01, hold: 0.6 });
+    if (st === 0 && MM.bar % 2 === 0) for (const n of chord) mmVoice('triangle', mHz(n), t, sd * 31, 0.028, { vib: 4, vd: 0.003, att: 0.5, hold: 0.7 });   // warm organ pad
+    if (MM.bar % 8 >= 4 && st % 2 === 0) { const n = TL[((MM.bar % 4) * 8 + st / 2) % TL.length]; if (n) mmVoice('triangle', mHz(n + 12), t, sd * 1.8, 0.05, { vib: 5, vd: 0.008, att: 0.02, hold: 0.5, to: MM.echo }); }   // whistle lead
+    if (st === 0 && MM.bar % 8 === 0) for (const [m, v] of [[1, 0.04], [2, 0.025], [3, 0.012]]) mmVoice('sine', 784 * m, t, 1.6, v, { att: 0.004, hold: 0.02, to: MM.echo });   // dinner bell
+    MM.step = (st + 1) % 16; if (MM.step === 0) MM.bar++;
+  }; }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
