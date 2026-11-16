@@ -27,19 +27,25 @@ function startServer(i = 0) {
   });
 }
 
+const PREFS = () => path.join(app.getPath('userData'), 'window.json');
+function loadPrefs() { try { return JSON.parse(fs.readFileSync(PREFS(), 'utf8')); } catch (e) { return {}; } }
+function savePrefs(p) { try { fs.writeFileSync(PREFS(), JSON.stringify(p)); } catch (e) {} }
+
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const port = await startServer();
   const win = new BrowserWindow({
     width: 1280, height: 760, minWidth: 800, minHeight: 500,
     title: 'DealerCraft', backgroundColor: '#1a0f08', autoHideMenuBar: true,
-    icon: path.join(ROOT, 'icon.png'),
+    icon: path.join(ROOT, 'icon.png'), fullscreen: !!loadPrefs().fullscreen,
     webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false }
   });
-  win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.setWindowOpenHandler(({ url }) => { if (url === 'dealercraft://fullscreen') { win.setFullScreen(!win.isFullScreen()); return { action: 'deny' }; } if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && input.key === 'F11') { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
   });
+  const remember = () => savePrefs({ ...loadPrefs(), fullscreen: win.isFullScreen() });
+  win.on('enter-full-screen', remember); win.on('leave-full-screen', remember);
   win.loadURL(`http://localhost:${port}/index.html`);
 });
 app.on('window-all-closed', () => app.quit());

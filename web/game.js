@@ -10135,7 +10135,7 @@ function drawCompass() {
   b.addEventListener('click', e => { e.stopPropagation(); openSettings(); });
   document.getElementById('settings').classList.add('toppanel'); }
 const PATCH = [
-  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', '⌨️ Better keyboard: Esc pause menu, M map, Q drop (Ctrl+Q whole stack), and change any key in Settings → Controls', '🎮 Controller support: Xbox, PlayStation and other gamepads, with a cursor for menus', '🖥️ Now on Windows and Linux too', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
+  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', '⌨️ Better keyboard: Esc pause menu, M map, Q drop (Ctrl+Q whole stack), and change any key in Settings → Controls', '🎮 Controller support: Xbox, PlayStation and other gamepads, with a cursor for menus', '🖥️ Now on Windows and Linux too, with fullscreen (F11 or the pause menu)', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
   ['v1.15', ['NEW 🧟 Zombies mode (main menu): wave survival solo or online co-op up to 4, board up the windows, wall guns, the Mystery Box, Monkey Bombs, downs and revives', '4-lane highways with lane markings, bridges and tunnels link the cities, with traffic', 'Big airports: runway, terminal, jet bridges, control tower, hangars and parked planes', 'Skyscraper roofs you can walk on: stairs and an elevator to every floor, some with helipads and helicopters', 'Hosting big worlds online works again (fixed "Server error 400")', 'Full-size 2-block beds', 'Torches go on walls, with flames and smoke', 'Two chests side by side become one double chest', 'Transfer All button in chests (hotbar stays unless you tick it)', 'Giant wall-mounted flatscreen TV (💰5000), laptops 💰3500, TVs 💰2500', 'Compass at the top of the screen with your waypoints', 'Story mission moved under the top-right buttons', 'Look around while holding jump', 'Ultra and Max render distances', 'Map tilts down when you look ahead', 'Boats slide over ice and get unstuck from land', 'Flames and cars no longer float after explosions', 'Hatchets and paddles held the right way round', 'Phone apps fit the screen better', '3 new texture packs: Realistic HD, Spooky HD and Cartoon HD (Settings)', 'Smoke joints, weed, crack and meth with a smoking animation and smoke clouds other players can see', 'Trade coins and items with other players online (🌐 › 🤝 Trade)', 'Coin leaderboard: 🏆 on the menu and 📱 Ranks app', 'Public servers anyone can join, plus private code worlds', 'NPCs talk out loud with subtitles (toggle in Settings)', '50 levels to climb and 10 harder Chapter 2 story missions', 'Spooky reggae music on the main menu']],
   ['v1.14 Story & Space', ['Story mode with 14 missions from Uncle Ray', 'Cartel compound and Mothership boss fights', 'Taxi, pizza and trucker jobs', 'Deep caves with diamonds and emeralds, the Moon and the Backrooms', 'Car mods, player shops and 6 hidden glitches']],
   ['v1.13 Kingpin & v1.12 Hustle', ['Crews, homes, businesses and goals', 'The Plug, drug labs, laundering and heists']],
@@ -12105,6 +12105,7 @@ function ensureKbPanels() {
     else if (a === 'settings') { closePanels(); openSettings(); }
     else if (a === 'keys') { closePanels(); openKeys(); }
     else if (a === 'menu') { closePanels(); showStart(); }
+    else if (a === 'fs') { toggleFullscreen(); setTimeout(() => { const f = document.querySelector('[data-p="fs"]'); if (f) f.textContent = fsLabel(); }, 300); }
   });
   document.getElementById('keysPBox').addEventListener('click', e => {
     const b = e.target.closest('[data-k]'); if (!b) return;
@@ -12120,10 +12121,21 @@ function openPause() {
       <button class="btn gold" data-p="resume" style="font-size:18px">▶ Resume</button>
       <button class="btn" data-p="settings">⚙️ Settings</button>
       <button class="btn" data-p="keys">⌨️ Controls</button>
+      <button class="btn" data-p="fs">${fsLabel()}</button>
       <button class="btn" data-p="menu">🏠 Save & main menu</button></div>
     <p style="font-size:12px;opacity:.7;margin-top:10px">Press Esc to resume</p>`;
   openPanel('pause'); if (typeof save === 'function') save();
 }
+function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement) || (screen.height - innerHeight < 4 && screen.width - innerWidth < 4); }
+function fsLabel() { return isFullscreen() ? '🗗 Exit fullscreen (F11)' : '⛶ Fullscreen (F11)'; }
+function toggleFullscreen() {
+  if (navigator.userAgent.includes('Electron') && !document.fullscreenElement) { window.open('dealercraft://fullscreen'); return; }
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { const el = document.documentElement; const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); }
+  } catch (e) {}
+}
+addEventListener('keydown', e => { if (e.code === 'F11' && !navigator.userAgent.includes('Electron')) { e.preventDefault(); toggleFullscreen(); } });
 function openKeys() { ensureKbPanels(); kbListen = null; renderKeys(); openPanel('keysP'); }
 function renderKeys() {
   const b = kbBinds(); const box = document.getElementById('keysPBox'); if (!box) return;
