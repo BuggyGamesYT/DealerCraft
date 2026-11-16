@@ -1,0 +1,43 @@
+{
+  "name": "dealercraft",
+  "productName": "DealerCraft",
+  "version": "1.16.0",
+  "description": "DealerCraft by Buggy Games YT",
+  "author": "Buggy Games YT",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "homepage": "https://buggygamesyt.itch.io/dealercraft",
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.buggygamesyt.dealercraft",
+    "productName": "DealerCraft",
+    "copyright": "Copyright © Buggy Games YT. All Rights Reserved.",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "app/**/*"],
+    "artifactName": "DealerCraft-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "icon": "build/icon.png",
+      "target": [ { "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] } ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "DealerCraft-${version}-Windows-Setup.${ext}",
+      "shortcutName": "DealerCraft"
+    },
+    "portable": { "artifactName": "DealerCraft-${version}-Windows-Portable.${ext}" },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Game",
+      "maintainer": "Buggy Games YT",
+      "target": [ { "target": "AppImage", "arch": ["x64"] }, { "target": "deb", "arch": ["x64"] } ]
+    },
+    "appImage": { "artifactName": "DealerCraft-${version}-Linux-x86_64.${ext}" },
+    "deb": { "artifactName": "DealerCraft-${version}-Linux-amd64.${ext}" },
+    "publish": null
+  }
+}

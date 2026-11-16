@@ -1,0 +1,77 @@
+name: Build Desktop
+
+on:
+  push:
+    tags: ['v*']          # tag push -> build Windows + Linux and attach to that release
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Attach to this existing release tag (leave empty = build only, files as downloads)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use the game files from the chosen tag
+        if: inputs.tag != ''
+        shell: bash
+        run: git checkout "${{ inputs.tag }}" -- web
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bundle web game
+        shell: bash
+        run: |
+          rm -rf desktop/app && mkdir -p desktop/app && cp -r web/* desktop/app/
+          T="${{ inputs.tag != '' && inputs.tag || github.ref_name }}"
+          V="${T#v}"; case "$V" in *.*.*) ;; *.*) V="$V.0" ;; *) V="0.0.0" ;; esac
+          V=$(echo "$V" | sed -E 's/\.0*([0-9])/.\1/g')
+          cd desktop && npm pkg set version="$V" && echo "version $V"
+
+      - name: Install
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: npx electron-builder --win --publish never
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        working-directory: desktop
+        run: npx electron-builder --linux --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DealerCraft-${{ runner.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+
+      - name: Attach to release
+        if: github.event_name == 'push' || inputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag != '' && inputs.tag || github.ref_name }}
+          files: |
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
