@@ -12031,6 +12031,8 @@ setInterval(() => {
     b.style.left = Math.round(maxR + 6) + 'px'; b.style.top = Math.round(r.top) + 'px'; b.style.height = h + 'px'; b.style.width = w + 'px';
     const sp = b.querySelector('span'); if (sp) sp.style.fontSize = Math.max(14, Math.round(w * 0.62)) + 'px';
   }; }
+// ---- held map sits inside the HUD layer, under the hotbar, hearts and hunger ----
+{ const hud = document.getElementById('hud'), mv = document.getElementById('mapView'); if (hud && mv) hud.insertBefore(mv, document.getElementById('vitals')); }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
