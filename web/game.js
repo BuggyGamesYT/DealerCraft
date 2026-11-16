@@ -196,17 +196,17 @@ shapeless('meth', 2, ['fertilizer', 'gunpowder', 'coal', 'glass']);
 shapeless('fertilizer', 1, ['cow_poop', 'cow_poop', 'bone']);
 
 const VILLAGERS = [
-  { name: 'Farmer Fred', job: 'Scarecrow Farmer', robe: 0x3f8f3a, hat: 0xd9b35b, costume: 'pumpkin',
+  { name: 'Farmer Fred', job: 'Harvest Farmer', robe: 0x6b4a2a, hat: 0xd9b35b, costume: 'pilgrim',
     sells: { seeds_wheat: 2, seeds_carrot: 4, seeds_potato: 4, seeds_berries: 6, seeds_pumpkin: 8, wood_hoe: 10 },
     buys: { wheat: 3, carrot: 5, potato: 5, berries: 4, pumpkin: 18 } },
-  { name: 'Baker Betty', job: 'Baker', robe: 0xf2f2f2, hat: 0xff8fb1, costume: 'cat',
+  { name: 'Baker Betty', job: 'Pie Baker', robe: 0xf2f2f2, hat: 0xf4ead8, costume: 'bonnet',
     sells: { bread: 9 }, buys: { bread: 14, carrot_cake: 30, pumpkin_pie: 32 } },
-  { name: 'Count Carl', job: 'Vampire Chef', robe: 0x1a1a1a, hat: 0x1a1a1a, costume: 'vampire',
+  { name: 'Chef Carl', job: 'Turkey Chef', robe: 0x2a2a2a, hat: 0x1a1a1a, costume: 'pilgrim',
     sells: { steak: 12 }, buys: { baked_potato: 12, berry_juice: 22, veggie_stew: 45, steak: 10, raw_beef: 5, cooked_chicken: 8, cooked_pork: 10, cooked_mutton: 8, mushroom_stew: 90 } },
-  { name: 'Merchant Mo', job: 'Merchant', robe: 0x7b3fb5, hat: 0x2a1a40, costume: 'wizard',
+  { name: 'Merchant Mo', job: 'Merchant', robe: 0x8a4a1a, hat: 0x2a1a10, costume: 'pilgrim',
     sells: { fertilizer: 8, log: 2, coal: 4, torch: 2, map: 15, seeds_weed: 20, iron_ingot: 15, bucket: 40, iron_hoe: 150, sprite: 3 }, buys: { planks: 1, cobble: 1, brick: 2, leaves: 1, leather: 6, iron_ingot: 8, weed: 90, wool: 4, egg: 2,
       meth: 70, cocaine: 60, crack: 45, pills: 15, xanax: 30, ecstasy: 35, acid: 40, cough_syrup: 30, purple_sprite: 55, beer: 8, vodka: 14 } },
-  { name: 'Witch Wanda', job: 'Witch', robe: 0x24132e, hat: 0x111111, costume: 'witch', skin: 0x7fbf5a,
+  { name: 'Granny Wanda', job: 'Harvest Granny', robe: 0x5a2a1a, hat: 0xf4ead8, costume: 'bonnet',
     sells: { seeds_pumpkin: 7, fertilizer: 7 }, buys: { pumpkin: 20, jack_o_lantern: 26, candy: 6, witch_brew: 60, bone: 4, gunpowder: 8, rotten_flesh: 2, brown_mushroom: 25, red_mushroom: 35, feather: 3 } },
 ];
 const RANKS = [[0, 'Rookie Grower'], [100, 'Street Farmer'], [400, 'Market Dealer'], [1200, 'Crop Boss'], [3000, 'DealerCraft Tycoon']];
@@ -1106,7 +1106,7 @@ function stampGraveyard(cx, cz, hm, L, Lget) {
   }
   if (n && r() < 0.7) {   // a spooky lantern post at the corner
     const lx = Math.max(1, ox - 1), lz = Math.max(1, oz - 1), h = hm[lx + lz * CH];
-    if (h > SEA + 1 && Lget(lx, h + 1, lz) === AIR) { L(lx, h + 1, lz, LOG); L(lx, h + 2, lz, JACK); }
+    if (h > SEA + 1 && Lget(lx, h + 1, lz) === AIR) { L(lx, h + 1, lz, LOG); L(lx, h + 2, lz, PUMPKIN); }
   }
 }
 
@@ -1116,7 +1116,7 @@ function stampVillage(S) {
     if (Math.abs(x - VX) + Math.abs(z - VZ) <= 6) S(x, G, z, COBBLE);
   S(VX, G, VZ, WATER); // little well
   for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) S(VX + dx, G + 1, VZ + dz, COBBLE);
-  for (const [dx, dz] of [[3, 3], [-3, 3], [3, -3], [-3, -3]]) S(VX + dx, G + 1, VZ + dz, JACK);   // jack o'lanterns round the plaza
+  for (const [dx, dz] of [[3, 3], [-3, 3], [3, -3], [-3, -3]]) S(VX + dx, G + 1, VZ + dz, PUMPKIN);   // jack o'lanterns round the plaza
   // houses
   const houses = [[VX - 13, VZ - 3], [VX + 9, VZ - 3], [VX - 3, VZ + 9], [VX - 3, VZ - 13]];
   for (const [hx, hz] of houses) {
@@ -1130,7 +1130,7 @@ function stampVillage(S) {
       }
       S(hx + x, G + 4, hz + z, BRICK);
     }
-    S(hx, G + 5, hz, JACK); S(hx + 4, G + 5, hz + 4, JACK);         // glowing roof corners
+    S(hx, G + 5, hz, PUMPKIN); S(hx + 4, G + 5, hz + 4, PUMPKIN);         // glowing roof corners
     const cx = hx + 2, cz = hz + 2, ddx = Math.sign(VX - cx), ddz = Math.sign(VZ - cz);
     const doorX = Math.abs(VX - cx) > Math.abs(VZ - cz) ? cx + ddx * 2 : cx, doorZ = Math.abs(VX - cx) > Math.abs(VZ - cz) ? cz : cz + ddz * 2;
     const f = Math.abs(VX - cx) > Math.abs(VZ - cz) ? (ddx > 0 ? 1 : 3) : (ddz > 0 ? 2 : 0);   // door sits flush with the outside wall
@@ -1144,7 +1144,7 @@ function stampVillage(S) {
   if (gh > SEA + 1) {
     for (let y = 1; y <= 6; y++) S(GX, gh + y, GZ, LOG);
     S(GX + 1, gh + 4, GZ, LOG); S(GX + 2, gh + 5, GZ, LOG); S(GX - 1, gh + 5, GZ, LOG); S(GX - 2, gh + 6, GZ, LOG); S(GX, gh + 5, GZ + 1, LOG); S(GX, gh + 6, GZ + 2, LOG);
-    for (const [dx, dz] of [[4, 4], [-4, 4], [4, -4], [-4, -4]]) S(GX + dx, heightAt(GX + dx, GZ + dz) + 1, GZ + dz, JACK);
+    for (const [dx, dz] of [[4, 4], [-4, 4], [4, -4], [-4, -4]]) S(GX + dx, heightAt(GX + dx, GZ + dz) + 1, GZ + dz, PUMPKIN);
   }
 }
 
@@ -2326,12 +2326,21 @@ const villagers = VILLAGERS.map((v, i) => {
       const cape = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.15, 0.06), lam(0x111111)); cape.position.set(0, 0.95, -0.24); g.add(cape);
       const collar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.06), lam(0xb0102a)); collar.position.set(0, 1.32, -0.2); collar.rotation.x = 0.3; g.add(collar);
       for (const fx of [-0.06, 0.06]) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.02), lam(0xffffff)); f.position.set(fx, 1.3, 0.26); g.add(f); }
+    } else if (v.costume === 'pilgrim') {   // tall black hat with a gold buckle + white collar
+      const brim = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.05, 0.72), lam(0x1a1a1a)); brim.position.y = 1.8; g.add(brim);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.46), lam(0x1a1a1a)); top.position.y = 2.02; g.add(top);
+      const bnd = new THREE.Mesh(new THREE.BoxGeometry(0.47, 0.08, 0.47), lam(0x6b4a2a)); bnd.position.y = 1.86; g.add(bnd);
+      const bk = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.02), lam(0xe8c040)); bk.position.set(0, 1.86, 0.245); g.add(bk);
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.12, 0.44), lam(0xf8f8f0)); col.position.y = 1.2; g.add(col); tagY = 2.55;
+    } else if (v.costume === 'bonnet') {   // white bonnet + apron
+      const bn = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.36, 0.5), lam(0xf4ead8)); bn.position.set(0, 1.66, -0.04); g.add(bn);
+      const ap = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.03), lam(0xf8f8f0)); ap.position.set(0, 0.62, 0.21); g.add(ap);
     } else if (v.costume === 'cat') {
       const hat = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.1, 0.54), lam(0x111111)); hat.position.y = 1.82; g.add(hat);
       for (const ex of [-0.17, 0.17]) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 4), lam(0x111111)); e.position.set(ex, 1.98, 0); g.add(e); }
     }
   }
-  const tag = nameSprite((v.costume === 'witch' ? '🧙 ' : v.costume === 'vampire' ? '🧛 ' : v.costume === 'pumpkin' ? '🎃 ' : '') + v.name); tag.position.y = tagY; g.add(tag);
+  const tag = nameSprite((v.costume === 'pilgrim' || v.costume === 'bonnet' ? '🦃 ' : v.costume === 'witch' ? '🧙 ' : v.costume === 'vampire' ? '🧛 ' : v.costume === 'pumpkin' ? '🎃 ' : '') + v.name); tag.position.y = tagY; g.add(tag);
   const a = (i / VILLAGERS.length) * Math.PI * 2;
   g.position.set(VX + 0.5 + Math.cos(a) * 3, G + 1, VZ + 0.5 + Math.sin(a) * 3);
   scene.add(g);
@@ -11988,6 +11997,26 @@ SPAWN_TABLE.plains.push(['turkey', 2.5, 2, 4]); SPAWN_TABLE.forest.push(['turkey
 Object.assign(RAW_VALUE, { raw_turkey: 4, roast_turkey: 10, mashed_potatoes: 8, cranberry_sauce: 6, stuffing: 8, thanksgiving_feast: 60, giant_pumpkin: 75 });
 { const vt = document.getElementById('verTag'); if (vt) vt.textContent = 'DealerCraft v1.16'; }
 { const d = new Date(); if (d.getMonth() === 10) setTimeout(() => { try { toast('🦃 Happy Thanksgiving! Turkeys are roaming the plains'); } catch (e) {} }, 8000); }
+// ---- spawn point: ghosts and bats are gone, turkeys roam the village instead ----
+for (const gh of ghosts) scene.remove(gh.g); ghosts.length = 0;
+for (const b of bats) scene.remove(b.g); bats.length = 0;
+setInterval(() => {
+  if (!playing || document.body.classList.contains('zm')) return;
+  if (Math.hypot(player.pos.x - VX, player.pos.z - VZ) > 60) return;
+  const near = mobs.filter(m => m.type === 'turkey' && Math.hypot(m.g.position.x - VX, m.g.position.z - VZ) < 30).length;
+  if (near >= 4) return;
+  const a = Math.random() * Math.PI * 2, r = 7 + Math.random() * 9, x = VX + Math.cos(a) * r, z = VZ + Math.sin(a) * r;
+  if (Math.hypot(player.pos.x - x, player.pos.z - z) < 5) return;
+  const m = spawnMob('turkey', x, groundAt(x, z), z); if (m) m.home = new THREE.Vector2(VX, VZ);
+}, 4000);
+// ---- phone fix: no instant double-toggle, and the backdrop only closes on a real tap after it has been open a moment ----
+{ let phT = 0; const phEl = document.getElementById('phone'), bP = document.getElementById('bPhone');
+  new MutationObserver(() => { if (phEl.classList.contains('show')) phT = performance.now(); }).observe(phEl, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('pointerdown', e => { if (e.target === phEl) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
+  window.addEventListener('click', e => {
+    if (e.target === phEl) { e.stopImmediatePropagation(); if (performance.now() - phT > 450) closePanels(); return; }
+    if (bP.contains(e.target) && phEl.classList.contains('show') && performance.now() - phT < 450) { e.stopImmediatePropagation(); e.stopPropagation(); }
+  }, true); }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
