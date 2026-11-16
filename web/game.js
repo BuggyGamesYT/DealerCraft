@@ -12020,6 +12020,17 @@ setInterval(() => {
     else if (e.target === phEl) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
   window.addEventListener('pointerdown', e => { downOnBack = e.target === phEl; if (downOnBack) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
   window.addEventListener('pointerup', e => { if (e.target === phEl && downOnBack && performance.now() - lastT > 400) { e.stopImmediatePropagation(); closePanels(); } downOnBack = false; }, true); }
+// ---- phone button jitter fix: the stats box width changes as its numbers update, so lock the button to the widest position seen (reset on resize) and ignore tiny changes ----
+{ let maxR = 0, lastH = 0; addEventListener('resize', () => { maxR = 0; });
+  placePhoneBtn = function () {
+    const s = document.getElementById('stats'), b = document.getElementById('bPhone'); if (!s || !b) return;
+    const r = s.getBoundingClientRect(); if (!r.height) return;
+    if (r.right > maxR) maxR = r.right;
+    let h = Math.round(r.height); if (Math.abs(h - lastH) <= 2 && lastH) h = lastH; else lastH = h;
+    const w = Math.round(h * 0.55), key = Math.round(maxR) + ',' + Math.round(r.top) + ',' + h; if (b._k === key) return; b._k = key;
+    b.style.left = Math.round(maxR + 6) + 'px'; b.style.top = Math.round(r.top) + 'px'; b.style.height = h + 'px'; b.style.width = w + 'px';
+    const sp = b.querySelector('span'); if (sp) sp.style.fontSize = Math.max(14, Math.round(w * 0.62)) + 'px';
+  }; }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
