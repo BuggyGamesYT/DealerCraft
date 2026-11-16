@@ -3281,7 +3281,10 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (!playing) return;
   if (e.code === 'KeyE' || e.code === 'Tab') { e.preventDefault(); uiOpen ? closePanels() : openInventory(false); }
-  if (e.code === 'Escape' && uiOpen) closePanels();
+  if (e.code === 'Escape' && uiOpen) { const wasPause = document.getElementById('pause') && document.getElementById('pause').classList.contains('show'); closePanels(); if (!wasPause && !isTouch) setTimeout(() => { if (!document.pointerLockElement && playing && !uiOpen) canvas.requestPointerLock(); }, 0); }
+  else if (e.code === 'Escape' && !uiOpen && !isTouch && player.alive) { e.preventDefault(); openPause(); }
+  if (e.code === 'KeyM' && !e.repeat) { if (uiOpen) { if (document.getElementById('phone').classList.contains('show')) closePanels(); } else openPhone('gps'); }
+  if (e.code === 'KeyQ' && !uiOpen && !e.repeat && player.alive) dropHeldKey(e.ctrlKey);
   if (e.code === 'ControlLeft') player.sprint = true;
   if (e.code === 'KeyF' && !uiOpen) swapOffhand();
   if (e.code === 'KeyP') { if (uiOpen) { if (document.getElementById('phone').classList.contains('show')) closePanels(); } else openPhone(); }
@@ -3958,6 +3961,7 @@ function renderSettings() {
     <div class="row"><span class="nm">☁️ Cloud save<br><span style="font-size:12px;opacity:.7">${auth ? 'Logged in as ' + esc(auth.name) + '. ' + esc(cloudStatus) : 'Log in to back up your worlds'}</span></span><button class="btn gold" data-a="cloud">${auth ? '☁️ Upload now' : '👤 Log in'}</button></div>
     <div class="row" style="flex-wrap:wrap"><span class="nm">⚔️ Difficulty<br><span style="font-size:12px;opacity:.7">${diff().sub}</span></span>${Object.entries(DIFFS).map(([k, v]) => `<button class="btn ${settings.difficulty === k ? 'gold' : ''}" data-diff="${k}">${v.label}</button>`).join('')}</div>
     <div class="row"><span class="nm">🎮 Look sensitivity</span><button class="btn" data-sens="-1">−</button><b style="min-width:40px;text-align:center">${settings.sens.toFixed(1)}</b><button class="btn" data-sens="1">+</button></div>
+    ${isTouch ? '' : '<div class="row"><span class="nm">⌨️ Controls<br><span style="font-size:12px;opacity:.7">Change any keyboard key</span></span><button class="btn gold" data-a="keys">Keys</button></div>'}
     <div class="row"><span class="nm">Test a jumpscare</span><button class="btn" data-a="test" ${settings.jumpscares ? '' : 'disabled'}>Scare me</button></div>`;
 }
 document.getElementById('setBox').addEventListener('click', e => {
@@ -3968,13 +3972,14 @@ document.getElementById('setBox').addEventListener('click', e => {
     settings.hdTex = hd; saveSettings(); applyTexturePack(); renderSettings(); toast(`🖼️ ${hd ? 'HD' : 'Original'} textures on`); return; }
   if (b.dataset.diff) settings.difficulty = b.dataset.diff;
   if (b.dataset.a === 'close') { closePanels(); return; }
+  if (b.dataset.a === 'keys') { openKeys(); return; }
   if (b.dataset.a === 'test') { closePanels(); setTimeout(() => jumpscare(null, 'night'), 300); return; }
   if (b.dataset.sens) settings.sens = Math.max(0.3, Math.min(3, settings.sens + (+b.dataset.sens) * 0.1));
   if (b.dataset.s) { settings[b.dataset.s] = !settings[b.dataset.s]; if (b.dataset.s === 'sound' && master) master.gain.value = settings.sound ? 1 : 0; if (b.dataset.s === 'hdTex') applyTexturePack(); }
   saveSettings(); renderSettings();
 });
 
-const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade, tame, ride<br>E: inventory & crafting · 1-9 / wheel: hotbar · P: 📱 phone · Shift: get off a horse';
+const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade, tame, ride<br>E/Tab: inventory & crafting · 1-9 / wheel: hotbar · Q: drop (Ctrl+Q stack) · M: map · P: 📱 phone · F: off-hand · V: 3rd person · Shift: get off a horse · Esc: pause<br>Change any key in ⚙️ Settings → ⌨️ Controls';
 const helpTouch = 'Left stick: move · Double-tap the screen while walking (or 🏃) to sprint · Drag right side: look<br>Hold ⛏️ mine / attack · ✋ use, plant, place, open doors, trade · ⬆️ jump<br>🎒 inventory & crafting · 📱 phone · 🐴 get off a horse · ⚙️ settings';
 document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon. 🛏️ Sleep in a bed to skip the night, 📱 use your phone for radio, GPS and DealerNet, 🐴 tame and ride horses, 🐺 tame wolves with bones, 🪦 dig graves with a shovel for jewelry, 💻 shop on DealerNet from a laptop, 📺📻 tap TVs and radios to change channels, and 🌐 log in to save to the cloud and play online with up to 4 friends.';
 function showStart() { if (playing) save(); renderWorlds(); playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
@@ -4014,7 +4019,7 @@ document.getElementById('playBtn').addEventListener('click', e => {
   if (!isTouch) canvas.requestPointerLock();
   if (freshGame && !state._welcomed) { state._welcomed = true; setTimeout(() => toast('🎃 Welcome! Punch a tree, then open 🎒 to craft. Survive the night!'), 400); }
 });
-document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && playing && !uiOpen && !isTouch && player.alive && !scaring) showStart(); });
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && playing && !uiOpen && !isTouch && player.alive && !scaring) openPause(); });
 
 // ================== ELECTRONICS: beds, laptops (DealerNet), TVs, radios ==================
 function useFurn(h) {
@@ -10130,7 +10135,7 @@ function drawCompass() {
   b.addEventListener('click', e => { e.stopPropagation(); openSettings(); });
   document.getElementById('settings').classList.add('toppanel'); }
 const PATCH = [
-  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
+  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', '⌨️ Better keyboard: Esc pause menu, M map, Q drop (Ctrl+Q whole stack), and change any key in Settings → Controls', '🖥️ Now on Windows and Linux too', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
   ['v1.15', ['NEW 🧟 Zombies mode (main menu): wave survival solo or online co-op up to 4, board up the windows, wall guns, the Mystery Box, Monkey Bombs, downs and revives', '4-lane highways with lane markings, bridges and tunnels link the cities, with traffic', 'Big airports: runway, terminal, jet bridges, control tower, hangars and parked planes', 'Skyscraper roofs you can walk on: stairs and an elevator to every floor, some with helipads and helicopters', 'Hosting big worlds online works again (fixed "Server error 400")', 'Full-size 2-block beds', 'Torches go on walls, with flames and smoke', 'Two chests side by side become one double chest', 'Transfer All button in chests (hotbar stays unless you tick it)', 'Giant wall-mounted flatscreen TV (💰5000), laptops 💰3500, TVs 💰2500', 'Compass at the top of the screen with your waypoints', 'Story mission moved under the top-right buttons', 'Look around while holding jump', 'Ultra and Max render distances', 'Map tilts down when you look ahead', 'Boats slide over ice and get unstuck from land', 'Flames and cars no longer float after explosions', 'Hatchets and paddles held the right way round', 'Phone apps fit the screen better', '3 new texture packs: Realistic HD, Spooky HD and Cartoon HD (Settings)', 'Smoke joints, weed, crack and meth with a smoking animation and smoke clouds other players can see', 'Trade coins and items with other players online (🌐 › 🤝 Trade)', 'Coin leaderboard: 🏆 on the menu and 📱 Ranks app', 'Public servers anyone can join, plus private code worlds', 'NPCs talk out loud with subtitles (toggle in Settings)', '50 levels to climb and 10 harder Chapter 2 story missions', 'Spooky reggae music on the main menu']],
   ['v1.14 Story & Space', ['Story mode with 14 missions from Uncle Ray', 'Cartel compound and Mothership boss fights', 'Taxi, pizza and trucker jobs', 'Deep caves with diamonds and emeralds, the Moon and the Backrooms', 'Car mods, player shops and 6 hidden glitches']],
   ['v1.13 Kingpin & v1.12 Hustle', ['Crews, homes, businesses and goals', 'The Plug, drug labs, laundering and heists']],
@@ -12055,6 +12060,85 @@ setInterval(() => {
     if (st === 0 && MM.bar % 8 === 0) for (const [m, v] of [[1, 0.04], [2, 0.025], [3, 0.012]]) mmVoice('sine', 784 * m, t, 1.6, v, { att: 0.004, hold: 0.02, to: MM.echo });   // dinner bell
     MM.step = (st + 1) % 16; if (MM.step === 0) MM.bar++;
   }; }
+
+// ================== v1.16 KEYBOARD: pause menu, drop, rebinding ==================
+const KB_ACTIONS = [
+  ['KeyW', 'Move forward'], ['KeyS', 'Move back'], ['KeyA', 'Move left'], ['KeyD', 'Move right'],
+  ['Space', 'Jump'], ['ControlLeft', 'Sprint'], ['ShiftLeft', 'Get off / fly down'], ['KeyE', 'Inventory & crafting'],
+  ['KeyQ', 'Drop item'], ['KeyM', 'Map'], ['KeyP', 'Phone'], ['KeyF', 'Swap off-hand'], ['KeyV', 'Third-person view'],
+  ['KeyR', 'Zombies: use / reload'], ['KeyH', 'Car horn'], ['KeyN', 'Nitro'], ['KeyX', 'Exit vehicle']
+];
+function kbBinds() { if (!settings.keys || typeof settings.keys !== 'object') settings.keys = {}; return settings.keys; }
+function kbName(code) { if (!code) return '—'; return code.replace(/^Key/, '').replace(/^Digit/, '').replace('ControlLeft', 'Left Ctrl').replace('ControlRight', 'Right Ctrl').replace('ShiftLeft', 'Left Shift').replace('ShiftRight', 'Right Shift').replace('AltLeft', 'Left Alt').replace('AltRight', 'Right Alt').replace(/^Arrow/, 'Arrow '); }
+// custom key -> the game's built-in key, and built-in keys that were moved away (so they stop working)
+let kbFwd = {}, kbDead = {};
+function kbRebuild() {
+  kbFwd = {}; kbDead = {}; const b = kbBinds();
+  for (const [def] of KB_ACTIONS) { const c = b[def]; if (c && c !== def) { kbFwd[c] = def; kbDead[def] = true; } }
+  for (const c in kbFwd) delete kbDead[c];
+}
+let kbListen = null;
+function kbRoute(e) {
+  if (e.__kb) return;
+  if (kbListen && e.type === 'keydown') { e.preventDefault(); e.stopImmediatePropagation(); if (e.code !== 'Escape') kbSet(kbListen, e.code); kbListen = null; renderKeys(); return; }
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  const to = kbFwd[e.code];
+  if (to) { e.stopImmediatePropagation(); e.preventDefault(); const n = new KeyboardEvent(e.type, { code: to, key: e.key, repeat: e.repeat, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, bubbles: true }); n.__kb = 1; window.dispatchEvent(n); return; }
+  if (kbDead[e.code]) { e.stopImmediatePropagation(); keys[e.code] = false; }
+}
+addEventListener('keydown', kbRoute, true); addEventListener('keyup', kbRoute, true);
+function kbSet(def, code) {
+  const b = kbBinds();
+  for (const [d] of KB_ACTIONS) if (d !== def && (b[d] || d) === code) b[d] = b[def] || def;   // swap with whatever had that key
+  b[def] = code; for (const k in b) if (b[k] === k) delete b[k];
+  for (const k in keys) keys[k] = false;
+  saveSettings(); kbRebuild();
+}
+function ensureKbPanels() {
+  if (document.getElementById('pause')) return;
+  const mk = (id, inner) => { const d = document.createElement('div'); d.className = 'panel'; d.id = id; d.innerHTML = `<div class="box" id="${id}Box">${inner || ''}</div>`; document.body.appendChild(d);
+    d.addEventListener('pointerdown', e => { if (e.target.id === id) { kbListen = null; closePanels(); } }); return d; };
+  mk('pause'); mk('keysP');
+  document.getElementById('pauseBox').addEventListener('click', e => {
+    const b = e.target.closest('[data-p]'); if (!b) return; const a = b.dataset.p;
+    if (a === 'resume') closePanels();
+    else if (a === 'settings') { closePanels(); openSettings(); }
+    else if (a === 'keys') { closePanels(); openKeys(); }
+    else if (a === 'menu') { closePanels(); showStart(); }
+  });
+  document.getElementById('keysPBox').addEventListener('click', e => {
+    const b = e.target.closest('[data-k]'); if (!b) return;
+    if (b.dataset.k === 'close') { kbListen = null; closePanels(); return; }
+    if (b.dataset.k === 'reset') { settings.keys = {}; saveSettings(); kbRebuild(); kbListen = null; renderKeys(); return; }
+    kbListen = b.dataset.k; renderKeys();
+  });
+}
+function openPause() {
+  if (!playing || uiOpen) return; ensureKbPanels();
+  document.getElementById('pauseBox').innerHTML = `<h2>⏸️ Paused</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;min-width:240px;margin-top:8px">
+      <button class="btn gold" data-p="resume" style="font-size:18px">▶ Resume</button>
+      <button class="btn" data-p="settings">⚙️ Settings</button>
+      <button class="btn" data-p="keys">⌨️ Controls</button>
+      <button class="btn" data-p="menu">🏠 Save & main menu</button></div>
+    <p style="font-size:12px;opacity:.7;margin-top:10px">Press Esc to resume</p>`;
+  openPanel('pause'); if (typeof save === 'function') save();
+}
+function openKeys() { ensureKbPanels(); kbListen = null; renderKeys(); openPanel('keysP'); }
+function renderKeys() {
+  const b = kbBinds(); const box = document.getElementById('keysPBox'); if (!box) return;
+  box.innerHTML = `<button class="btn close" data-k="close">✕</button><h2>⌨️ Controls</h2>
+    <p style="font-size:12px;opacity:.75;margin:0 0 8px">Click a key, then press the new key (Esc cancels). Arrow keys always move too. 1-9 and the mouse wheel pick hotbar slots.</p>
+    <div style="max-height:60vh;overflow:auto">${KB_ACTIONS.map(([d, n]) => `<div class="row"><span class="nm">${n}</span><button class="btn ${kbListen === d ? 'gold' : ''}" data-k="${d}" style="min-width:120px">${kbListen === d ? 'Press a key…' : kbName(b[d] || d)}</button></div>`).join('')}</div>
+    <div class="row"><span class="nm">Mouse</span><span style="opacity:.8">Left: mine / attack · Right: use</span></div>
+    <button class="btn" data-k="reset" style="margin-top:8px">↺ Reset to defaults</button>`;
+}
+function dropHeldKey(all) {
+  const s = state.slots[state.sel]; if (!s) return;
+  const it = ITEMS[s.id]; if (it && (it.keep || s.id === 'phone' || s.id === 'map')) { toast('📌 You can\'t drop that'); return; }
+  const n = all ? s.n : 1; useHeld(n); toast(`🗑️ Dropped ${n > 1 ? n + '× ' : ''}${it ? it.name : s.id}`);
+}
+kbRebuild();
 
 // ================== SOUNDS ==================
 let ambStarted = false;
