@@ -3979,7 +3979,7 @@ document.getElementById('setBox').addEventListener('click', e => {
   saveSettings(); renderSettings();
 });
 
-const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade, tame, ride<br>E/Tab: inventory & crafting · 1-9 / wheel: hotbar · Q: drop (Ctrl+Q stack) · M: map · P: 📱 phone · F: off-hand · V: 3rd person · Shift: get off a horse · Esc: pause<br>Change any key in ⚙️ Settings → ⌨️ Controls';
+const helpPC = 'WASD move · Space jump · Double-tap W (or Ctrl) to sprint · Mouse look<br>Hold left click: mine / attack · Right click: use, plant, place, open doors, trade, tame, ride<br>E/Tab: inventory & crafting · 1-9 / wheel: hotbar · Q: drop (Ctrl+Q stack) · M: map · P: 📱 phone · F: off-hand · V: 3rd person · Shift: get off a horse · Esc: pause<br>Change any key in ⚙️ Settings → ⌨️ Controls<br>🎮 Controller: sticks move/look · RT mine · LT use · A jump · X bag · Y phone · LB/RB hotbar · Start pause';
 const helpTouch = 'Left stick: move · Double-tap the screen while walking (or 🏃) to sprint · Drag right side: look<br>Hold ⛏️ mine / attack · ✋ use, plant, place, open doors, trade · ⬆️ jump<br>🎒 inventory & crafting · 📱 phone · 🐴 get off a horse · ⚙️ settings';
 document.getElementById('helpText').innerHTML = (isTouch ? helpTouch : helpPC) + '<br><br>🪓 Punch trees for logs, craft planks, sticks and a crafting table, then make a hatchet, pickaxe and hoe. Mine cobblestone and iron to upgrade, kill cows for steak and leather armour, and survive the night: zombies, skeletons and creepers come out after dark. 🎃 Grow crops and sell to the villagers to become a Tycoon. 🛏️ Sleep in a bed to skip the night, 📱 use your phone for radio, GPS and DealerNet, 🐴 tame and ride horses, 🐺 tame wolves with bones, 🪦 dig graves with a shovel for jewelry, 💻 shop on DealerNet from a laptop, 📺📻 tap TVs and radios to change channels, and 🌐 log in to save to the cloud and play online with up to 4 friends.';
 function showStart() { if (playing) save(); renderWorlds(); playing = false; closePanels(); if (document.pointerLockElement) document.exitPointerLock(); document.getElementById('start').style.display = 'flex'; document.body.classList.add('menu'); }
@@ -10135,7 +10135,7 @@ function drawCompass() {
   b.addEventListener('click', e => { e.stopPropagation(); openSettings(); });
   document.getElementById('settings').classList.add('toppanel'); }
 const PATCH = [
-  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', '⌨️ Better keyboard: Esc pause menu, M map, Q drop (Ctrl+Q whole stack), and change any key in Settings → Controls', '🖥️ Now on Windows and Linux too', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
+  ['v1.16 Thanksgiving', ['🦃 Wild turkeys in plains and forests (they gobble!) drop turkey and feathers', 'Roast turkey, mashed potatoes, cranberry sauce, stuffing and the big Thanksgiving Feast (craft all five together)', '🎃 Pumpkins sometimes grow GIANT: sell them to Farmer Fred at the farm fair for $150', '🎶 New Thanksgiving reggae main menu music', '🍂 Thanksgiving main menu, with PLAY and ZOMBIES side by side', '🧑‍🌾 Villagers dressed as pilgrims, and turkeys roam the village instead of ghosts and bats', 'Spawn jack o\'lanterns are plain pumpkins again', '⌨️ Better keyboard: Esc pause menu, M map, Q drop (Ctrl+Q whole stack), and change any key in Settings → Controls', '🎮 Controller support: Xbox, PlayStation and other gamepads, with a cursor for menus', '🖥️ Now on Windows and Linux too', 'Fixed: phone button shaking side to side, held map covering hearts, hunger and the hotbar, turkey tails flickering']],
   ['v1.15', ['NEW 🧟 Zombies mode (main menu): wave survival solo or online co-op up to 4, board up the windows, wall guns, the Mystery Box, Monkey Bombs, downs and revives', '4-lane highways with lane markings, bridges and tunnels link the cities, with traffic', 'Big airports: runway, terminal, jet bridges, control tower, hangars and parked planes', 'Skyscraper roofs you can walk on: stairs and an elevator to every floor, some with helipads and helicopters', 'Hosting big worlds online works again (fixed "Server error 400")', 'Full-size 2-block beds', 'Torches go on walls, with flames and smoke', 'Two chests side by side become one double chest', 'Transfer All button in chests (hotbar stays unless you tick it)', 'Giant wall-mounted flatscreen TV (💰5000), laptops 💰3500, TVs 💰2500', 'Compass at the top of the screen with your waypoints', 'Story mission moved under the top-right buttons', 'Look around while holding jump', 'Ultra and Max render distances', 'Map tilts down when you look ahead', 'Boats slide over ice and get unstuck from land', 'Flames and cars no longer float after explosions', 'Hatchets and paddles held the right way round', 'Phone apps fit the screen better', '3 new texture packs: Realistic HD, Spooky HD and Cartoon HD (Settings)', 'Smoke joints, weed, crack and meth with a smoking animation and smoke clouds other players can see', 'Trade coins and items with other players online (🌐 › 🤝 Trade)', 'Coin leaderboard: 🏆 on the menu and 📱 Ranks app', 'Public servers anyone can join, plus private code worlds', 'NPCs talk out loud with subtitles (toggle in Settings)', '50 levels to climb and 10 harder Chapter 2 story missions', 'Spooky reggae music on the main menu']],
   ['v1.14 Story & Space', ['Story mode with 14 missions from Uncle Ray', 'Cartel compound and Mothership boss fights', 'Taxi, pizza and trucker jobs', 'Deep caves with diamonds and emeralds, the Moon and the Backrooms', 'Car mods, player shops and 6 hidden glitches']],
   ['v1.13 Kingpin & v1.12 Hustle', ['Crews, homes, businesses and goals', 'The Plug, drug labs, laundering and heists']],
@@ -12139,6 +12139,80 @@ function dropHeldKey(all) {
   const n = all ? s.n : 1; useHeld(n); toast(`🗑️ Dropped ${n > 1 ? n + '× ' : ''}${it ? it.name : s.id}`);
 }
 kbRebuild();
+
+// ================== v1.16 CONTROLLER (Xbox / PlayStation / any standard gamepad) ==================
+// In game: left stick move, right stick look, RT mine/attack, LT use, A jump, B get off/back, X inventory, Y phone,
+// LB/RB hotbar, L3 sprint, R3 third person, Start pause, Back/View map, D-pad: up drop, left off-hand, right horn, down nitro.
+// In menus a cursor appears: left stick moves it, A clicks, X right-clicks, B or Start closes.
+const PAD = { on: false, prev: [], cur: null, cx: innerWidth / 2, cy: innerHeight / 2, moveKeys: {}, scrollY: 0 };
+function padKey(code, down) { const n = new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true }); n.__kb = 1; window.dispatchEvent(n); }
+function padCursor(show) {
+  if (!PAD.cur) { const c = document.createElement('div'); c.id = 'padCursor';
+    c.style.cssText = 'position:fixed;left:0;top:0;width:22px;height:22px;margin:-3px 0 0 -3px;z-index:99999;pointer-events:none;display:none;font-size:22px;line-height:22px;filter:drop-shadow(0 0 2px #000)';
+    c.textContent = '👆'; document.body.appendChild(c); PAD.cur = c; }
+  PAD.cur.style.display = show ? 'block' : 'none';
+  if (show) PAD.cur.style.transform = `translate(${PAD.cx}px,${PAD.cy}px)`;
+}
+function padClick(right) {
+  const el = document.elementFromPoint(PAD.cx, PAD.cy); if (!el) return;
+  const o = { bubbles: true, cancelable: true, clientX: PAD.cx, clientY: PAD.cy, button: right ? 2 : 0, pointerType: 'mouse', isPrimary: true };
+  if (right) { el.dispatchEvent(new MouseEvent('contextmenu', o)); return; }
+  el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new MouseEvent('mousedown', o));
+  el.dispatchEvent(new PointerEvent('pointerup', o)); el.dispatchEvent(new MouseEvent('mouseup', o));
+  if (typeof el.focus === 'function' && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) el.focus();
+  el.click ? el.click() : el.dispatchEvent(new MouseEvent('click', o));
+}
+function padSetMove(code, on) { if (!!PAD.moveKeys[code] === on) return; PAD.moveKeys[code] = on; padKey(code, on); }
+function padReleaseAll() { for (const c in PAD.moveKeys) if (PAD.moveKeys[c]) padSetMove(c, false); holdBreak = false; }
+addEventListener('gamepadconnected', e => { PAD.on = true; toast('🎮 Controller connected: ' + (e.gamepad.id || '').split('(')[0].trim().slice(0, 40)); });
+addEventListener('gamepaddisconnected', () => { const any = [...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean); if (!any) { PAD.on = false; padReleaseAll(); padCursor(false); toast('🎮 Controller disconnected'); } });
+let padLast = performance.now();
+function padTick() {
+  requestAnimationFrame(padTick);
+  const now = performance.now(), dt = Math.min(0.05, (now - padLast) / 1000); padLast = now;
+  if (!PAD.on || !navigator.getGamepads) return;
+  const gp = [...navigator.getGamepads()].find(g => g && g.connected); if (!gp) return;
+  const B = gp.buttons.map(b => b && (b.pressed || b.value > 0.5)), P = PAD.prev;
+  const hit = i => B[i] && !P[i], rel = i => !B[i] && P[i];
+  const dz = v => Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82;
+  const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
+  const inGame = playing && !uiOpen && player.alive;
+  if (inGame) {
+    padCursor(false);
+    padSetMove('KeyW', ly < -0.35); padSetMove('KeyS', ly > 0.35); padSetMove('KeyA', lx < -0.35); padSetMove('KeyD', lx > 0.35);
+    const sp = 2.6 * (settings.sens || 1) * dt;
+    player.yaw -= rx * Math.abs(rx) * sp * 1.4; player.pitch -= ry * Math.abs(ry) * sp;
+    player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+    if (hit(7)) { holdBreak = true; attackOrSwing(); } if (rel(7)) holdBreak = false;
+    if (hit(6)) useAction();
+    if (hit(0)) padKey('Space', true); if (rel(0)) padKey('Space', false);
+    if (hit(1)) padKey('ShiftLeft', true); if (rel(1)) padKey('ShiftLeft', false);
+    if (hit(2)) padKey('KeyE', true);
+    if (hit(3)) padKey('KeyP', true);
+    if (hit(4) || hit(5)) { state.sel = (state.sel + (hit(5) ? 1 : 8)) % 9; renderHotbar(); }
+    if (hit(10)) player.sprint = true;
+    if (hit(11)) padKey('KeyV', true);
+    if (hit(9)) { padReleaseAll(); openPause(); }
+    if (hit(8)) padKey('KeyM', true);
+    if (hit(12)) padKey('KeyQ', true);
+    if (hit(14)) padKey('KeyF', true);
+    if (hit(15)) padKey('KeyH', true);
+    if (hit(13)) padKey('KeyN', true);
+    if (B[6] && player.car && player.car.air) { if (!PAD.moveKeys.ShiftLeft) padSetMove('ShiftLeft', true); } else if (PAD.moveKeys.ShiftLeft) padSetMove('ShiftLeft', false);
+  } else {
+    padReleaseAll();
+    const sp = 900 * dt, m = Math.hypot(lx, ly);
+    if (m > 0) { PAD.cx = Math.max(0, Math.min(innerWidth - 4, PAD.cx + lx * m * sp)); PAD.cy = Math.max(0, Math.min(innerHeight - 4, PAD.cy + ly * m * sp)); }
+    padCursor(true);
+    if (Math.abs(ry) > 0) { const el = document.elementFromPoint(PAD.cx, PAD.cy); let s = el; while (s && s !== document.body && !(s.scrollHeight > s.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(s).overflowY))) s = s.parentElement; (s && s !== document.body ? s : document.scrollingElement).scrollBy(0, ry * 900 * dt); }
+    if (hit(0)) padClick(false);
+    if (hit(2)) padClick(true);
+    if (hit(1) || hit(9)) { if (uiOpen) closePanels(); }
+    if (playing && uiOpen && hit(3) && document.getElementById('phone').classList.contains('show')) closePanels();
+  }
+  PAD.prev = B;
+}
+requestAnimationFrame(padTick);
 
 // ================== SOUNDS ==================
 let ambStarted = false;
