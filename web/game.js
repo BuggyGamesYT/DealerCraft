@@ -11982,7 +11982,7 @@ SPAWN_TABLE.plains.push(['turkey', 2.5, 2, 4]); SPAWN_TABLE.forest.push(['turkey
   for (const s of [-1, 1]) bx(0.07, 0.32, 0.45, 0x4a2e1a, s * 0.27, 0.62, 0, g);
   const fan = new THREE.Group(); fan.position.set(0, 0.8, -0.3); g.add(fan);   // tail fan
   const fc = [0x7a4a22, 0xc8862a, 0x3a2414, 0xa86030, 0x7a4a22];
-  for (let i = 0; i < 5; i++) { const f = bx(0.16, 0.6, 0.04, fc[i], 0, 0.25, 0, fan); f.rotation.z = (i - 2) * 0.38; f.position.x = (i - 2) * 0.1; }
+  for (let i = 0; i < 5; i++) { const f = bx(0.16, 0.6, 0.03, fc[i], 0, 0.25, 0, fan); f.rotation.z = (i - 2) * 0.38; f.position.x = (i - 2) * 0.1; f.position.z = -Math.abs(i - 2) * 0.05; }
   const head = new THREE.Group(); head.position.set(0, 0.98, 0.3); g.add(head);
   bx(0.1, 0.3, 0.1, 0x8a6a5a, 0, -0.1, 0, head); bx(0.16, 0.16, 0.16, 0x9aa0b8, 0, 0.08, 0.02, head);
   bx(0.06, 0.05, 0.1, 0xe0a020, 0, 0.07, 0.13, head); bx(0.05, 0.14, 0.04, 0xd82020, 0.02, -0.02, 0.12, head);
@@ -12009,14 +12009,17 @@ setInterval(() => {
   if (Math.hypot(player.pos.x - x, player.pos.z - z) < 5) return;
   const m = spawnMob('turkey', x, groundAt(x, z), z); if (m) m.home = new THREE.Vector2(VX, VZ);
 }, 4000);
-// ---- phone fix: no instant double-toggle, and the backdrop only closes on a real tap after it has been open a moment ----
-{ let phT = 0; const phEl = document.getElementById('phone'), bP = document.getElementById('bPhone');
-  new MutationObserver(() => { if (phEl.classList.contains('show')) phT = performance.now(); }).observe(phEl, { attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('pointerdown', e => { if (e.target === phEl) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
-  window.addEventListener('click', e => {
-    if (e.target === phEl) { e.stopImmediatePropagation(); if (performance.now() - phT > 450) closePanels(); return; }
-    if (bP.contains(e.target) && phEl.classList.contains('show') && performance.now() - phT < 450) { e.stopImmediatePropagation(); e.stopPropagation(); }
-  }, true); }
+// ---- phone fix v2: button toggles on pointerup (works even when touch controls swallow click), debounced; backdrop closes only on a full tap on it ----
+{ const phEl = document.getElementById('phone'), bP = document.getElementById('bPhone'); let lastT = 0, downOnBack = false;
+  const toggle = () => { const n = performance.now(); if (n - lastT < 400) return; lastT = n; if (!playing || !player.alive) return;
+    if (phEl.classList.contains('show')) closePanels(); else if (!uiOpen) openPhone(); };
+  bP.addEventListener('pointerdown', e => { e.stopImmediatePropagation(); e.stopPropagation(); }, true);
+  bP.addEventListener('touchstart', e => { e.stopPropagation(); }, { capture: true, passive: true });
+  bP.addEventListener('pointerup', e => { e.stopImmediatePropagation(); e.stopPropagation(); e.preventDefault(); toggle(); }, true);
+  window.addEventListener('click', e => { if (bP.contains(e.target)) { e.stopImmediatePropagation(); e.stopPropagation(); e.preventDefault(); }
+    else if (e.target === phEl) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
+  window.addEventListener('pointerdown', e => { downOnBack = e.target === phEl; if (downOnBack) { e.stopImmediatePropagation(); e.stopPropagation(); } }, true);
+  window.addEventListener('pointerup', e => { if (e.target === phEl && downOnBack && performance.now() - lastT > 400) { e.stopImmediatePropagation(); closePanels(); } downOnBack = false; }, true); }
 
 // ================== SOUNDS ==================
 let ambStarted = false;
