@@ -11,7 +11,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir out && cd out
-          gh release download v1.16 -R ${{ github.repository }} -p '*.apk'
+          gh release download v1.16 -R ${{ github.repository }} -p '*Portable.exe' -p '*.AppImage' -p '*.apk'
           for f in *; do split -b 45m -d "$f" "$f.part"; rm "$f"; done
           ls -la
           git init -q -b itch-export && git add .
